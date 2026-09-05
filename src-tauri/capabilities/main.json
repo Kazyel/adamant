@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Only the bundled main webview may use the four M0 native commands.",
+  "webviews": ["main"],
+  "permissions": [
+    "allow-pick-document",
+    "allow-open-document",
+    "allow-check-github",
+    "allow-check-jira"
+  ]
+}

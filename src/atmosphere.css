@@ -1,0 +1,86 @@
+.sidebar > .atmosphere {
+  position: absolute;
+  z-index: 0;
+  right: -40px;
+  bottom: 60px;
+  width: 260px;
+  height: 300px;
+  isolation: isolate;
+  overflow: hidden;
+  opacity: .5;
+  mask-image: linear-gradient(transparent, #000 24%, #000 80%, transparent);
+  pointer-events: none;
+}
+
+.atmosphere__canvas,
+.atmosphere__fallback {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.atmosphere__canvas {
+  z-index: 2;
+  opacity: 0;
+}
+
+.atmosphere__canvas[data-ready='true'] {
+  opacity: 1;
+}
+
+.atmosphere__fallback {
+  z-index: 1;
+  stroke-width: 0.8;
+}
+
+.atmosphere__canvas[data-ready='true'] + .atmosphere__fallback .atmosphere__crystal {
+  visibility: hidden;
+}
+
+.atmosphere__layers {
+  stroke-width: .65;
+}
+
+.atmosphere__crystal {
+  stroke: #a898c2;
+}
+
+.atmosphere__facet-back {
+  fill: #362948;
+  stroke: none;
+}
+
+.atmosphere__facet-front {
+  fill: #59446f;
+  stroke: none;
+}
+
+.atmosphere__hidden-edge {
+  opacity: 0.28;
+}
+
+.atmosphere__plane-back {
+  fill: #251c352b;
+}
+
+.atmosphere__plane-front {
+  fill: #48365724;
+}
+
+.atmosphere__silver-edge {
+  stroke: #b6b1c1;
+  opacity: .32;
+}
+
+.atmosphere__edge-shadow {
+  stroke: #06060b;
+  opacity: .8;
+}
+
+@media (max-width: 680px) {
+  .atmosphere {
+    display: none;
+  }
+}

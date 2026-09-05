@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-check-jira"
+description = "Enables the check_jira command without any pre-configured scope."
+commands.allow = ["check_jira"]
+
+[[permission]]
+identifier = "deny-check-jira"
+description = "Denies the check_jira command without any pre-configured scope."
+commands.deny = ["check_jira"]
