@@ -1,12 +1,17 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Only the bundled main webview may use the four M0 native commands.",
+  "description": "Bundled main webview: document and identity commands plus integrated window controls.",
   "webviews": ["main"],
   "permissions": [
     "allow-pick-document",
     "allow-open-document",
     "allow-check-github",
-    "allow-check-jira"
+    "allow-check-jira",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close"
   ]
 }

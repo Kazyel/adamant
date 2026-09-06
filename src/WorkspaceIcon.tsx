@@ -1,4 +1,4 @@
-type IconName = 'document' | 'folder' | 'connections' | 'sidebar' | 'edit' | 'read' | 'split' | 'external' | 'chevron' | 'warning';
+type IconName = 'document' | 'folder' | 'connections' | 'sidebar' | 'edit' | 'read' | 'split' | 'external' | 'chevron' | 'warning' | 'minimize' | 'maximize' | 'close';
 
 const paths: Record<IconName, string> = {
   document: 'M13 3H5v18h14V9l-6-6Zm0 0v6h6M8 13h8M8 17h6',
@@ -11,6 +11,9 @@ const paths: Record<IconName, string> = {
   external: 'M14 3h7v7m0-7L10 14M10 5H3v16h16v-7',
   chevron: 'm9 6 6 6-6 6',
   warning: 'm12 3 10 18H2L12 3Zm0 6v5m0 3v1',
+  minimize: 'M5 12h14',
+  maximize: 'M5 5h14v14H5V5Z',
+  close: 'm6 6 12 12M18 6 6 18',
 };
 
 export default function WorkspaceIcon({ name }: { name: IconName }) {
