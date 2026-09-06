@@ -1,6 +1,7 @@
 import { Component, Suspense, lazy, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import Connections from './Connections';
 import Atmosphere from './Atmosphere';
 import WorkspaceIcon from './WorkspaceIcon';
@@ -12,6 +13,7 @@ const MarkdownPreview = lazy(() => import('./MarkdownPreview'));
 const PdfViewer = lazy(() => import('./PdfViewer'));
 const DocxViewer = lazy(() => import('./DocxViewer'));
 const native = isTauri();
+const desktopWindow = native ? getCurrentWindow() : null;
 type OpenedDocument = Omit<SelectedDocument, 'bytes'> & { bytes: Uint8Array; revision: number };
 type BufferSource = Pick<SelectedDocument, 'name' | 'path'>;
 
@@ -102,6 +104,15 @@ export default function App() {
     setSection('workbench');
   }
 
+  async function controlWindow(action: 'minimize' | 'toggleMaximize' | 'close') {
+    if (!desktopWindow) return;
+    try {
+      await desktopWindow[action]();
+    } catch (error) {
+      setNotice({ error: true, text: errorMessage(error) });
+    }
+  }
+
   let previewNote = 'Sanitized preview. Links are inactive; only embedded raster images are shown.';
   if (readingDocument?.kind === 'pdf') {
     previewNote = 'One page rendered at a time. No PDF scripts, forms, or link actions.';
@@ -121,7 +132,7 @@ export default function App() {
     </nav>
     <aside className="sidebar" id="explorer" hidden={!sidebarOpen} aria-label="Document explorer">
       <Atmosphere />
-      <header className="explorer-header"><span className="brand">Adamant</span><span className="stage" title="M0 technical validation">M0</span></header>
+      <header className="explorer-header" data-tauri-drag-region><span className="brand" data-tauri-drag-region>Adamant</span><span className="stage" title="M0 approved" data-tauri-drag-region>M0</span></header>
       <div className="explorer-section">
         <div className="explorer-heading"><h2>Open documents</h2><button className="icon-button" type="button" title={native ? 'Open Markdown, PDF, or DOCX' : 'Open documents in the desktop application'} aria-label="Open Markdown, PDF, or DOCX" disabled={!native || opening} onClick={openDocument}><WorkspaceIcon name="folder" /></button></div>
         <button className="explorer-file" type="button" aria-pressed={section === 'workbench' && !readingDocument} title={bufferSource ? `${bufferSource.path} (in-memory Markdown buffer)` : 'Unsaved Markdown buffer'} onClick={showBuffer}><WorkspaceIcon name="document" /><span>{bufferName}</span><span className="buffer-dot" aria-label={buffer ? 'Unsaved buffer' : 'Empty buffer'} /></button>
@@ -130,9 +141,15 @@ export default function App() {
       <div className="sidebar-note"><strong>No Vault open</strong><p>Open Markdown, PDF, or DOCX.<br />Your originals stay unchanged.</p></div>
     </aside>
     <main id="main" tabIndex={-1}>
-      <header className="workspace-tabs" aria-label="Open workspace views">
+      <header className="workspace-tabs" aria-label="Open workspace views" data-tauri-drag-region>
         <button className="workspace-tab" type="button" aria-pressed={section === 'workbench'} onClick={() => setSection('workbench')} title={activeSource?.path ?? 'Untitled Markdown buffer'}><WorkspaceIcon name="document" /><span>{activeName}</span>{!readingDocument && buffer ? <span className="buffer-dot" aria-label="Unsaved" /> : null}</button>
         <button className="workspace-tab" type="button" aria-pressed={section === 'connections'} onClick={() => setSection('connections')}><WorkspaceIcon name="connections" /><span>Connections</span></button>
+        <div className="window-drag-region" data-tauri-drag-region aria-hidden="true" />
+        <div className="window-controls" role="group" aria-label="Window controls">
+          <button className="icon-button" type="button" title="Minimize window" aria-label="Minimize window" disabled={!native} onClick={() => void controlWindow('minimize')}><WorkspaceIcon name="minimize" /></button>
+          <button className="icon-button" type="button" title="Maximize or restore window" aria-label="Maximize or restore window" disabled={!native} onClick={() => void controlWindow('toggleMaximize')}><WorkspaceIcon name="maximize" /></button>
+          <button className="icon-button window-close" type="button" title="Close window" aria-label="Close window" disabled={!native} onClick={() => void controlWindow('close')}><WorkspaceIcon name="close" /></button>
+        </div>
       </header>
       {notice ? <div className={`workbench-notice ${notice.error ? 'error' : ''}`} role={notice.error ? 'alert' : 'status'}>{notice.text}</div> : null}
       <section className="workbench" hidden={section !== 'workbench'} aria-label="Document workbench">

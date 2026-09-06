@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Status: approved roadmap and revised technology baseline. M0's native workbench is implemented and builds in production mode. Full M0 acceptance remains open for authorized account/credential checks and representative native performance measurements. M1–M7 remain planned.
+Status: approved roadmap and revised technology baseline. M0 was approved by the owner on September 6, 2026; initial connections and rendering are reported working. Integrated undecorated window controls are implemented. M1–M7 remain planned.
 
 ## Delivery strategy
 
@@ -228,6 +228,8 @@ Study architecture through actual persistence, concurrency, synchronization, sec
 - The session Secret Service was available, but successful token storage and authorized GitHub/Jira reads were not exercised. No existing credentials were loaded.
 - Native automation was stopped when interaction overlapped with user-opened content. User-owned windows/buffers were not closed or overwritten.
 
-Still required: complete native PDF/DOCX and external-opening checks, authorized account/credential checks using policy-approved credentials, and representative production performance measurements. Additional operating systems are not claimed as verified.
+Owner acceptance (September 6, 2026): M0 is approved, with initial connections and rendering reported working. This supersedes the earlier pending M0 acceptance status; the automated observations above remain a historical record, not a claim that the agent independently exercised the owner's credentials.
 
-These checks remain part of M0/release acceptance and do not remove any requirements from the roadmap.
+Integrated window controls: native decorations are disabled; tab-bar drag regions and minimize, maximize/restore, and close actions use narrowly scoped Tauri permissions. Production build passed. Native Wayland maximize/restore changed the window size and restored it; closing an empty X11 test instance exited successfully. On the tested Niri session, minimize left the window visible. Dragging is wired through Tauri's native drag-region handling but has not been verified with a physical pointer gesture in this session. No compositor-specific hide/recovery workaround is implemented.
+
+Next: implement M1's persistent Vault workflow. Representative performance measurements and additional operating-system verification remain release concerns, not a reason to repeat the accepted M0 checks.

@@ -25,7 +25,7 @@ Adamant is also a personal learning project, developed through small, verifiable
 
 ## Current status
 
-**Early development · M0 technical workbench.** The desktop application runs, but the full workspace is not implemented yet.
+**Early development · M0 approved.** The owner has approved the initial connection checks and document rendering. The next milestone is M1: persistent Vaults and Markdown notes.
 
 > **Notes are not saved yet.** The current Markdown buffer exists only in memory. Copy anything you want to keep before closing the application. Vault creation, persistence, and a filesystem explorer are planned for M1.
 
@@ -34,11 +34,11 @@ Adamant is also a personal learning project, developed through small, verifiable
 - **Markdown workbench:** editing, sanitized reading preview, and split view, with bundled fonts and a collapsible document explorer.
 - **Local document previews:** PDF navigation, zoom, and text selection; approximate DOCX rendering; native file selection and external opening. Files are limited to 64 MiB.
 - **Connection checks:** real, read-only GitHub and Jira Cloud identity requests, with successful credentials saved through the OS credential store. This does not yet synchronize work items.
-- **A focused desktop interface:** an Obsidian-inspired layout, deep black surfaces, purple accents, and a restrained WebGL atmosphere. Reduced motion and a static graphics fallback are supported.
+- **A focused desktop interface:** an Obsidian-inspired layout, deep black surfaces, purple accents, and a restrained WebGL atmosphere. Reduced motion and a static graphics fallback are supported. The desktop uses an integrated draggable tab bar with minimize, maximize/restore, and close controls instead of native window decorations.
 
-### Still to validate
+### Validation status
 
-The Linux production build, browser interactions, and system WebKitGTK text rendering have been exercised. Full native document workflows, authorized GitHub/Jira access and credential persistence, and representative performance measurements remain part of M0 acceptance. Other operating systems are not yet verified.
+M0 was approved by the owner on September 6, 2026, with initial connections and rendering reported working. Automated checks also exercised the Linux production build, browser interactions, and system WebKitGTK text rendering. This approval does not imply comprehensive performance benchmarks or verified support for other operating systems.
 
 ## Getting started
 
@@ -84,7 +84,7 @@ The browser preview cannot pick local documents through Tauri, open external app
 
 | Milestone | Outcome | Status |
 | --- | --- | --- |
-| **M0 · Technical validation** | Exercise the desktop editor, document viewers, and account/credential boundaries. | Implemented; acceptance checks remain |
+| **M0 · Technical validation** | Exercise the desktop editor, document viewers, and account/credential boundaries. | Approved |
 | **M1 · Vault & Markdown** | Create/open portable Vaults; save notes safely; recognize external edits and conflicts. | Next |
 | **M2 · Work context** | Follow GitHub issues/PRs and Jira tasks, link notes, and consult cached context offline. | Planned |
 | **M3 · Document library** | Preserve originals, attach Markdown annotations, and capture technical documentation. | Planned |
