@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-save-copy"
+description = "Enables the vault_save_copy command without any pre-configured scope."
+commands.allow = ["vault_save_copy"]
+
+[[permission]]
+identifier = "deny-vault-save-copy"
+description = "Denies the vault_save_copy command without any pre-configured scope."
+commands.deny = ["vault_save_copy"]

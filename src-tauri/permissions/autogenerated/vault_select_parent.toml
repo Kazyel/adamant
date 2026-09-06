@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-select-parent"
+description = "Enables the vault_select_parent command without any pre-configured scope."
+commands.allow = ["vault_select_parent"]
+
+[[permission]]
+identifier = "deny-vault-select-parent"
+description = "Denies the vault_select_parent command without any pre-configured scope."
+commands.deny = ["vault_select_parent"]

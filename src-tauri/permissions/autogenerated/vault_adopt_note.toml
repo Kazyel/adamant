@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-adopt-note"
+description = "Enables the vault_adopt_note command without any pre-configured scope."
+commands.allow = ["vault_adopt_note"]
+
+[[permission]]
+identifier = "deny-vault-adopt-note"
+description = "Denies the vault_adopt_note command without any pre-configured scope."
+commands.deny = ["vault_adopt_note"]

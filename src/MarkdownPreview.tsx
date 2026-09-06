@@ -38,11 +38,16 @@ const readingStyles = `
   }
 `;
 
-export default function MarkdownPreview({ value }: { value: string }) {
+export default function MarkdownPreview({ value, validatedSource }: { value: string; validatedSource?: string }) {
   const deferred = useDeferredValue(value);
-  const content = useMemo(() => previewDocument(marked.parse(deferred, { async: false }), readingStyles), [deferred]);
+  const frontmatter = /^\uFEFF?---[ \t]*\r?\n(?:[^\n]*\n)*?(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/;
+  const prefix = deferred.match(frontmatter)?.[0];
+  const validatedPrefix = validatedSource?.match(frontmatter)?.[0];
+  const hideMetadata = !!prefix && prefix === validatedPrefix;
+  const markdown = hideMetadata ? deferred.slice(prefix.length) : deferred;
+  const content = useMemo(() => previewDocument(marked.parse(markdown, { async: false }), readingStyles), [markdown]);
   if (!value.trim()) {
-    return <div className="empty-preview"><h3>Your preview appears here</h3><p>Write Markdown in the buffer or open a local .md file. The original file is never changed.</p></div>;
+    return <div className="empty-preview"><h3>Your preview appears here</h3><p>Write Markdown in the buffer. Saving a Vault Note is explicit; standalone originals are never changed.</p></div>;
   }
-  return <PreviewFrame content={content} title="Sanitized Markdown preview" />;
+  return <>{!hideMetadata && /^\uFEFF?---[ \t]*(?:\r?\n|$)/.test(deferred) ? <div className="pane-footer" role="status">Unvalidated or unclosed frontmatter is shown below. Save a Vault Note to validate metadata; the editor always retains the full source.</div> : null}<PreviewFrame content={content} title="Sanitized Markdown preview" /></>;
 }

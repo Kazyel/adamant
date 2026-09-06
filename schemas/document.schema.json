@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:adamant:schema:document:v1",
+  "title": "Adamant document companion metadata",
+  "type": "object",
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reference"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "reference": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "note",
+                "topic",
+                "document",
+                "documentation-page"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "calendar-event"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "recurrenceId": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "provider",
+            "instance",
+            "id",
+            "url"
+          ],
+          "properties": {
+            "kind": {
+              "const": "external-item"
+            },
+            "provider": {
+              "enum": [
+                "github",
+                "jira"
+              ]
+            },
+            "instance": {
+              "type": "string",
+              "minLength": 1
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    }
+  }
+}

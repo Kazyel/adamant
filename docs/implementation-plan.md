@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Status: approved roadmap and revised technology baseline. M0 was approved by the owner on September 6, 2026; initial connections and rendering are reported working. Integrated undecorated window controls are implemented. M1–M7 remain planned.
+Status: approved roadmap and revised technology baseline. M0 was approved by the owner on September 6, 2026; M1 is implemented and Linux-verified with focused native/frontend evidence. The executable build and Linux tmpfs/btrfs source-write smoke are verified; M2–M7 remain planned, with other operating systems and installers unverified.
 
 ## Delivery strategy
 
@@ -78,17 +78,23 @@ Learning goal: understand the boundary between the WebView, Rust commands, files
 
 **Workflow:** create/open a Vault, write a Note, save, close, reopen, and move the Vault to another location.
 
-Work:
-
-- Implement formal schemas for the manifest, frontmatter, and companion metadata.
-- Implement explicit creation, adoption, and import without rewriting merely discovered files.
-- Preserve unknown metadata and source content during editing.
-- Handle external file changes, invalid metadata, ID collisions, safe writes, and concurrent-edit conflicts.
-- Establish derived local indexing without making the database authoritative.
+**Implemented scope:** formal manifest/frontmatter/companion schemas; explicit creation, adoption, and import; source/unknown metadata preservation; external changes, invalid metadata, identity collisions, safe writes, concurrent conflicts; bounded incremental indexing with paged discovery and partial/cancelled visibility; derived local indexing without database authority.
 
 Acceptance: an externally edited Note is recognized correctly; conflicting versions are not silently lost; a copied Vault opens without the original index.
 
 Learning goal: identity, ownership, serialization, filesystem operations, and data-loss boundaries.
+
+**Evidence:** Native Linux/Tauri WebKitGTK validation exercised create/save/reopen/copy/cache rebuild, external and invalid metadata/source preservation, Cancel/Discard/Save guards, adoption/import/collision behavior, paged 250-sibling browsing with 200 retained across save, 50,010 unsupported files capped at 50,000 with partial state, 2,055 directories producing partial state at the 2,048-watch cap, source read/Close Vault timing observations, real PDF page 1 and DOCX text rendering, picker/read-failure/hidden-buffer guard preservation, and the shipped release GUI creating/saving exact bytes on btrfs. Frontend React+Monaco validation exercised BOM/mixed-EOL grouped undo/redo, unequal simultaneous ranges, 140 undo/redo groups, and undo→branch. Focused repository commands are `node --experimental-strip-types --test tests/markdownSource.test.ts` (3 tests passed) and `cargo test --manifest-path src-tauri/Cargo.toml --lib vault::tests -- --test-threads=1` (23 tests passed). The executable was built with `npm run tauri -- build --no-bundle` at `src-tauri/target/release/adamant`; this is not an installer or distribution bundle.
+
+#### M1 UX and native evidence
+
+M1 now creates a Vault through `vault_select_parent` followed by `vault_create`: the parent picker is selection-only, the child name and full destination are previewed, and an existing destination is refused exclusively, including an empty directory. Parent contents remain untouched and are not adopted or scanned. Existing callers use `vault_open` for opening; the former combined `vault_choose` API is removed.
+
+The persistent Adamant menu remains reachable with the explorer collapsed. New Note and Import are contextual actions beside the Vault name. Healthy indexing has no operational clutter; partial/stale conditions provide compact details and recovery. Local filesystem watching refreshes clean notes and listings automatically, while Ctrl+S/⌘S remains the explicit save boundary. M1 has no autosave or cloud synchronization.
+
+Verified in an isolated Linux WebKitGTK/Tauri runtime: parent selection and Back/change-picker cancellation retain the chosen location and name; an existing-folder collision and wizard cancellation leave existing files unchanged; creation produces the named child and valid manifest; contextual New Note and physical Ctrl+S persist the exact editor source; external edits and new files refresh the clean editor and expanded listing without manual reload; cancelling a dirty-buffer guard retains the draft for a later explicit save.
+
+The persistent menu was exercised by keyboard with the sidebar collapsed and Connections active. Screenshots at 1440, 900, and 760 pixels verified the ready, partial, and wizard states. A real depth-limit fixture exposed one partial warning; the collapsed footer opened the details and transferred keyboard focus to recovery. The wizard rejected a path-like name without creating files. The 23 passing Rust tests include native child-name, collision, symlink, and replaced-parent boundaries; all 3 raw-source tests also passed. M2 and later milestones remain planned; other platforms and installers remain unverified.
 
 ### M2 — Work Context
 
@@ -232,4 +238,5 @@ Owner acceptance (September 6, 2026): M0 is approved, with initial connections a
 
 Integrated window controls: native decorations are disabled; tab-bar drag regions and minimize, maximize/restore, and close actions use narrowly scoped Tauri permissions. Production build passed. Native Wayland maximize/restore changed the window size and restored it; closing an empty X11 test instance exited successfully. On the tested Niri session, minimize left the window visible. Dragging is wired through Tauri's native drag-region handling but has not been verified with a physical pointer gesture in this session. No compositor-specific hide/recovery workaround is implemented.
 
-Next: implement M1's persistent Vault workflow. Representative performance measurements and additional operating-system verification remain release concerns, not a reason to repeat the accepted M0 checks.
+Next: assess other operating systems, installers, and unsupported filesystem behavior. M2 and later workflows remain planned.
+
