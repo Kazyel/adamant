@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-refresh"
+description = "Enables the vault_refresh command without any pre-configured scope."
+commands.allow = ["vault_refresh"]
+
+[[permission]]
+identifier = "deny-vault-refresh"
+description = "Denies the vault_refresh command without any pre-configured scope."
+commands.deny = ["vault_refresh"]

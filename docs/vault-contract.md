@@ -1,6 +1,8 @@
 # Vault Contract
 
-Status: approved product and storage contract. This document defines required behavior; it is not a claim that the behavior has been implemented. Formal schemas will be implemented in M1.
+Status: approved product and storage contract. M1 schemas are present in [`schemas/vault.schema.json`](../schemas/vault.schema.json), [`schemas/note.schema.json`](../schemas/note.schema.json), and [`schemas/document.schema.json`](../schemas/document.schema.json); this document remains the behavioral contract, not a claim of universal platform support.
+
+The Adamant manifest is the identity marker for this format: `vault.json` must contain the exact marker `format: "adamant-vault"`, `formatVersion: 1`, and a UUID `id`. Unknown manifest fields are allowed, but a missing format marker or a different marker means the folder is not an Adamant Vault and must be rejected rather than adopted.
 
 ## Principles
 
@@ -44,6 +46,44 @@ MyVault/
 ```
 
 Only `vault.json` is structurally required. Other directory names are initial conventions, not mandatory classifications. Users may reorganize directories and name their content in any language. Adamant must not automatically translate or rename existing content.
+
+### Supported document boundary
+
+The document loader accepts only `.md`, `.pdf`, and `.docx` filenames, case-insensitively. `.markdown` is not an Adamant document extension. `vault.json` and document companion metadata (`<filename>.meta.yaml`) are internal metadata, not editable documents and are never opened as Markdown/PDF/DOCX content.
+
+Creating a Vault requires explicit selection of a parent folder and a name for one new child directory. The parent may contain files; an existing destination is refused even when empty. Opening an existing folder requires a valid Adamant marker and version; discovery classifies supported extensions and validates metadata without rewriting or adopting files.
+
+### Native creation and local synchronization
+
+Creation is a two-step capability flow: `vault_select_parent` selects a parent directory without filesystem mutation. The interface previews the full destination before `vault_create` validates a single child name and creates that child exclusively through the selected directory capability. The destination must not already exist, even when empty. Parent contents are not adopted or scanned as part of creation; an existing Vault is opened through `vault_open`. Headless core callers use `VaultParent::select(parent)?.create(name, state_root)` and `Vault::open(root, state_root)`.
+
+The interface keeps creation and opening in the persistent Adamant menu, with New Note and Import actions contextual to the active Vault. Filesystem watching updates clean buffers and expanded listings automatically. Partial or stale index states remain recoverable through compact problem details; healthy operation does not expose indexing controls or per-folder statistics. Ctrl+S/⌘S is the explicit persistence boundary. There is no autosave or cloud synchronization in M1.
+
+### Incremental index boundary
+
+Indexing is a derived, bounded, cancellable, incremental operation. It must expose `state` (`indexing`, `ready`, `partial`, `stale`, or `cancelled`), scanned-entry and indexed-document counts, and an optional message. `ready` means the scan is complete with no queued changes; partial, stale, and cancelled states remain visible and never imply a complete inventory. Directory listing is paged (default 100, maximum 200) with `offset`, `total`, and `hasMore`; collapsed directories are not loaded. Cancellation signals independently of save/navigation work and returns the current snapshot immediately. The source files remain authoritative throughout indexing.
+
+#### M1 resource budgets
+
+Implemented M1 limits. The five-second work budget is cooperative, not a preemptive filesystem I/O deadline:
+
+| Resource | Budget |
+| --- | ---: |
+| Examined directory entries | 50,000 |
+| Watched directories | 2,048 |
+| Directory depth | 32 |
+| Aggregate metadata | 32 MiB |
+| Manifest | 256 KiB |
+| One frontmatter or companion record | 256 KiB |
+| Cooperative work budget per reconciliation | 5 s |
+| Listing page | 100 default, 200 maximum |
+| Surfaced issues | First 200, with full count; maximum 1 KiB per message |
+| Event queue | 256 |
+| Changed-path batch | 1,024 |
+
+Discovery excludes `.git`, `.hg`, `.svn`, `node_modules`, `target`, `dist`, `build`, `.next`, `.cache`, `.generated`, `.venv`, `venv`, and `__pycache__`. It must not read or hash unsupported originals during discovery: only Markdown headers and associated document metadata are examined.
+
+Traversal limits (entries, watched directories, depth, metadata) produce explicit `partial` state; partial never claims a complete inventory or infers deletion from unseen entries. A watcher queue overflow produces `stale` state and bounded reconciliation. Page limits bound each request. Imports with supplied IDs refuse an incomplete index, while ordinary reads, same-ID saves, generated-UUID creation, and recovery copies remain available.
 
 The manifest contains a format version and a Vault identifier, not a central inventory of all files. Machine-specific preferences, generated previews, search indexes, external caches, and credentials live outside the portable directory.
 
@@ -185,3 +225,4 @@ Import must not write outside its destination through archive paths or follow fi
 Each Vault has independent connection configuration, cache, credential association, and export operations. There are no cross-Vault references in this stage. Corporate data must not appear in a personal Vault through shared search or background synchronization.
 
 Open, AI-friendly storage does not grant agents or external services automatic access to corporate or personal content.
+

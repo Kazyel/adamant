@@ -1,9 +1,15 @@
+pub mod vault;
+mod vault_commands;
+mod vault_metadata;
+
+use vault_commands::*;
+
 use std::{
     collections::HashSet,
     fs::{self, File},
     io::Read,
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -15,7 +21,7 @@ const MAX_DOCUMENT_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_IDENTITY_BYTES: usize = 1024 * 1024;
 
 struct AppState {
-    selected_paths: Mutex<HashSet<PathBuf>>,
+    selected_paths: Arc<Mutex<HashSet<PathBuf>>>,
     http: Client,
 }
 
@@ -47,15 +53,10 @@ struct JiraIdentity {
 
 fn document_kind(path: &Path) -> Result<&'static str, String> {
     match path.extension().and_then(|extension| extension.to_str()) {
-        Some(extension)
-            if extension.eq_ignore_ascii_case("md")
-                || extension.eq_ignore_ascii_case("markdown") =>
-        {
-            Ok("markdown")
-        }
+        Some(extension) if extension.eq_ignore_ascii_case("md") => Ok("markdown"),
         Some(extension) if extension.eq_ignore_ascii_case("pdf") => Ok("pdf"),
         Some(extension) if extension.eq_ignore_ascii_case("docx") => Ok("docx"),
-        _ => Err("Choose a Markdown (.md or .markdown), PDF, or DOCX document.".into()),
+        _ => Err("Choose a Markdown (.md), PDF (.pdf), or DOCX (.docx) document.".into()),
     }
 }
 
@@ -65,8 +66,8 @@ fn read_document(selected: PathBuf) -> Result<Document, String> {
         .canonicalize()
         .map_err(|_| "The selected document is unavailable. Choose it again.".to_string())?;
     let kind = document_kind(&path)?;
-    let metadata = fs::metadata(&path)
-        .map_err(|_| "Cannot inspect the selected document.".to_string())?;
+    let metadata =
+        fs::metadata(&path).map_err(|_| "Cannot inspect the selected document.".to_string())?;
     if !metadata.is_file() {
         return Err("Choose a regular document file, not a directory or device.".into());
     }
@@ -79,7 +80,9 @@ fn read_document(selected: PathBuf) -> Result<Document, String> {
         .metadata()
         .map_err(|_| "Cannot inspect the selected document.".to_string())?;
     if !metadata.is_file() || metadata.len() > MAX_DOCUMENT_BYTES {
-        return Err("The document changed while opening. Choose a regular file up to 64 MiB.".into());
+        return Err(
+            "The document changed while opening. Choose a regular file up to 64 MiB.".into(),
+        );
     }
     let mut bytes = Vec::with_capacity(metadata.len() as usize);
     file.take(MAX_DOCUMENT_BYTES + 1)
@@ -109,7 +112,7 @@ fn read_document(selected: PathBuf) -> Result<Document, String> {
 async fn pick_document(state: State<'_, AppState>) -> Result<Option<Document>, String> {
     let Some(file) = rfd::AsyncFileDialog::new()
         .set_title("Open a document in Adamant")
-        .add_filter("Documents", &["md", "markdown", "pdf", "docx"])
+        .add_filter("Documents", &["md", "pdf", "docx"])
         .pick_file()
         .await
     else {
@@ -134,10 +137,9 @@ async fn open_document(path: String, state: State<'_, AppState>) -> Result<(), S
             .selected_paths
             .lock()
             .map_err(|_| "Document access is unavailable. Restart Adamant.".to_string())?;
-        selected
-            .get(Path::new(&path))
-            .cloned()
-            .ok_or_else(|| "Choose this document in Adamant before opening it externally.".to_string())?
+        selected.get(Path::new(&path)).cloned().ok_or_else(|| {
+            "Choose this document in Adamant before opening it externally.".to_string()
+        })?
     };
     tauri::async_runtime::spawn_blocking(move || {
         let current = path
@@ -147,8 +149,10 @@ async fn open_document(path: String, state: State<'_, AppState>) -> Result<(), S
             return Err("The original document moved or became a link. Choose it again.".into());
         }
         document_kind(&current)?;
-        open::that(&current)
-            .map_err(|_| "No external application could open this document. Check the file association.".to_string())
+        open::that(&current).map_err(|_| {
+            "No external application could open this document. Check the file association."
+                .to_string()
+        })
     })
     .await
     .map_err(|_| "The external opener stopped unexpectedly.".to_string())?
@@ -156,8 +160,13 @@ async fn open_document(path: String, state: State<'_, AppState>) -> Result<(), S
 
 fn validate_token(token: &str) -> Result<(), String> {
     let token = token.trim();
-    if token.is_empty() || token.len() > 16_384 || !token.bytes().all(|byte| byte.is_ascii_graphic()) {
-        return Err("Enter a valid API token without internal spaces or control characters.".into());
+    if token.is_empty()
+        || token.len() > 16_384
+        || !token.bytes().all(|byte| byte.is_ascii_graphic())
+    {
+        return Err(
+            "Enter a valid API token without internal spaces or control characters.".into(),
+        );
     }
     Ok(())
 }
@@ -171,7 +180,9 @@ fn jira_host(site: &str) -> Result<String, String> {
         || tenant.len() > 63
         || tenant.starts_with('-')
         || tenant.ends_with('-')
-        || !tenant.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        || !tenant
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
         || (site.starts_with("https://") && !host.ends_with(".atlassian.net"))
     {
         return Err("Enter a Jira tenant name or https://tenant.atlassian.net, without a port, path, or query.".into());
@@ -183,7 +194,8 @@ fn network_error(error: reqwest::Error) -> String {
     if error.is_timeout() {
         "The identity request timed out. Check your connection and try again.".into()
     } else if error.is_connect() {
-        "Could not securely connect to the service. Check your connection and system certificates.".into()
+        "Could not securely connect to the service. Check your connection and system certificates."
+            .into()
     } else {
         "The identity request failed. No credential was saved.".into()
     }
@@ -194,15 +206,31 @@ async fn request_identity<T: DeserializeOwned>(request: RequestBuilder) -> Resul
     let status = response.status();
     if !status.is_success() {
         return Err(match status {
-            StatusCode::UNAUTHORIZED => "Authentication failed. Check the token and account details.".into(),
-            StatusCode::FORBIDDEN => "Access denied. Check token permissions and organization or SSO policy.".into(),
-            StatusCode::NOT_FOUND => "The identity endpoint was not found. Check the Jira tenant, if applicable.".into(),
-            StatusCode::TOO_MANY_REQUESTS => "The service rate limit was reached. Wait before trying again.".into(),
-            _ if status.is_redirection() => "The service returned a redirect, which was blocked to protect your token.".into(),
-            _ => format!("The service returned HTTP {}. No credential was saved.", status.as_u16()),
+            StatusCode::UNAUTHORIZED => {
+                "Authentication failed. Check the token and account details.".into()
+            }
+            StatusCode::FORBIDDEN => {
+                "Access denied. Check token permissions and organization or SSO policy.".into()
+            }
+            StatusCode::NOT_FOUND => {
+                "The identity endpoint was not found. Check the Jira tenant, if applicable.".into()
+            }
+            StatusCode::TOO_MANY_REQUESTS => {
+                "The service rate limit was reached. Wait before trying again.".into()
+            }
+            _ if status.is_redirection() => {
+                "The service returned a redirect, which was blocked to protect your token.".into()
+            }
+            _ => format!(
+                "The service returned HTTP {}. No credential was saved.",
+                status.as_u16()
+            ),
         });
     }
-    if response.content_length().is_some_and(|length| length > MAX_IDENTITY_BYTES as u64) {
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_IDENTITY_BYTES as u64)
+    {
         return Err("The identity response exceeded the size limit.".into());
     }
     let mut body = Vec::new();
@@ -212,8 +240,9 @@ async fn request_identity<T: DeserializeOwned>(request: RequestBuilder) -> Resul
         }
         body.extend_from_slice(&chunk);
     }
-    serde_json::from_slice(&body)
-        .map_err(|_| "The service returned an invalid identity response. No credential was saved.".into())
+    serde_json::from_slice(&body).map_err(|_| {
+        "The service returned an invalid identity response. No credential was saved.".into()
+    })
 }
 
 async fn store_token(service: String, account: String, token: String) -> Result<(), String> {
@@ -244,7 +273,12 @@ async fn check_github(token: String, state: State<'_, AppState>) -> Result<Ident
     if identity.id == 0 || identity.login.trim().is_empty() {
         return Err("GitHub returned an incomplete identity. No credential was saved.".into());
     }
-    store_token("io.adamant.m0.github".into(), identity.id.to_string(), token).await?;
+    store_token(
+        "io.adamant.m0.github".into(),
+        identity.id.to_string(),
+        token,
+    )
+    .await?;
     Ok(Identity {
         account: identity.login,
     })
@@ -262,7 +296,9 @@ async fn check_jira(
     if email.is_empty()
         || email.len() > 320
         || !email.contains('@')
-        || email.chars().any(|character| character.is_whitespace() || character.is_control() || character == ':')
+        || email.chars().any(|character| {
+            character.is_whitespace() || character.is_control() || character == ':'
+        })
     {
         return Err("Enter the email address associated with your Atlassian API token.".into());
     }
@@ -278,7 +314,12 @@ async fn check_jira(
     if identity.account_id.trim().is_empty() || identity.display_name.trim().is_empty() {
         return Err("Jira returned an incomplete identity. No credential was saved.".into());
     }
-    store_token(format!("io.adamant.m0.jira.{host}"), identity.account_id, token).await?;
+    store_token(
+        format!("io.adamant.m0.jira.{host}"),
+        identity.account_id,
+        token,
+    )
+    .await?;
     Ok(Identity {
         account: identity.display_name,
     })
@@ -298,14 +339,30 @@ pub fn run() {
         .expect("Could not initialize Adamant's HTTPS client");
     tauri::Builder::default()
         .manage(AppState {
-            selected_paths: Mutex::new(HashSet::new()),
+            selected_paths: Arc::new(Mutex::new(HashSet::new())),
             http,
         })
+        .manage(VaultState::default())
         .invoke_handler(tauri::generate_handler![
             pick_document,
             open_document,
             check_github,
             check_jira,
+            vault_open,
+            vault_select_parent,
+            vault_create,
+            vault_refresh,
+            vault_list_entries,
+            vault_reconcile,
+            vault_cancel_index,
+            vault_close,
+            vault_read_note,
+            vault_create_note,
+            vault_save_note,
+            vault_save_copy,
+            vault_adopt_note,
+            vault_import_note,
+            vault_open_document,
         ])
         .run(tauri::generate_context!())
         .expect("Adamant's desktop runtime stopped unexpectedly");

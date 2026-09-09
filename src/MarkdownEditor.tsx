@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as monaco from 'monaco-editor/editor/editor.api.js';
 import 'monaco-editor/languages/definitions/markdown/register.js';
 import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker';
+import { MarkdownSourceHistory } from './markdownSource';
 
 self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 
@@ -52,16 +53,20 @@ monaco.editor.defineTheme('adamant', {
   },
 });
 
-export default function MarkdownEditor({ initialValue, onChange }: { initialValue: string; onChange: (value: string) => void }) {
+
+export default function MarkdownEditor({ initialValue, onChange, readOnly = false }: { initialValue: string; onChange: (value: string) => void; readOnly?: boolean }) {
   const container = useRef<HTMLDivElement>(null);
+  const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const initial = useRef(initialValue);
   const change = useRef(onChange);
   change.current = onChange;
-  const initial = useRef(initialValue);
+  const [historyNotice, setHistoryNotice] = useState(false);
 
   useEffect(() => {
     const model = monaco.editor.createModel(initial.current, 'markdown');
     const instance = monaco.editor.create(container.current!, {
       model,
+      readOnly,
       theme: 'adamant',
       automaticLayout: true,
       minimap: { enabled: false },
@@ -74,10 +79,9 @@ export default function MarkdownEditor({ initialValue, onChange }: { initialValu
       lineNumbers: 'off',
       lineDecorationsWidth: 20,
       glyphMargin: false,
-      scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
       wordWrap: 'on',
       scrollBeyondLastLine: false,
-      ariaLabel: 'Unsaved Markdown buffer',
+      ariaLabel: 'Markdown source editor',
       tabFocusMode: true,
       renderLineHighlight: 'line',
       renderLineHighlightOnlyWhenFocus: true,
@@ -87,7 +91,28 @@ export default function MarkdownEditor({ initialValue, onChange }: { initialValu
       links: false,
       contextmenu: false,
     });
-    const listener = model.onDidChangeContent(() => change.current(model.getValue()));
+    editor.current = instance;
+    let history = new MarkdownSourceHistory(initial.current, model.getAlternativeVersionId());
+    let resetting = false;
+    const listener = model.onDidChangeContent((event) => {
+      if (resetting) return;
+      let direction: 'edit' | 'undo' | 'redo' = 'edit';
+      if (event.isUndoing) direction = 'undo';
+      else if (event.isRedoing) direction = 'redo';
+      const source = history.apply(event.changes, model.getAlternativeVersionId(), direction);
+      if (source === null) {
+        // Keep the editor and the save buffer aligned if an unexpected model reset
+        // invalidates history. Never submit normalized undo text as original source.
+        resetting = true;
+        model.setValue(history.source);
+        resetting = false;
+        history = new MarkdownSourceHistory(history.source, model.getAlternativeVersionId());
+        setHistoryNotice(true);
+        return;
+      }
+      setHistoryNotice(false);
+      change.current(source);
+    });
     // Webfont arrival changes glyph widths; invalidate Monaco's cached measurements.
     let disposed = false;
     void Promise.all([
@@ -102,8 +127,13 @@ export default function MarkdownEditor({ initialValue, onChange }: { initialValu
       listener.dispose();
       instance.dispose();
       model.dispose();
+      editor.current = null;
     };
   }, []);
 
-  return <div className="editor-container" ref={container} />;
+  useLayoutEffect(() => {
+    editor.current?.updateOptions({ readOnly });
+  }, [readOnly]);
+
+  return <>{historyNotice ? <div role="alert">The editor history was reset to protect the original source. The last operation was not applied; your Markdown buffer is unchanged.</div> : null}<div className="editor-container" ref={container} /></>;
 }

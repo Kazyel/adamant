@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-create-note"
+description = "Enables the vault_create_note command without any pre-configured scope."
+commands.allow = ["vault_create_note"]
+
+[[permission]]
+identifier = "deny-vault-create-note"
+description = "Denies the vault_create_note command without any pre-configured scope."
+commands.deny = ["vault_create_note"]
