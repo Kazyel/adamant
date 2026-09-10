@@ -1,0 +1,123 @@
+.replace-dialog {
+  width: min(470px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 25px;
+  border: 1px solid hsl(35.625 19.277108% 37.837177%);
+  border-top: 3px solid var(--amber);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow:
+    inset 0 0 0 1px hsl(265.714286 35.59322% 89.338353% / 5%),
+    0 16px 64px hsl(0 0% 7.84% / 65%);
+}
+
+.replace-dialog::backdrop {
+  background: hsl(0 0% 7.84% / 75%);
+}
+
+.replace-dialog h2 {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.replace-dialog p {
+  font-size: 13px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.replace-dialog .primary {
+  background: var(--amber);
+  border-color: hsl(37.941176 55.737705% 77.953882%);
+  color: hsl(35.294118 24.637681% 20.308706%);
+}
+
+.replace-dialog .primary:hover:not(:disabled) {
+  background: hsl(37.857143 63.636364% 76.146823%);
+  border-color: hsl(37.5 66.666667% 84.820706%);
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.create-vault-dialog {
+  border-color: var(--border);
+  border-top: 2px solid var(--accent);
+}
+
+.create-vault-dialog .primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: hsl(268 30.612245% 16.694588%);
+}
+
+.create-vault-dialog .primary:hover:not(:disabled) {
+  background: hsl(260.571429 89.74359% 85.904941%);
+  border-color: hsl(260.571429 89.74359% 85.904941%);
+}
+
+.wizard-steps {
+  display: flex;
+  gap: 24px;
+  margin: -3px 0 25px;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.wizard-steps [aria-current='step'] {
+  color: var(--accent);
+}
+
+.choose-parent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 25px;
+}
+
+.vault-destination {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.vault-destination strong {
+  color: var(--text);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.replace-dialog .dialog-error {
+  color: var(--error);
+  margin: 14px 0 0;
+}
+
+.dialog-back {
+  margin-right: auto;
+}
+
+.replace-dialog .path-label {
+  display: block;
+  font-size: 13px;
+  margin: 18px 0 8px;
+}
+
+.replace-dialog input {
+  width: 100%;
+}

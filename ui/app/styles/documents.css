@@ -1,0 +1,64 @@
+/* Original PDF page pixels are deliberately not color-adjusted. */
+.pdf-viewer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.pdf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding: 8px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.pdf-toolbar button {
+  padding: 5px 9px;
+  min-height: 30px;
+  font-size: 12px;
+}
+
+.pdf-toolbar label {
+  margin-left: 4px;
+}
+
+.pdf-toolbar select {
+  font-size: 12px;
+  margin-left: 4px;
+  padding: 5px;
+}
+
+.pdf-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  padding: 22px;
+  overflow: auto;
+  background: var(--reading);
+}
+
+.pdf-page {
+  position: relative;
+  background: #fff;
+  color-scheme: light;
+  margin-inline: auto;
+  box-shadow: 0 3px 16px hsl(0 0% 7.84% / 30%);
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+}
+
+.pdf-page canvas {
+  display: block;
+}
+
+.pdf-page-status {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}

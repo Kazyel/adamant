@@ -15,37 +15,39 @@ The Adamant manifest is the identity marker for this format: `vault.json` must c
 
 ## Domain vocabulary
 
-| Term | Meaning |
-| --- | --- |
-| Vault | Independent directory with its own manifest, content, connections, and export boundary. |
-| Note | Authored Markdown content with a stable identity. |
-| Topic | A Note used to organize a subject of study. |
-| Document | An original attachment, such as PDF or DOCX, with companion metadata. |
-| DocumentationPage | A captured technical documentation page with its source recorded. |
-| CalendarEvent | A locally stored iCalendar event. |
-| ExternalItem | A GitHub or Jira Cloud item followed by the application. |
-| Reference | An explicit association between identified elements. |
+| Term              | Meaning                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------- |
+| Vault             | Independent directory with its own manifest, content, connections, and export boundary. |
+| Note              | Authored Markdown content with a stable identity.                                       |
+| Topic             | A Note used to organize a subject of study.                                             |
+| Document          | An original attachment, such as PDF or DOCX, with companion metadata.                   |
+| DocumentationPage | A captured technical documentation page with its source recorded.                       |
+| CalendarEvent     | A locally stored iCalendar event.                                                       |
+| ExternalItem      | A GitHub or Jira Cloud item followed by the application.                                |
+| Reference         | An explicit association between identified elements.                                    |
 
 ## Directory layout
 
 ```text
 MyVault/
 ├── vault.json
-├── notes/
-├── studies/
-│   ├── mathematics/
-│   └── distributed-systems/
-├── documents/
-│   ├── paper.pdf
-│   ├── paper.pdf.meta.yaml
-│   ├── specification.docx
-│   └── specification.docx.meta.yaml
-├── documentation/
-└── calendars/
-    └── personal.ics
+└── content/
+    ├── studies/
+    │   ├── mathematics/
+    │   └── distributed-systems/
+    ├── documents/
+    │   ├── paper.pdf
+    │   ├── paper.pdf.meta.yaml
+    │   ├── specification.docx
+    │   └── specification.docx.meta.yaml
+    ├── documentation/
+    └── calendars/
+        └── personal.ics
 ```
 
-Only `vault.json` is structurally required. Other directory names are initial conventions, not mandatory classifications. Users may reorganize directories and name their content in any language. Adamant must not automatically translate or rename existing content.
+New Vaults declare `"contentRoot": "content"` in `vault.json` and create an empty `content/` directory. This directory is the entry point for content, not a folder shown in the explorer: listing, note creation, imports, and relative document paths start inside it. The example subdirectories above are user-organized content, not automatically created defaults.
+
+Existing manifests without `contentRoot` keep their original container-relative layout, including ordinary folders named `notes` or `content`. No files are moved, renamed, or migrated. When declared, `contentRoot` must be exactly `"content"` and refer to an existing real directory, not a symlink. The manifest remains in the Vault container; its siblings outside `content/` are not indexed as content. Changing the declared root while open requires reopening the Vault.
 
 ### Supported document boundary
 
@@ -67,19 +69,19 @@ Indexing is a derived, bounded, cancellable, incremental operation. It must expo
 
 Implemented M1 limits. The five-second work budget is cooperative, not a preemptive filesystem I/O deadline:
 
-| Resource | Budget |
-| --- | ---: |
-| Examined directory entries | 50,000 |
-| Watched directories | 2,048 |
-| Directory depth | 32 |
-| Aggregate metadata | 32 MiB |
-| Manifest | 256 KiB |
-| One frontmatter or companion record | 256 KiB |
-| Cooperative work budget per reconciliation | 5 s |
-| Listing page | 100 default, 200 maximum |
-| Surfaced issues | First 200, with full count; maximum 1 KiB per message |
-| Event queue | 256 |
-| Changed-path batch | 1,024 |
+| Resource                                   |                                                Budget |
+| ------------------------------------------ | ----------------------------------------------------: |
+| Examined directory entries                 |                                                50,000 |
+| Watched directories                        |                                                 2,048 |
+| Directory depth                            |                                                    32 |
+| Aggregate metadata                         |                                                32 MiB |
+| Manifest                                   |                                               256 KiB |
+| One frontmatter or companion record        |                                               256 KiB |
+| Cooperative work budget per reconciliation |                                                   5 s |
+| Listing page                               |                              100 default, 200 maximum |
+| Surfaced issues                            | First 200, with full count; maximum 1 KiB per message |
+| Event queue                                |                                                   256 |
+| Changed-path batch                         |                                                 1,024 |
 
 Discovery excludes `.git`, `.hg`, `.svn`, `node_modules`, `target`, `dist`, `build`, `.next`, `.cache`, `.generated`, `.venv`, `venv`, and `__pycache__`. It must not read or hash unsupported originals during discovery: only Markdown headers and associated document metadata are examined.
 
@@ -89,14 +91,14 @@ The manifest contains a format version and a Vault identifier, not a central inv
 
 ## Identity and authoritative storage
 
-| Element | Identity | Authoritative representation |
-| --- | --- | --- |
-| Note | UUID in YAML frontmatter | Markdown file. |
-| Topic | The underlying Note UUID | Markdown with `kind: topic`. |
-| Document | UUID in companion metadata | Original plus `<filename>.meta.yaml`. |
-| DocumentationPage | UUID in its Markdown frontmatter | Saved Markdown, source metadata, and local resources. |
-| CalendarEvent | iCalendar `UID` | Event component in an `.ics` file. |
-| ExternalItem | Provider, instance, and stable API identifier | External provider; locally authored references are portable, fetched records are cached. |
+| Element           | Identity                                      | Authoritative representation                                                             |
+| ----------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Note              | UUID in YAML frontmatter                      | Markdown file.                                                                           |
+| Topic             | The underlying Note UUID                      | Markdown with `kind: topic`.                                                             |
+| Document          | UUID in companion metadata                    | Original plus `<filename>.meta.yaml`.                                                    |
+| DocumentationPage | UUID in its Markdown frontmatter              | Saved Markdown, source metadata, and local resources.                                    |
+| CalendarEvent     | iCalendar `UID`                               | Event component in an `.ics` file.                                                       |
+| ExternalItem      | Provider, instance, and stable API identifier | External provider; locally authored references are portable, fetched records are cached. |
 
 An individual occurrence of an imported recurring event is identified by `UID` and `RECURRENCE-ID`. Imported UIDs are preserved rather than replaced with UUIDs. See the [iCalendar identity specification](https://icalendar.org/iCalendar-RFC-5545/3-8-4-7-unique-identifier.html).
 
@@ -104,17 +106,19 @@ External URLs, Jira keys, titles, and statuses are useful attributes, not substi
 
 ## Markdown metadata
 
+For validated Vault Notes, the editor and reading preview hide the YAML frontmatter, including `id` and `kind`. Editing operates on the body; saving retains the metadata prefix verbatim, including BOM and original line endings. A closing delimiter at EOF gains a matching newline only when a body is added. Unvalidated, changed, or unclosed frontmatter remains visible for correction. Selecting all editable text cannot remove a hidden metadata header.
+
 Illustrative Note:
 
 ```markdown
 ---
-id: "7f27ae62-a642-44ce-9da4-8b34a380f91c"
+id: '7f27ae62-a642-44ce-9da4-8b34a380f91c'
 kind: topic
 tags:
   - distributed-systems
 refs:
   - kind: document
-    id: "22edcb7d-c5b2-48a6-86e0-8459845837e5"
+    id: '22edcb7d-c5b2-48a6-86e0-8459845837e5'
 ---
 
 # Eventual consistency
@@ -209,20 +213,19 @@ Import must not write outside its destination through archive paths or follow fi
 
 ## Integrity requirements
 
-| Scenario | Required behavior |
-| --- | --- |
+| Scenario                                                 | Required behavior                                                                                      |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | A script edits a Note while the user edits it in Adamant | Preserve both versions and expose conflict resolution; modification time alone cannot choose a winner. |
-| A file temporarily has invalid YAML | Show the metadata error and retain access to the source text; do not destructively repair it. |
-| Two Notes contain the same UUID | Report a collision rather than merge their content or relationships. |
-| A Document is moved without its companion | Show an unresolved association and allow reassociation. |
-| A referenced item is deleted | Keep the reference as unresolved; do not delete related Notes. |
-| External synchronization fails | Keep the last available cache and display its freshness. |
-| The index is removed | Reconstruct local authored relationships and search from the Vault. |
-| A Vault is copied to another installation | Recover its content without the old database or credentials. |
+| A file temporarily has invalid YAML                      | Show the metadata error and retain access to the source text; do not destructively repair it.          |
+| Two Notes contain the same UUID                          | Report a collision rather than merge their content or relationships.                                   |
+| A Document is moved without its companion                | Show an unresolved association and allow reassociation.                                                |
+| A referenced item is deleted                             | Keep the reference as unresolved; do not delete related Notes.                                         |
+| External synchronization fails                           | Keep the last available cache and display its freshness.                                               |
+| The index is removed                                     | Reconstruct local authored relationships and search from the Vault.                                    |
+| A Vault is copied to another installation                | Recover its content without the old database or credentials.                                           |
 
 ## Isolation
 
 Each Vault has independent connection configuration, cache, credential association, and export operations. There are no cross-Vault references in this stage. Corporate data must not appear in a personal Vault through shared search or background synchronization.
 
 Open, AI-friendly storage does not grant agents or external services automatic access to corporate or personal content.
-

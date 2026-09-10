@@ -3,20 +3,14 @@
   "$id": "urn:adamant:schema:note:v1",
   "title": "Adamant Markdown frontmatter",
   "type": "object",
-  "required": [
-    "id"
-  ],
+  "required": ["id"],
   "properties": {
     "id": {
       "type": "string",
       "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
     },
     "kind": {
-      "enum": [
-        "note",
-        "topic",
-        "documentation-page"
-      ]
+      "enum": ["note", "topic", "documentation-page"]
     },
     "tags": {
       "type": "array",
@@ -37,18 +31,10 @@
       "oneOf": [
         {
           "type": "object",
-          "required": [
-            "kind",
-            "id"
-          ],
+          "required": ["kind", "id"],
           "properties": {
             "kind": {
-              "enum": [
-                "note",
-                "topic",
-                "document",
-                "documentation-page"
-              ]
+              "enum": ["note", "topic", "document", "documentation-page"]
             },
             "id": {
               "type": "string",
@@ -59,10 +45,7 @@
         },
         {
           "type": "object",
-          "required": [
-            "kind",
-            "id"
-          ],
+          "required": ["kind", "id"],
           "properties": {
             "kind": {
               "const": "calendar-event"
@@ -80,22 +63,13 @@
         },
         {
           "type": "object",
-          "required": [
-            "kind",
-            "provider",
-            "instance",
-            "id",
-            "url"
-          ],
+          "required": ["kind", "provider", "instance", "id", "url"],
           "properties": {
             "kind": {
               "const": "external-item"
             },
             "provider": {
-              "enum": [
-                "github",
-                "jira"
-              ]
+              "enum": ["github", "jira"]
             },
             "instance": {
               "type": "string",

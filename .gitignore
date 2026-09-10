@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .generated/
-src-tauri/target/
-src-tauri/gen/
+native/target/
+native/gen/
 *.local
+.empryo

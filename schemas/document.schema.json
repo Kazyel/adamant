@@ -3,9 +3,7 @@
   "$id": "urn:adamant:schema:document:v1",
   "title": "Adamant document companion metadata",
   "type": "object",
-  "required": [
-    "id"
-  ],
+  "required": ["id"],
   "properties": {
     "id": {
       "type": "string",
@@ -27,18 +25,10 @@
       "oneOf": [
         {
           "type": "object",
-          "required": [
-            "kind",
-            "id"
-          ],
+          "required": ["kind", "id"],
           "properties": {
             "kind": {
-              "enum": [
-                "note",
-                "topic",
-                "document",
-                "documentation-page"
-              ]
+              "enum": ["note", "topic", "document", "documentation-page"]
             },
             "id": {
               "type": "string",
@@ -49,10 +39,7 @@
         },
         {
           "type": "object",
-          "required": [
-            "kind",
-            "id"
-          ],
+          "required": ["kind", "id"],
           "properties": {
             "kind": {
               "const": "calendar-event"
@@ -70,22 +57,13 @@
         },
         {
           "type": "object",
-          "required": [
-            "kind",
-            "provider",
-            "instance",
-            "id",
-            "url"
-          ],
+          "required": ["kind", "provider", "instance", "id", "url"],
           "properties": {
             "kind": {
               "const": "external-item"
             },
             "provider": {
-              "enum": [
-                "github",
-                "jira"
-              ]
+              "enum": ["github", "jira"]
             },
             "instance": {
               "type": "string",

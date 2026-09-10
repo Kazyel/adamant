@@ -12,25 +12,25 @@ Tauri 2, TypeScript, Rust, local-first storage, and the [Vault contract](vault-c
 
 Snapshot: 2026-09-05. Versions were checked against upstream releases, npm, and crates.io; star counts were fetched from the GitHub API. Popularity is used among suitable alternatives, not as evidence of performance or compatibility. Recheck stable releases when implementation begins and lock the compatible dependency graph.
 
-| Role | Technology | Stable version at review | GitHub stars |
-| --- | --- | --- | ---: |
-| Desktop | [Tauri](https://github.com/tauri-apps/tauri) | Rust crate `2.11.5` | 110826 |
-| Frontend language | [TypeScript](https://github.com/microsoft/TypeScript) | `7.0.2` | 110904 |
-| UI | [React](https://github.com/react/react) | `19.2.8` | 249105 |
-| Build tooling | [Vite](https://github.com/vitejs/vite) | `8.2.2` | 82694 |
-| Markdown editor | [Monaco Editor](https://github.com/microsoft/monaco-editor) | `0.56.0` | 46666 |
-| Markdown parsing | [Marked](https://github.com/markedjs/marked) | `18.0.11` | 37120 |
-| HTML sanitization | [DOMPurify](https://github.com/cure53/DOMPurify) | `3.4.14` | 17358 |
-| PDF viewing | [PDF.js](https://github.com/mozilla/pdf.js) | `pdfjs-dist 6.3.289` | 53836 |
-| DOCX viewing | [docx-preview](https://github.com/VolodymyrBaydalka/docxjs) | `0.4.0` | 2079 |
-| Calendar UI | [FullCalendar](https://github.com/fullcalendar/fullcalendar) | `@fullcalendar/react 7.1.0` | 20630 |
-| iCalendar parsing | [ical.js](https://github.com/kewisch/ical.js) | `2.2.1` | 1177 |
-| SQLite access | [SQLx](https://github.com/transact-rs/sqlx) | `0.9.0` | 17449 |
-| OS credential storage | [keyring](https://github.com/open-source-cooperative/keyring-rs) | `4.2.0` | 765 |
-| HTTP client | [reqwest](https://github.com/seanmonstar/reqwest) | `0.13.4` | 11811 |
-| Serialization | [Serde](https://github.com/serde-rs/serde) | `1.0.229` | 10800 |
-| JSON | [serde_json](https://github.com/serde-rs/json) | `1.0.151` | 5635 |
-| Filesystem watching | [notify](https://github.com/notify-rs/notify) | `8.2.0` | 3447 |
+| Role                  | Technology                                                       | Stable version at review    | GitHub stars |
+| --------------------- | ---------------------------------------------------------------- | --------------------------- | -----------: |
+| Desktop               | [Tauri](https://github.com/tauri-apps/tauri)                     | Rust crate `2.11.5`         |       110826 |
+| Frontend language     | [TypeScript](https://github.com/microsoft/TypeScript)            | `7.0.2`                     |       110904 |
+| UI                    | [React](https://github.com/react/react)                          | `19.2.8`                    |       249105 |
+| Build tooling         | [Vite](https://github.com/vitejs/vite)                           | `8.2.2`                     |        82694 |
+| Markdown editor       | [Monaco Editor](https://github.com/microsoft/monaco-editor)      | `0.56.0`                    |        46666 |
+| Markdown parsing      | [Marked](https://github.com/markedjs/marked)                     | `18.0.11`                   |        37120 |
+| HTML sanitization     | [DOMPurify](https://github.com/cure53/DOMPurify)                 | `3.4.14`                    |        17358 |
+| PDF viewing           | [PDF.js](https://github.com/mozilla/pdf.js)                      | `pdfjs-dist 6.3.289`        |        53836 |
+| DOCX viewing          | [docx-preview](https://github.com/VolodymyrBaydalka/docxjs)      | `0.4.0`                     |         2079 |
+| Calendar UI           | [FullCalendar](https://github.com/fullcalendar/fullcalendar)     | `@fullcalendar/react 7.1.0` |        20630 |
+| iCalendar parsing     | [ical.js](https://github.com/kewisch/ical.js)                    | `2.2.1`                     |         1177 |
+| SQLite access         | [SQLx](https://github.com/transact-rs/sqlx)                      | `0.9.0`                     |        17449 |
+| OS credential storage | [keyring](https://github.com/open-source-cooperative/keyring-rs) | `4.2.0`                     |          765 |
+| HTTP client           | [reqwest](https://github.com/seanmonstar/reqwest)                | `0.13.4`                    |        11811 |
+| Serialization         | [Serde](https://github.com/serde-rs/serde)                       | `1.0.229`                   |        10800 |
+| JSON                  | [serde_json](https://github.com/serde-rs/json)                   | `1.0.151`                   |         5635 |
+| Filesystem watching   | [notify](https://github.com/notify-rs/notify)                    | `8.2.0`                     |         3447 |
 
 Toolchain baseline:
 
@@ -84,7 +84,7 @@ Acceptance: an externally edited Note is recognized correctly; conflicting versi
 
 Learning goal: identity, ownership, serialization, filesystem operations, and data-loss boundaries.
 
-**Evidence:** Native Linux/Tauri WebKitGTK validation exercised create/save/reopen/copy/cache rebuild, external and invalid metadata/source preservation, Cancel/Discard/Save guards, adoption/import/collision behavior, paged 250-sibling browsing with 200 retained across save, 50,010 unsupported files capped at 50,000 with partial state, 2,055 directories producing partial state at the 2,048-watch cap, source read/Close Vault timing observations, real PDF page 1 and DOCX text rendering, picker/read-failure/hidden-buffer guard preservation, and the shipped release GUI creating/saving exact bytes on btrfs. Frontend React+Monaco validation exercised BOM/mixed-EOL grouped undo/redo, unequal simultaneous ranges, 140 undo/redo groups, and undo→branch. Focused repository commands are `node --experimental-strip-types --test tests/markdownSource.test.ts` (3 tests passed) and `cargo test --manifest-path src-tauri/Cargo.toml --lib vault::tests -- --test-threads=1` (23 tests passed). The executable was built with `npm run tauri -- build --no-bundle` at `src-tauri/target/release/adamant`; this is not an installer or distribution bundle.
+**Evidence:** Native Linux/Tauri WebKitGTK validation exercised create/save/reopen/copy/cache rebuild, external and invalid metadata/source preservation, Cancel/Discard/Save guards, adoption/import/collision behavior, paged 250-sibling browsing with 200 retained across save, 50,010 unsupported files capped at 50,000 with partial state, 2,055 directories producing partial state at the 2,048-watch cap, source read/Close Vault timing observations, real PDF page 1 and DOCX text rendering, picker/read-failure/hidden-buffer guard preservation, and the shipped release GUI creating/saving exact bytes on btrfs. Frontend React+Monaco validation exercised BOM/mixed-EOL grouped undo/redo, unequal simultaneous ranges, 140 undo/redo groups, and undo→branch. At this milestone, 3 raw-source tests and 23 Rust tests passed; the current commands are `bun run test:ts` and `bun run test:rust`. The executable was built with `tauri build --no-bundle` at `native/target/release/adamant`; this is not an installer or distribution bundle.
 
 #### M1 UX and native evidence
 
@@ -226,7 +226,7 @@ Study architecture through actual persistence, concurrency, synchronization, sec
 ## M0 verification record
 
 - `cargo check` passed with Rust 1.97.1.
-- `npm run build` passed with Node 24.14.1, TypeScript 7.0.2, and Vite 8.2.2. Vite reports a large lazy-loaded Monaco chunk; this warning is not suppressed.
+- The frontend build passed with Node 24.14.1, TypeScript 7.0.2, and Vite 8.2.2. Vite reports a large lazy-loaded Monaco chunk; this warning is not suppressed.
 - The Tauri production build passed and a native Linux window launched. Native file picking and Markdown viewing were observed.
 - Actual browser keyboard interaction verified rapid Markdown entry, accented text, tables, code, tab navigation, and buffer retention between views. A reproduced cursor/source synchronization bug was fixed.
 - Browser component checks with real fixture bytes verified PDF page navigation, 75% zoom, text selection, and worker cleanup; DOCX displayed a table, multiple sections, and an embedded PNG. These checks did not mock native IPC and do not constitute full native document-path verification.
@@ -239,4 +239,3 @@ Owner acceptance (September 6, 2026): M0 is approved, with initial connections a
 Integrated window controls: native decorations are disabled; tab-bar drag regions and minimize, maximize/restore, and close actions use narrowly scoped Tauri permissions. Production build passed. Native Wayland maximize/restore changed the window size and restored it; closing an empty X11 test instance exited successfully. On the tested Niri session, minimize left the window visible. Dragging is wired through Tauri's native drag-region handling but has not been verified with a physical pointer gesture in this session. No compositor-specific hide/recovery workaround is implemented.
 
 Next: assess other operating systems, installers, and unsupported filesystem behavior. M2 and later workflows remain planned.
-
