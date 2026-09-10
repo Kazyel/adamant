@@ -64,7 +64,7 @@ export function EditorPane({ workspace, navigation, documentInfo }: DocumentProp
           <Suspense
             fallback={
               <div className="viewer-message" role="status">
-                Loading Monaco editor…
+                Loading Markdown editor…
               </div>
             }
           >

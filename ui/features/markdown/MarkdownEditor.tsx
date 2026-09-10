@@ -1,61 +1,57 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
-import * as monaco from 'monaco-editor/editor/editor.api.js';
-import 'monaco-editor/languages/definitions/markdown/register.js';
-import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker';
+import { Compartment, EditorState } from '@codemirror/state';
 import {
-  joinMarkdownSource,
-  MarkdownSourceHistory,
-  validatedMarkdownPrefix,
-} from './markdownSource';
+  drawSelection,
+  dropCursor,
+  EditorView,
+  highlightActiveLine,
+  keymap,
+} from '@codemirror/view';
+import { defaultKeymap, historyKeymap } from '@codemirror/commands';
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { searchKeymap } from '@codemirror/search';
+import { tags } from '@lezer/highlight';
+import { joinMarkdownSource, validatedMarkdownPrefix } from './markdownSource';
+import { createMarkdownState, readMarkdownSource } from './markdownState';
 
-self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
-
-monaco.editor.defineTheme('adamant', {
-  base: 'vs-dark',
-  inherit: true,
-  rules: [
-    { token: '', foreground: 'E8E6ED' },
-    { token: 'keyword', foreground: 'BEA2F8' },
-    { token: 'strong', foreground: 'F1EFF6', fontStyle: 'bold' },
-    { token: 'emphasis', foreground: 'DBD6E6', fontStyle: 'italic' },
-    { token: 'string', foreground: 'D6C09B' },
-    { token: 'string.link', foreground: 'BEA2F8' },
-    { token: 'variable', foreground: 'D6C09B' },
-    { token: 'variable.source', foreground: 'DBD6E6' },
-    { token: 'comment', foreground: 'A7A3B0' },
-    { token: 'tag', foreground: 'BEA2F8' },
-    { token: 'delimiter', foreground: 'A7A3B0' },
-  ],
-  colors: {
-    'editor.background': '#212129',
-    'editor.foreground': '#E8E6ED',
-    'editorCursor.foreground': '#BEA2F8',
-    'editorLineNumber.foreground': '#746E7C',
-    'editorLineNumber.activeForeground': '#A7A3B0',
-    'editor.selectionBackground': '#BEA2F833',
-    'editor.inactiveSelectionBackground': '#BEA2F81A',
-    'editor.selectionHighlightBackground': '#BEA2F81A',
-    'editor.lineHighlightBackground': '#FFFFFF03',
-    'editor.lineHighlightBorder': '#00000000',
-    'editorIndentGuide.background1': '#3F3F4A',
-    'editorWhitespace.foreground': '#3F3F4A',
-    'editorGutter.background': '#212129',
-    'editorWidget.background': '#242431',
-    'editorWidget.border': '#544F5F',
-    'editorWidget.foreground': '#E8E6ED',
-    'editor.findMatchBackground': '#BEA2F84D',
-    'editor.findMatchHighlightBackground': '#BEA2F826',
-    'editorError.foreground': '#EAA7A7',
-    'editorWarning.foreground': '#D6C09B',
-    'input.background': '#191924',
-    'input.foreground': '#E8E6ED',
-    'input.border': '#544F5F',
-    focusBorder: '#BEA2F8',
-    'scrollbarSlider.background': '#A7A3B026',
-    'scrollbarSlider.hoverBackground': '#A7A3B047',
-    'scrollbarSlider.activeBackground': '#BEA2F866',
+const theme = EditorView.theme(
+  {
+    '&': { height: '100%', color: '#E8E6ED', backgroundColor: '#212129', fontSize: '17px' },
+    '&.cm-focused': { outline: 'none' },
+    '.cm-scroller': {
+      overflow: 'auto',
+      fontFamily: '"Adamant Sans", sans-serif',
+      lineHeight: '27px',
+    },
+    '.cm-content': { padding: '56px 0 24px', caretColor: '#BEA2F8' },
+    '.cm-line': { padding: '0 20px' },
+    '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#BEA2F8' },
+    '.cm-selectionBackground': { backgroundColor: '#BEA2F81A' },
+    '&.cm-focused .cm-selectionBackground, .cm-content ::selection': {
+      backgroundColor: '#BEA2F833',
+    },
+    '.cm-activeLine': { backgroundColor: 'transparent' },
+    '&.cm-focused .cm-activeLine': { backgroundColor: '#FFFFFF03' },
+    '.cm-searchMatch': { backgroundColor: '#BEA2F826' },
+    '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: '#BEA2F84D' },
+    '.cm-panels': { backgroundColor: '#242431', color: '#E8E6ED' },
+    '.cm-panels.cm-panels-top': { borderBottom: '1px solid #544F5F' },
+    '.cm-textfield': { backgroundColor: '#191924', color: '#E8E6ED', border: '1px solid #544F5F' },
+    '.cm-button': { background: '#242431', color: '#E8E6ED', border: '1px solid #544F5F' },
   },
-});
+  { dark: true },
+);
+
+const highlighting = HighlightStyle.define([
+  { tag: [tags.heading, tags.keyword, tags.link], color: '#BEA2F8' },
+  { tag: tags.strong, color: '#F1EFF6', fontWeight: 'bold' },
+  { tag: tags.emphasis, color: '#DBD6E6', fontStyle: 'italic' },
+  { tag: tags.strikethrough, textDecoration: 'line-through' },
+  { tag: [tags.string, tags.url], color: '#D6C09B' },
+  { tag: tags.monospace, color: '#DBD6E6', fontFamily: '"Adamant Mono", monospace' },
+  { tag: [tags.comment, tags.meta, tags.processingInstruction], color: '#A7A3B0' },
+]);
 
 export default function MarkdownEditor({
   initialValue,
@@ -69,72 +65,42 @@ export default function MarkdownEditor({
   readOnly?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
-  const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  // Keep validated metadata outside Monaco, including select-all and undo history.
+  const editor = useRef<EditorView | null>(null);
+  // The parent remounts on disk refresh/navigation. Metadata never enters select-all or undo.
   const [initial] = useState(() => {
     const prefix = validatedMarkdownPrefix(initialValue, validatedSource);
     return { prefix, body: initialValue.slice(prefix.length), readOnly };
   });
+  const [mode] = useState(() => new Compartment());
   const notifyChange = useEffectEvent((value: string) => onChange(value));
-  const [historyNotice, setHistoryNotice] = useState(false);
 
   useEffect(() => {
-    const model = monaco.editor.createModel(initial.body, 'markdown');
-    const instance = monaco.editor.create(container.current!, {
-      model,
-      readOnly: initial.readOnly,
-      theme: 'adamant',
-      automaticLayout: true,
-      minimap: { enabled: false },
-      fontFamily: '"Adamant Sans", sans-serif',
-      fontSize: 17,
-      lineHeight: 27,
-      fontLigatures: false,
-      disableMonospaceOptimizations: true,
-      padding: { top: 56, bottom: 24 },
-      lineNumbers: 'off',
-      lineDecorationsWidth: 20,
-      glyphMargin: false,
-      wordWrap: 'on',
-      scrollBeyondLastLine: false,
-      ariaLabel: 'Markdown source editor',
-      tabFocusMode: true,
-      renderLineHighlight: 'line',
-      renderLineHighlightOnlyWhenFocus: true,
-      overviewRulerLanes: 0,
-      hideCursorInOverviewRuler: true,
-      folding: false,
-      links: false,
-      contextmenu: false,
+    const instance = new EditorView({
+      parent: container.current!,
+      state: createMarkdownState(initial.body, [
+        markdown({ base: markdownLanguage, completeHTMLTags: false, pasteURLAsLink: false }),
+        syntaxHighlighting(highlighting),
+        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+        EditorState.allowMultipleSelections.of(true),
+        drawSelection(),
+        dropCursor(),
+        highlightActiveLine(),
+        EditorView.lineWrapping,
+        EditorView.contentAttributes.of({ 'aria-label': 'Markdown source editor' }),
+        mode.of([
+          EditorState.readOnly.of(initial.readOnly),
+          EditorView.editable.of(!initial.readOnly),
+        ]),
+        theme,
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            notifyChange(joinMarkdownSource(initial.prefix, readMarkdownSource(update.state)));
+          }
+        }),
+      ]),
     });
     editor.current = instance;
-    let history = new MarkdownSourceHistory(initial.body, model.getAlternativeVersionId());
-    let resetting = false;
-    const listener = model.onDidChangeContent((event) => {
-      if (resetting) {
-        return;
-      }
-      let direction: 'edit' | 'undo' | 'redo' = 'edit';
-      if (event.isUndoing) {
-        direction = 'undo';
-      } else if (event.isRedoing) {
-        direction = 'redo';
-      }
-      const source = history.apply(event.changes, model.getAlternativeVersionId(), direction);
-      if (source === null) {
-        // Keep the editor and the save buffer aligned if an unexpected model reset
-        // invalidates history. Never submit normalized undo text as original source.
-        resetting = true;
-        model.setValue(history.source);
-        resetting = false;
-        history = new MarkdownSourceHistory(history.source, model.getAlternativeVersionId());
-        setHistoryNotice(true);
-        return;
-      }
-      setHistoryNotice(false);
-      notifyChange(joinMarkdownSource(initial.prefix, source));
-    });
-    // Webfont arrival changes glyph widths; invalidate Monaco's cached measurements.
+
     let disposed = false;
     void Promise.all([
       document.fonts.load('400 17px "Adamant Sans"'),
@@ -142,31 +108,25 @@ export default function MarkdownEditor({
       document.fonts.load('italic 17px "Adamant Sans"'),
     ]).then(() => {
       if (!disposed) {
-        monaco.editor.remeasureFonts();
+        instance.requestMeasure();
       }
     });
+
     return () => {
       disposed = true;
-      listener.dispose();
-      instance.dispose();
-      model.dispose();
+      instance.destroy();
       editor.current = null;
     };
-  }, [initial]);
+  }, [initial, mode]);
 
   useLayoutEffect(() => {
-    editor.current?.updateOptions({ readOnly });
-  }, [readOnly]);
+    editor.current?.dispatch({
+      effects: mode.reconfigure([
+        EditorState.readOnly.of(readOnly),
+        EditorView.editable.of(!readOnly),
+      ]),
+    });
+  }, [mode, readOnly]);
 
-  return (
-    <>
-      {historyNotice ? (
-        <div role="alert">
-          The editor history was reset to protect the original source. The last operation was not
-          applied; your Markdown buffer is unchanged.
-        </div>
-      ) : null}
-      <div className="editor-container" ref={container} />
-    </>
-  );
+  return <div className="editor-container" ref={container} />;
 }

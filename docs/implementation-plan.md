@@ -12,13 +12,15 @@ Tauri 2, TypeScript, Rust, local-first storage, and the [Vault contract](vault-c
 
 Snapshot: 2026-09-05. Versions were checked against upstream releases, npm, and crates.io; star counts were fetched from the GitHub API. Popularity is used among suitable alternatives, not as evidence of performance or compatibility. Recheck stable releases when implementation begins and lock the compatible dependency graph.
 
+Markdown editor update: the owner subsequently selected CodeMirror 6 instead of Monaco. Its modular packages are pinned in `package.json` and `bun.lock`; the editor row below reflects that decision rather than the original popularity snapshot.
+
 | Role                  | Technology                                                       | Stable version at review    | GitHub stars |
 | --------------------- | ---------------------------------------------------------------- | --------------------------- | -----------: |
 | Desktop               | [Tauri](https://github.com/tauri-apps/tauri)                     | Rust crate `2.11.5`         |       110826 |
 | Frontend language     | [TypeScript](https://github.com/microsoft/TypeScript)            | `7.0.2`                     |       110904 |
 | UI                    | [React](https://github.com/react/react)                          | `19.2.8`                    |       249105 |
 | Build tooling         | [Vite](https://github.com/vitejs/vite)                           | `8.2.2`                     |        82694 |
-| Markdown editor       | [Monaco Editor](https://github.com/microsoft/monaco-editor)      | `0.56.0`                    |        46666 |
+| Markdown editor       | [CodeMirror 6](https://codemirror.net/)                          | `state 6.7.4; view 6.43.11` |            — |
 | Markdown parsing      | [Marked](https://github.com/markedjs/marked)                     | `18.0.11`                   |        37120 |
 | HTML sanitization     | [DOMPurify](https://github.com/cure53/DOMPurify)                 | `3.4.14`                    |        17358 |
 | PDF viewing           | [PDF.js](https://github.com/mozilla/pdf.js)                      | `pdfjs-dist 6.3.289`        |        53836 |
@@ -42,7 +44,9 @@ Toolchain baseline:
 
 ### Selection decisions and constraints
 
-**Monaco over CodeMirror:** follows the preference for the more-starred suitable source editor. Load only the needed editor/language resources on demand, configure local workers, and verify actual resource use. CodeMirror remains a candidate if Monaco fails the required desktop experience; switching requires an explicit technical decision, not silently dropping a requirement.
+**CodeMirror 6 replaces Monaco (owner decision):** use the modular editor directly, without a React wrapper or editor worker. Load Markdown editing on demand and retain the separate Marked/DOMPurify preview. CodeMirror owns selection, changes, and undo/redo; a persistent newline map recorded in its native history retains the original BOM and mixed line endings. Validated metadata stays outside the editable document. External document replacement remounts the editor instead of injecting non-history edits. Native history retains at least 200 edit groups; regression coverage exercises 140 groups and abandoned redo branches.
+
+**Migration verification:** the four source-preservation tests now exercise actual CodeMirror transactions and history, including grouped newline edits, simultaneous unequal ranges, whole-body replacement, and frontmatter delimiters at EOF. A browser-mounted React smoke exercised text insertion/Unicode, select-all/undo/redo key bindings, current callbacks, read-only blocking, search, and StrictMode/remount cleanup. This is functional evidence, not visual acceptance or a new cross-platform claim.
 
 **Marked plus DOMPurify:** Marked has more stars than the compared markdown-it and react-markdown repositories. [Marked does not sanitize its output](https://marked.js.org/). Sanitize previews and enforce a separate local-resource/URL policy. Preview rendering must not rewrite the authoritative source.
 
@@ -64,7 +68,7 @@ Toolchain baseline:
 
 Work:
 
-- Run Monaco Markdown editing, PDF.js, and docx-preview in the system WebView.
+- Run Markdown editing, PDF.js, and docx-preview in the system WebView.
 - Exercise representative documents with tables, images, code, accents, and multiple pages.
 - Open original documents in external applications.
 - Confirm native credential storage and authorized read access to GitHub and Jira Cloud.
@@ -226,7 +230,7 @@ Study architecture through actual persistence, concurrency, synchronization, sec
 ## M0 verification record
 
 - `cargo check` passed with Rust 1.97.1.
-- The frontend build passed with Node 24.14.1, TypeScript 7.0.2, and Vite 8.2.2. Vite reports a large lazy-loaded Monaco chunk; this warning is not suppressed.
+- The original frontend build passed with Node 24.14.1, TypeScript 7.0.2, and Vite 8.2.2. That Monaco-based build reported a large lazy-loaded editor chunk; Monaco has since been replaced by CodeMirror as recorded above.
 - The Tauri production build passed and a native Linux window launched. Native file picking and Markdown viewing were observed.
 - Actual browser keyboard interaction verified rapid Markdown entry, accented text, tables, code, tab navigation, and buffer retention between views. A reproduced cursor/source synchronization bug was fixed.
 - Browser component checks with real fixture bytes verified PDF page navigation, 75% zoom, text selection, and worker cleanup; DOCX displayed a table, multiple sections, and an embedded PNG. These checks did not mock native IPC and do not constitute full native document-path verification.
