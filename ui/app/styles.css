@@ -1,0 +1,8 @@
+@import './styles/base.css';
+@import './styles/shell.css';
+@import './styles/explorer.css';
+@import './styles/workbench.css';
+@import './styles/documents.css';
+@import './styles/connections.css';
+@import './styles/dialogs.css';
+@import './styles/responsive.css';

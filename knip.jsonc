@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "entry": ["ui/**/*.test.ts"],
+  "project": ["ui/**/*.{ts,tsx}", "scripts/**/*.mjs"],
+  // Provided by the Rust toolchain, not a JavaScript dependency.
+  "ignoreBinaries": ["rustfmt"],
+}

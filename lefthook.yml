@@ -1,0 +1,12 @@
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      glob: '*.{js,mjs,cjs,jsx,ts,tsx,json,jsonc,css,html,md,yml,yaml,toml}'
+      run: bun run oxfmt --check {staged_files}
+    lint:
+      glob: '*.{js,mjs,cjs,jsx,ts,tsx}'
+      run: bun run lint {staged_files}
+    rust-format:
+      glob: '*.rs'
+      run: node scripts/check-rust-format.mjs {staged_files}

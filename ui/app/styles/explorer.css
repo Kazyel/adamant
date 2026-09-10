@@ -1,0 +1,295 @@
+.sidebar {
+  position: relative;
+  isolation: isolate;
+  width: 232px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: hsl(247.5 17.391304% 16.152471% / 89%);
+  border-right: 1px solid hsl(260 7.692308% 28.982588%);
+  box-shadow: inset -1px 0 hsl(255.555556 35.064935% 86.085647% / 5%);
+}
+
+.sidebar > :not(.atmosphere) {
+  position: relative;
+  z-index: 1;
+}
+
+.explorer-header {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 17px;
+  border-bottom: 1px solid hsl(246.666667 11.392405% 22.115764%);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.explorer-section {
+  flex: 1;
+  padding: 10px 10px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.explorer-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 9px;
+}
+
+.explorer-heading h2 {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  margin: 0;
+}
+
+.explorer-heading .icon-button {
+  width: 25px;
+  height: 25px;
+  min-height: 25px;
+}
+
+.explorer-heading .workspace-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.explorer-file {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+  margin-bottom: 3px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  text-align: left;
+}
+
+.explorer-file > span:not(.buffer-dot) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-file small {
+  font-size: 12px;
+}
+
+.explorer-file:hover:not(:disabled) {
+  background: rgb(255 255 255 / 4%);
+  border-color: transparent;
+}
+
+.explorer-file[aria-pressed='true'] {
+  color: hsl(263.333333 75% 91.326118%);
+  background: hsl(266.666667 44.554455% 63.497412% / 17%);
+}
+
+.explorer-file[aria-pressed='true'] .workspace-icon {
+  color: var(--accent);
+}
+
+.vault-heading h2 {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.explorer-tools {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.explorer-empty {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 10px 7px 16px;
+  overflow-wrap: anywhere;
+}
+
+.explorer-empty p {
+  margin: 12px 0;
+}
+
+.explorer-empty button {
+  background: transparent;
+  font-size: 12px;
+}
+
+.standalone-heading {
+  padding-top: 19px;
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.vault-tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.vault-tree-list .vault-tree-list {
+  margin-left: 10px;
+  padding-left: 6px;
+  border-left: 1px solid hsl(260 8.571429% 26.814118%);
+}
+
+.explorer-directory {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 3px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  text-align: left;
+  font-size: 13px;
+  border-radius: 4px;
+}
+
+.explorer-directory > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-directory .workspace-icon:first-child {
+  width: 12px;
+  height: 12px;
+}
+
+.explorer-directory[aria-expanded='true'] > .workspace-icon:first-child {
+  transform: rotate(90deg);
+}
+
+.explorer-directory:hover {
+  background: rgb(255 255 255 / 4%);
+  border-color: transparent;
+  color: var(--text);
+}
+
+.vault-tree .explorer-file {
+  padding-left: 6px;
+  gap: 6px;
+}
+
+.explorer-page-status {
+  margin: 3px 6px 12px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.explorer-page-status p {
+  margin: 5px 0;
+}
+
+.explorer-page-status button,
+.index-status button {
+  padding: 4px 7px;
+  font-size: 12px;
+  margin: 3px 5px 0 0;
+}
+
+.explorer-page-status [role='alert'] {
+  color: var(--amber);
+}
+
+.index-status {
+  margin: 0 5px 12px;
+  font-size: 12px;
+  color: var(--amber);
+  overflow-wrap: anywhere;
+}
+
+.index-status summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  cursor: pointer;
+  line-height: 1.5;
+  padding: 4px 0;
+}
+
+.index-status summary .workspace-icon {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+}
+
+.index-status p {
+  color: var(--muted);
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.background-indexing {
+  color: var(--muted);
+}
+
+.status-index-warning {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  min-height: 0;
+  color: var(--amber);
+  background: transparent;
+  font-size: 12px;
+}
+
+.entry-warning {
+  display: inline-flex;
+  flex: 0 0 auto !important;
+  color: var(--amber);
+}
+
+.entry-warning .workspace-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.vault-issues {
+  margin: 15px 6px 0;
+  color: var(--amber);
+  font-size: 12px;
+}
+
+.vault-issues summary {
+  cursor: pointer;
+  padding: 5px 0;
+}
+
+.vault-issues ul {
+  list-style: none;
+  padding: 0;
+}
+
+.vault-issues li {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.vault-issues strong,
+.vault-issues span {
+  display: block;
+}
+
+.vault-issues strong {
+  font-weight: 500;
+  margin-bottom: 4px;
+}

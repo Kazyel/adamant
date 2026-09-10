@@ -1,0 +1,42 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "jsx-a11y", "import", "unicorn", "oxc"],
+  "categories": {
+    "correctness": "error"
+  },
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "complexity": [
+      "error",
+      {
+        "max": 15,
+        "variant": "modified"
+      }
+    ],
+    "max-depth": ["error", 4],
+    "no-nested-ternary": "error",
+    "curly": ["error", "all"],
+    "eqeqeq": ["error", "always"],
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/no-explicit-any": "error",
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    "import/no-cycle": "error",
+    "import/default": "off",
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "jsx-a11y/no-noninteractive-tabindex": ["error", { "roles": ["tabpanel", "region"] }]
+  },
+  "ignorePatterns": [
+    "node_modules/**",
+    "dist/**",
+    ".generated/**",
+    "native/target/**",
+    "native/gen/**",
+    ".empryo/**",
+    "public/licenses/**"
+  ]
+}
