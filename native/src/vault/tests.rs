@@ -7,8 +7,10 @@ use super::{IndexState, Vault, VaultSnapshot};
 
 mod inventory;
 mod lifecycle;
+mod mutations;
 mod notes;
 mod persistence;
+mod search;
 
 struct Fixture {
     _temp: TempDir,

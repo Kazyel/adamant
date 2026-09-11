@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use cap_fs_ext::DirExt;
-use cap_std::{ambient_authority, fs::Dir};
 
 use super::capability::{kind, note_path, read_regular, read_text, relative};
 use super::metadata::{adopt, note_metadata};
@@ -61,6 +60,24 @@ impl Vault {
         }
     }
 
+    pub(crate) fn read_note_identified(
+        &self,
+        path: &str,
+        expected_identity: &str,
+    ) -> VaultResult<NoteDocument> {
+        note_path(path)?;
+        let mut target = super::navigation::navigation_target(self, path)?;
+        if target.identity != expected_identity {
+            return Err(VaultError::conflict(
+                "The document identity changed before it could be opened. Reopen the current file explicitly.",
+                None,
+            ));
+        }
+        let text = String::from_utf8(target.read_bytes()?)
+            .map_err(|_| VaultError::invalid("The Note is not UTF-8."))?;
+        Ok(document(path, text))
+    }
+
     /// Return authorized bytes via the capability, not a second ambient-path read.
     pub fn read_document(&self, path: &str) -> VaultResult<(PathBuf, &'static str, Vec<u8>)> {
         let relative = relative(path)?;
@@ -106,57 +123,6 @@ impl Vault {
         }
         let text = adopt(&current.text)?;
         self.save_note_checked(path, &text, expected_revision, || {}, current.id.is_none())
-    }
-
-    /// Native source selection is a separate adapter. This entry point supports direct temp-Vault smoke runs.
-    pub fn import_note(&self, path: &str, source: &Path) -> VaultResult<NoteDocument> {
-        let _identity = self
-            .identity_writes
-            .lock()
-            .unwrap_or_else(|error| error.into_inner());
-        self.require_complete_inventory()?;
-        note_path(path)?;
-        if kind(source) != "markdown" {
-            return Err(VaultError::invalid("Import a Markdown file."));
-        }
-        let parent = source
-            .parent()
-            .ok_or_else(|| VaultError::invalid("Select a source file."))?;
-        let dir = Dir::open_ambient_dir(parent, ambient_authority())?;
-        let original = read_text(
-            &dir,
-            Path::new(
-                source
-                    .file_name()
-                    .ok_or_else(|| VaultError::invalid("Select a source file."))?,
-            ),
-        )?;
-        let metadata = note_metadata(&original);
-        if let Some(id) = &metadata.id {
-            let mut first = None;
-            for candidate in self.identity_paths(id)? {
-                let note = self.matching_note(&candidate, id)?;
-                if note.text != original {
-                    return Err(VaultError::conflict(
-                        "Import identity collision: another Note has this UUID with different source. Nothing was overwritten.",
-                        Some(note),
-                    ));
-                }
-                if first.is_none() {
-                    first = Some(note);
-                }
-            }
-            if let Some(note) = first {
-                return Ok(note);
-            }
-        }
-        let adopted = if metadata.id.is_some() {
-            original
-        } else {
-            adopt(&original)?
-        };
-        self.ensure_identity_available(path, &adopted)?;
-        self.create_raw(path, &adopted)
     }
 
     pub(super) fn ensure_identity_available(&self, path: &str, text: &str) -> VaultResult<()> {

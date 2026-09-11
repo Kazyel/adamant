@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-navigation-target"
+description = "Enables the vault_navigation_target command without any pre-configured scope."
+commands.allow = ["vault_navigation_target"]
+
+[[permission]]
+identifier = "deny-vault-navigation-target"
+description = "Denies the vault_navigation_target command without any pre-configured scope."
+commands.deny = ["vault_navigation_target"]

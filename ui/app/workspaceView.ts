@@ -1,19 +1,15 @@
 import { isTauri } from '@tauri-apps/api/core';
 import type { Dispatch, SetStateAction } from 'react';
-import type useWorkspace from '../features/workspace/useWorkspace';
-import type { IndexState, NoteDocument } from '../features/workspace/types';
+import type { Workspace } from '../features/workspace/workspaceTypes';
+import type { NoteDocument } from '../features/workspace/types';
 
 export const native = isTauri();
 
-export const indexLabels: Record<IndexState['state'], string> = {
-  indexing: 'Indexing Vault',
-  ready: 'Index ready',
+export const indexLabels: Record<'partial' | 'cancelled', string> = {
   partial: 'Partial index',
-  stale: 'Index out of date',
   cancelled: 'Indexing cancelled',
 };
 
-export type Workspace = ReturnType<typeof useWorkspace>;
 export type View = 'edit' | 'read' | 'split';
 export type Section = 'workbench' | 'connections';
 
@@ -31,7 +27,7 @@ export interface WorkspaceProps {
   workspace: Workspace;
 }
 
-interface Navigation {
+export interface Navigation {
   section: Section;
   setSection: Dispatch<SetStateAction<Section>>;
   sidebarOpen: boolean;
@@ -49,22 +45,20 @@ export interface DocumentProps extends NavigationProps {
   documentInfo: DocumentInfo;
 }
 
-export function getSaveStatus({ buffer, busy, dirty }: Workspace) {
-  if (busy === 'save') {
-    return 'Saving…';
+export function getSaveStatus({ buffer, dirty, documents }: Workspace) {
+  const tab = documents.activeTab;
+  if (tab?.restored) {
+    return tab.hydration?.state === 'error' ? 'Could not open' : 'Loading…';
   }
   if (buffer.conflict) {
-    return 'Disk conflict — buffer kept';
+    return 'File conflict — changes kept';
   }
-  if (dirty) {
-    return 'Unsaved changes';
+  if (tab?.document && tab.kind !== 'markdown') {
+    return 'Read-only';
   }
-  if (buffer.source?.kind === 'vault') {
-    return 'Saved to disk';
+  const hasFile = buffer.source?.kind === 'vault' || !!buffer.source?.path;
+  if (!hasFile) {
+    return 'Not saved yet';
   }
-  if (buffer.source) {
-    return 'Standalone original unchanged';
-  }
-
-  return 'Empty buffer';
+  return dirty ? 'Unsaved changes' : 'Saved';
 }

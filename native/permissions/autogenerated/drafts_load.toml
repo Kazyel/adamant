@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-drafts-load"
+description = "Enables the drafts_load command without any pre-configured scope."
+commands.allow = ["drafts_load"]
+
+[[permission]]
+identifier = "deny-drafts-load"
+description = "Denies the drafts_load command without any pre-configured scope."
+commands.deny = ["drafts_load"]

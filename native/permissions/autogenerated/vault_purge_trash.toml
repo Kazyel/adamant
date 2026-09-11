@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-purge-trash"
+description = "Enables the vault_purge_trash command without any pre-configured scope."
+commands.allow = ["vault_purge_trash"]
+
+[[permission]]
+identifier = "deny-vault-purge-trash"
+description = "Denies the vault_purge_trash command without any pre-configured scope."
+commands.deny = ["vault_purge_trash"]

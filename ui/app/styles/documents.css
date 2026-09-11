@@ -11,27 +11,37 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 8px 12px;
+  flex-shrink: 0;
+  min-height: 44px;
   border-bottom: 1px solid var(--border);
-  padding: 8px;
+  padding: 8px 12px;
   background: var(--surface);
-  font-size: 12px;
+  color: var(--muted);
+  font-size: 0.857rem;
 }
 
 .pdf-toolbar button {
-  padding: 5px 9px;
+  padding: 4px 8px;
   min-height: 30px;
-  font-size: 12px;
+  border-radius: 6px;
+  background: transparent;
+  font-size: inherit;
 }
 
 .pdf-toolbar label {
-  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
 }
 
 .pdf-toolbar select {
-  font-size: 12px;
-  margin-left: 4px;
-  padding: 5px;
+  min-height: 30px;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: inherit;
 }
 
 .pdf-scroll {
@@ -61,4 +71,11 @@
   margin: 0 0 12px;
   font-size: 12px;
   color: var(--muted);
+}
+
+@media (max-width: 440px) {
+  .pdf-toolbar {
+    gap: 8px;
+    padding-inline: 8px;
+  }
 }

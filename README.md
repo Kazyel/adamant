@@ -25,33 +25,55 @@ Adamant is also a personal learning project, developed through small, verifiable
 
 ## Current status
 
-**Early development · M0 approved; M1 implemented and Linux-verified.**
+**Early development · M0 approved; M1 and M1.1 implemented with scoped Linux verification.**
 
 Vault creation explicitly creates a new child folder inside a chosen parent; existing destinations, even empty folders, are refused. Adamant manifests use `format: "adamant-vault"`, `formatVersion: 1`, and a UUID. Supported loaded documents are case-insensitive `.md`, `.pdf`, and `.docx`; `vault.json` and `.meta.yaml` companions are internal metadata.
+
+PDF and DOCX originals can be opened without `.meta.yaml` companions. Missing companions are not Vault issues; existing invalid or orphaned companions are still reported, and original files remain unchanged.
 
 New Vaults create `content/` as their content root, recorded as `"contentRoot": "content"` in the manifest. The explorer shows its contents directly, without a wrapper folder or a default `notes/` prefix. Existing Vaults retain their original layout without migration. Validated Notes hide their metadata header in the editor and reading preview while preserving it when saving.
 
 ### Available now
 
 - **Vault & Markdown:** create/open/reopen portable Vaults, explicit Ctrl+S/⌘S persistence, external-change conflicts, adoption/import, collision reporting, recovery copies retaining raw source and UUID, and a bounded incremental index with visible partial/cancelled states.
-- **Markdown workbench:** editing, sanitized reading preview, and split view, with bundled fonts and a collapsible document explorer.
+- **Markdown workbench:** editing, sanitized reading preview, and split view, with bundled fonts and a collapsible document explorer. The reading column stays centered; long text wraps, and wide code blocks and tables scroll within their own bounds rather than widening the page. Preview links open web/email destinations externally, scroll to local headings, or navigate to relative documents inside the current Vault. Right-click in the editor or press `Shift+F10` for undo/redo, clipboard actions, selection deletion, and select-all. Actions preserve selection and undo history and respect read-only state.
 - **Local document previews:** PDF navigation, zoom, and text selection; approximate DOCX rendering; native file selection and external opening. Files are limited to 64 MiB.
 - **Connection checks:** real, read-only GitHub and Jira Cloud identity requests, with successful credentials saved through the OS credential store. This does not yet synchronize work items.
-- **Focused desktop interface:** integrated title bar, a persistent Adamant operations menu, icon navigation, and contextual Note actions beside the Vault name.
+- **Focused desktop interface:** a matte writing surface flush against the sidebar, with equal top/right/bottom gutters and separate tab and window-control blocks above the content. Gutters share the sidebar's continuous gradient rather than a separate frame background; there is no sidebar title. Hover and selected states use flat fills and text contrast, never lighting, bevels, or state-indicating borders. Atmosphere stays in the surrounding surfaces and sidebar crystal, separate from interaction feedback. Keyboard focus remains visible; focused tabs underline their label instead of drawing a border. The compact Adamant menu and contextual file actions remain familiar; **All commands…** (`Ctrl+Shift+P`) opens the full command palette, including recovery and maintenance operations. Warning/error colors and original PDF/DOCX content are preserved.
+- **Sidebar atmosphere:** a centered, softly lit crystal dissolves into a subtle fade below. Its scale follows the window height; it stays behind file controls, respects reduced motion, and retains a static SVG fallback when WebGL is unavailable.
+- **Surface rendering:** the editor footer, menus, dialogs, and small panels use solid fills. The icon ribbon shares the shell's continuous gradient; a tiny static monochrome dither tile reduces visible 8-bit banding without covering text or adding animated noise.
+- **Sidebar navigation:** distinct Vault, folder, and file typography; consistent row spacing; and short CSS transitions for collapse, hover, and folder chevrons. The sort control uses the app's themed menu with checked Name/Type/Modified choices, keyboard navigation, and focus restoration instead of an unstyled native popup. Collapsed content is inert, and reduced motion disables sidebar transitions and menu animation.
+- **Reading context:** breadcrumbs name the current Vault without repeating it in the status bar. Breadcrumb and status text have stronger contrast without brightening disabled controls. The writing column remains centered; split view stacks vertically when the document area—not the whole window—is too narrow for two comfortable columns.
 
 ### Vault creation and local synchronization
 
 Create Vault opens a two-step wizard: choose a parent folder, then name the new Vault. The parent may already contain files and is not changed by selection. Adamant previews the full destination and creates one new child directory exclusively; existing files and folders, including empty ones, are refused and never adopted. The parent's contents are not scanned or imported.
 
-The persistent Adamant menu remains available even when the explorer is collapsed. New Note and Import actions are contextual to the open Vault. Filesystem watching updates clean notes and listings automatically; partial or stale inventories expose compact recovery details. Saving is explicit with Ctrl+S/⌘S—there is no autosave or cloud synchronization.
+The persistent Adamant menu sits in the bottom icon group, immediately above Trash, and remains available when the explorer is collapsed. Its panel opens upward within the window. Trash stays directly above Connection checks; selection stays highlighted in the file list without a separate footer strip. New Note and Import actions are contextual to the open Vault. Filesystem watching updates clean notes and listings automatically; partial or cancelled indexing exposes compact recovery controls. Saving is explicit with Ctrl+S/⌘S—there is no autosave or cloud synchronization.
+
+Routine saves, copies, and local navigation do not show success or processing banners. Longer saves show progress only in the Save button. The unsaved marker clears only after a confirmed write; edits made during that write remain pending. Background navigation keeps loaded editors usable, while operations that can replace buffers or mutate files retain their safety guards. Errors, conflicts, recovery details, and partial or cancelled indexing remain visible. A stale index does not produce workspace warnings; search still reports incomplete coverage where relevant.
+
+Successful file operations update the explorer and tabs without a result dialog; incomplete outcomes or pending recovery still open a review. Destructive confirmations are unchanged. Automatic indexing and listing refreshes are silent. Folder, Trash, Markdown, PDF, and DOCX loading uses a small local indicator only after 500 ms, with accessible labels and reduced-motion support.
+
+Adamant remembers the last successfully opened or created Vault and restores it at startup. Its canonical container path and UUID are stored in `last-vault.json` in Tauri's local application data directory, outside the portable Vault. Closing Adamant preserves this preference; **Close Vault** clears it. Cancelled or failed selections keep the previous choice. An unavailable folder or changed Vault identity produces a notice without modifying source files or blocking a new selection.
+
+The last active document is restored with its Vault session. Without a Vault, Adamant remembers the active standalone Markdown, PDF, or DOCX file in `last-document.json`, verifies its identity before reopening it, and restores its view and position. No file, or an unavailable remembered file, leaves a writable draft; unavailable files also produce a notice. Drafts without a saved path stay in the editor and tabs, not the file explorer. Save keeps the existing workflow of creating a named Note in a Vault; the remembered-file record never contains unsaved text.
+
+For restored Vault tabs, the active tab loads before recovery drafts are read; inactive tabs load on activation. Loading is distinct from failure. A read or identity-validation failure shows its reason and a retry action in the tab, without changing the source file or retained draft.
+
+The pristine initial **New document** tab has no close control. Its inline writing prompt focuses the editor and disappears on input; real files and drafts with content retain their close controls. Without a Vault, the sidebar offers **Open document…**, **Open Vault…**, and **Create Vault…** directly. Save status distinguishes a document not saved yet, pending changes, saved content, and file conflicts; unloaded tabs and read-only originals are identified separately. Duplicate tab names show the shortest distinguishing parent path, while tooltips expose the full known path.
 
 ### Validation status
 
-- 24 Rust vault tests and 4 CodeMirror state/history tests pass with the focused commands below.
+- 74 native Rust tests and 24 TypeScript tests pass with the focused commands below.
 - Native core evidence covers create/save/reopen/copy/cache rebuild, metadata/source preservation, guards, adoption/import/collisions, paged browsing, and bounded partial indexing.
 - Resource-boundary evidence covers the 50,000-entry and 2,048-watch limits, partial state, and cancellation.
 - CodeMirror history tests cover BOM/mixed-EOL grouped undo/redo, simultaneous ranges, 140 undo/redo groups, undo→branch, and validated frontmatter. A React+CodeMirror browser smoke covers text input, Unicode, select-all, undo/redo bindings, search, read-only mode, and remount cleanup.
 - Actual PDF page 1 and DOCX text rendering, picker/read-failure preservation, and hidden-buffer guards were exercised.
+- Last-Vault coverage includes identity validation, atomic preference replacement, and failed-write preservation. An isolated native process exercised startup restoration, restart persistence, Close Vault followed by an empty restart, and an unavailable remembered folder.
+- PR-review regressions cover confirmed mutation scope, ambiguous import identities, legacy administration exclusion, search identity, stable pagination, and preferred views for newly opened Notes.
+- An isolated Tauri/Wry process exercised the production IPC permissions and verified that workspace loading grants no document access; only an identity-validated tab read grants access to its exact path.
+- The React workspace was exercised in Chromium with controlled IPC responses: keyboard selection and deletion targets, pending creation, combined recovery errors, identity-preserving history, directory favorites, stale watcher responses after saves, replacement protection, and search/filter reset across Vaults. These checks do not certify native dialogs or filesystem behavior.
 
 ```sh
 bun run test:ts
@@ -230,7 +252,7 @@ Keep related state and its mutation together: the workspace coordinator owns ses
 
 - No mandatory hosted backend. Account checks explicitly contact GitHub or Jira Cloud.
 - The interface receives specific native operations, not unrestricted filesystem or credential access.
-- Imported content is untrusted. Markdown and DOCX previews are sanitized and isolated; active content and remote resources are blocked. PDF scripts, forms, and link actions are not exposed.
+- Imported content is untrusted. Markdown and DOCX previews are sanitized and isolated; document scripts and remote resources are blocked. Markdown uses an opaque sandbox with one nonce-authorized navigation bridge, also hash-allowlisted in the production CSP. Messages must match the current frame and document token; only HTTP, HTTPS, and mailto URLs reach the native link opener. DOCX links remain inactive. PDF scripts, forms, and link actions are not exposed.
 - Credentials are not written into notes, browser storage, or portable exports. Existing credentials are not loaded automatically.
 - PDF/DOCX originals are not modified. DOCX layout is approximate; use the external application when fidelity matters.
 

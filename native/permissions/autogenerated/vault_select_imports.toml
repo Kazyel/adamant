@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-select-imports"
+description = "Enables the vault_select_imports command without any pre-configured scope."
+commands.allow = ["vault_select_imports"]
+
+[[permission]]
+identifier = "deny-vault-select-imports"
+description = "Denies the vault_select_imports command without any pre-configured scope."
+commands.deny = ["vault_select_imports"]

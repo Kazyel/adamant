@@ -5,4 +5,5 @@ export interface SelectedDocument {
   name: string;
   kind: DocumentKind;
   bytes: number[];
+  identity: string;
 }

@@ -9,7 +9,7 @@ const vertexSource = `
   uniform float u_aspect;
   varying float v_light;
   varying float v_depth;
-  varying float v_height;
+  varying float v_glint;
 
   void main() {
     float angle = 0.55 + u_time * 0.07;
@@ -20,34 +20,25 @@ const vertexSource = `
     vec3 position = tilt * turn * a_position;
     vec3 normal = tilt * turn * a_normal;
     float depth = 3.8 - position.z;
-    gl_Position = vec4(position.x * 2.25 / u_aspect,
-      position.y * 2.25 - 0.06 * depth, 1.0202 * depth - 0.20202, depth);
+    gl_Position = vec4(position.x * 2.0 / u_aspect,
+      position.y * 2.0, 1.0202 * depth - 0.20202, depth);
     v_light = 0.25 + 0.75 * max(dot(normal, normalize(vec3(-0.4, 0.7, 1.0))), 0.0);
+    v_glint = pow(max(dot(normal, normalize(vec3(-0.45, 0.8, 1.7))), 0.0), 16.0);
     v_depth = clamp(0.5 + position.z * 0.5, 0.0, 1.0);
-    v_height = a_position.y;
   }
 `;
 
 const fragmentSource = `
   precision mediump float;
-  uniform float u_time;
+  varying float v_glint;
   uniform float u_wire;
   varying float v_light;
   varying float v_depth;
-  varying float v_height;
 
   void main() {
-    vec3 facet = mix(vec3(0.12, 0.095, 0.18), vec3(0.42, 0.32, 0.57), v_light);
-    float band = max(0.0, 1.0 - abs(v_height - sin(u_time * 0.16) * 1.2) * 4.0);
-    facet += vec3(0.035, 0.025, 0.055) * band;
-    vec3 wire = mix(vec3(0.58, 0.55, 0.64), vec3(0.73, 0.61, 0.97), v_depth)
-      * (0.42 + 0.3 * v_depth);
-    // Raise HSL lightness twice by 4% toward white, preserving hue and saturation.
-    vec3 color = mix(facet, wire, u_wire);
-    float lightness = (max(max(color.r, color.g), color.b) + min(min(color.r, color.g), color.b)) * 0.5;
-    float brighter = mix(lightness, 1.0, 0.0784);
-    float chromaScale = (1.0 - abs(2.0 * brighter - 1.0)) / max(1.0 - abs(2.0 * lightness - 1.0), 0.0001);
-    gl_FragColor = vec4((color - lightness) * chromaScale + brighter, 1.0);
+    float facet = mix(0.09, 0.34, v_light) + 0.14 * v_glint;
+    float wire = mix(0.28, 0.56, v_depth);
+    gl_FragColor = vec4(vec3(mix(facet, wire, u_wire)), 1.0);
   }
 `;
 
@@ -288,22 +279,12 @@ export default function Atmosphere() {
 
   return (
     <div className="atmosphere" aria-hidden="true">
-      <canvas className="atmosphere__canvas" ref={canvasRef} width={260} height={280} />
-      <svg className="atmosphere__fallback" viewBox="0 0 260 300" fill="none" focusable="false">
-        <g className="atmosphere__layers">
-          <path className="atmosphere__plane-back" d="M82 214L137 66L239 38L281 139L218 277Z" />
-          <path className="atmosphere__plane-front" d="M35 225L94 90L184 64L241 176L187 288Z" />
-          <path className="atmosphere__silver-edge" d="M82 214L137 66L239 38M35 225L94 90L184 64" />
-          <path className="atmosphere__edge-shadow" d="M85 215L140 69L240 41M38 226L97 93L185 67" />
-        </g>
+      <canvas className="atmosphere__canvas" ref={canvasRef} width={260} height={240} />
+      <svg className="atmosphere__fallback" viewBox="0 0 260 240" fill="none" focusable="false">
         <g className="atmosphere__crystal">
-          <path className="atmosphere__facet-back" d="M126 48L186 155L135 267L75 149Z" />
-          <path className="atmosphere__facet-front" d="M126 48L145 185L135 267L75 149Z" />
-          <path
-            className="atmosphere__hidden-edge"
-            d="M126 48L115 125L186 155M75 149L115 125L135 267"
-          />
-          <path d="M126 48L186 155L135 267L75 149ZM126 48L145 185L135 267M75 149L145 185L186 155" />
+          <path className="atmosphere__facet-back" d="M130 38L181 123L130 202L79 117Z" />
+          <path className="atmosphere__facet-front" d="M130 38L119 113L130 202L79 117Z" />
+          <path d="M130 38L181 123L130 202L79 117ZM130 38L119 113L130 202M79 117L119 113L181 123" />
         </g>
       </svg>
     </div>

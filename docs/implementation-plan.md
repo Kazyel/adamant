@@ -100,6 +100,14 @@ Verified in an isolated Linux WebKitGTK/Tauri runtime: parent selection and Back
 
 The persistent menu was exercised by keyboard with the sidebar collapsed and Connections active. Screenshots at 1440, 900, and 760 pixels verified the ready, partial, and wizard states. A real depth-limit fixture exposed one partial warning; the collapsed footer opened the details and transferred keyboard focus to recovery. The wizard rejected a path-like name without creating files. The 23 passing Rust tests include native child-name, collision, symlink, and replaced-parent boundaries; all 3 raw-source tests also passed. M2 and later milestones remain planned; other platforms and installers remain unverified.
 
+### M1.1 — Vault Usability
+
+Status: U01–U39 implemented and locally installed. Linux integrity checks and the installed-app create/save/restart smoke passed; detailed evidence and unexercised manual cases are recorded in the milestone plan.
+
+The [M1.1 implementation plan](m1.1-usability-plan.md) records all 39 usability deliverables and their delivery evidence. The implementation covers file/folder management, recoverable trash and mutation journals, contextual and keyboard actions, bounded search/navigation, real tabs, session/draft recovery, preferences, and drag/drop. Certification is scoped to the observed contracts, not blanket support across platforms or every manual interaction.
+
+M2 starts only after the complete workflow passes native and installed-executable verification. Worker output or a successful development build alone does not satisfy this gate.
+
 ### M2 — Work Context
 
 **Workflow:** connect accounts, choose relevant repositories/projects, follow a work item, attach a Note, and act in the original tool.

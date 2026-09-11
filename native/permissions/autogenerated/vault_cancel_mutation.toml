@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-cancel-mutation"
+description = "Enables the vault_cancel_mutation command without any pre-configured scope."
+commands.allow = ["vault_cancel_mutation"]
+
+[[permission]]
+identifier = "deny-vault-cancel-mutation"
+description = "Denies the vault_cancel_mutation command without any pre-configured scope."
+commands.deny = ["vault_cancel_mutation"]

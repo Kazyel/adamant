@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-lookup-entry"
+description = "Enables the vault_lookup_entry command without any pre-configured scope."
+commands.allow = ["vault_lookup_entry"]
+
+[[permission]]
+identifier = "deny-vault-lookup-entry"
+description = "Denies the vault_lookup_entry command without any pre-configured scope."
+commands.deny = ["vault_lookup_entry"]

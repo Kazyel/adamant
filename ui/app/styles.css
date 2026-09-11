@@ -6,3 +6,4 @@
 @import './styles/connections.css';
 @import './styles/dialogs.css';
 @import './styles/responsive.css';
+@import '../features/interaction/interaction.css';

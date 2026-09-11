@@ -1,254 +1,98 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import WorkspaceIcon from '../shared/ui/WorkspaceIcon';
-import { indexLabels, native } from './workspaceView';
-import type { NavigationProps, WorkspaceProps } from './workspaceView';
+import { ActionList } from '../features/interaction/ActionCatalog';
+import type { UserAction } from '../features/interaction/types';
+import type { NavigationProps } from './workspaceView';
+import { native } from './workspaceView';
 
-function handleMenuNavigation(event: KeyboardEvent<HTMLDivElement>, closeMenu: () => void) {
-  if (event.key === 'Tab') {
-    closeMenu();
-    return;
-  }
-  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
-    return;
-  }
+const menuGroups = {
+  Document: ['tab-new', 'document-open', 'note-save'],
+  Navigation: ['document-quick-open', 'vault-search'],
+  Vault: ['vault-create', 'vault-open'],
+  Application: ['preferences', 'palette'],
+};
 
-  const items = Array.from(
-    event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)'),
+function AppMenu({ actions }: { actions: UserAction[] }) {
+  const [open, setOpen] = useState(false);
+  const container = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const visible = Object.entries(menuGroups).flatMap(([group, ids]) =>
+    actions
+      .filter((action) => ids.includes(action.id))
+      .map((action) => ({
+        ...action,
+        group,
+        label: action.id === 'palette' ? 'All commands…' : action.label,
+      })),
   );
-  const index = items.indexOf(document.activeElement as HTMLButtonElement);
-  let next = (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
-  if (event.key === 'Home') {
-    next = 0;
-  } else if (event.key === 'End') {
-    next = items.length - 1;
+
+  function close() {
+    setOpen(false);
+    trigger.current?.focus();
   }
-
-  items[next]?.focus();
-  event.preventDefault();
-}
-
-function IndexMenu({ workspace, closeMenu }: WorkspaceProps & { closeMenu: () => void }) {
-  const { indexing, indexAction, cancelIndex, reconcile } = workspace;
-  if (!indexing || indexing.state === 'ready') {
-    return null;
-  }
-
-  return (
-    <>
-      <div className="menu-index-description" role="presentation">
-        {indexLabels[indexing.state]}
-      </div>
-      {indexing.state === 'indexing' || indexAction ? (
-        <button
-          role="menuitem"
-          type="button"
-          disabled={!native || indexAction === 'cancel'}
-          onClick={() => {
-            closeMenu();
-            cancelIndex();
-          }}
-        >
-          <WorkspaceIcon name="close" />
-          Cancel indexing
-        </button>
-      ) : null}
-      {indexing.state !== 'indexing' ? (
-        <button
-          role="menuitem"
-          type="button"
-          disabled={!native || indexAction !== null}
-          onClick={() => {
-            closeMenu();
-            reconcile();
-          }}
-        >
-          <WorkspaceIcon name="refresh" />
-          Reconcile local index
-        </button>
-      ) : null}
-      <div role="separator" aria-label="Index operations" />
-    </>
-  );
-}
-
-function AppMenu({ workspace, navigation }: NavigationProps) {
-  const { vault, busy } = workspace;
-  const { setSection } = navigation;
-  const disabled = !native || !!busy;
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menu = useRef<HTMLDivElement>(null);
-  const menuButton = useRef<HTMLButtonElement>(null);
-  const closeMenu = useCallback(() => {
-    setMenuOpen(false);
-    menuButton.current?.focus();
-  }, []);
 
   useEffect(() => {
-    if (!menuOpen) {
+    if (!open) {
       return;
     }
-
-    menu.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus();
-
-    function outside(event: PointerEvent) {
-      if (
-        !(event.target instanceof Node) ||
-        menu.current?.contains(event.target) ||
-        menuButton.current?.contains(event.target)
-      ) {
-        return;
+    container.current
+      ?.querySelector<HTMLButtonElement>(
+        ':is([role="menuitem"], [role="menuitemradio"])[aria-disabled="false"]',
+      )
+      ?.focus();
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !container.current?.contains(event.target)) {
+        setOpen(false);
       }
-
-      closeMenu();
-    }
-
-    function escape(event: globalThis.KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeMenu();
-      }
-    }
-
-    document.addEventListener('pointerdown', outside);
-    document.addEventListener('keydown', escape);
-
-    return () => {
-      document.removeEventListener('pointerdown', outside);
-      document.removeEventListener('keydown', escape);
     };
-  }, [menuOpen, closeMenu]);
+    document.addEventListener('pointerdown', outside);
+    return () => document.removeEventListener('pointerdown', outside);
+  }, [open]);
 
   return (
-    <div className="app-menu">
+    <div className="app-menu" ref={container}>
       <button
+        ref={trigger}
         className="icon-button app-menu-trigger"
         type="button"
-        ref={menuButton}
         title="Adamant menu"
         aria-label="Adamant menu"
         aria-haspopup="menu"
-        aria-expanded={menuOpen}
+        aria-expanded={open}
         aria-controls="app-menu"
-        onClick={() => setMenuOpen((open) => !open)}
+        onClick={() => setOpen((value) => !value)}
         onKeyDown={(event) => {
-          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          if (event.key === 'ArrowDown') {
             event.preventDefault();
-            setMenuOpen(true);
+            setOpen(true);
           }
         }}
       >
         <WorkspaceIcon name="menu" />
       </button>
-      {menuOpen ? (
-        <div
-          className="app-menu-panel"
-          id="app-menu"
-          ref={menu}
-          role="menu"
-          tabIndex={-1}
-          aria-label="Adamant operations"
-          onKeyDown={(event) => handleMenuNavigation(event, closeMenu)}
-        >
-          <button
-            role="menuitem"
-            type="button"
-            disabled={disabled}
-            onClick={() => {
-              closeMenu();
-              workspace.chooseVault('create');
-            }}
-          >
-            <WorkspaceIcon name="new" />
-            Create Vault…
-          </button>
-          <button
-            role="menuitem"
-            type="button"
-            disabled={disabled}
-            onClick={() => {
-              closeMenu();
-              workspace.chooseVault('open');
-            }}
-          >
-            <WorkspaceIcon name="folder" />
-            Open Vault…
-          </button>
-          <button
-            role="menuitem"
-            type="button"
-            disabled={disabled || !vault}
-            onClick={() => {
-              closeMenu();
-              workspace.closeVault();
-            }}
-          >
-            <WorkspaceIcon name="close" />
-            Close Vault
-          </button>
-          <div role="separator" aria-label="Vault operations" />
-          <button
-            role="menuitem"
-            type="button"
-            disabled={disabled || !vault}
-            onClick={() => {
-              closeMenu();
-              setSection('workbench');
-              workspace.newNote();
-            }}
-          >
-            <WorkspaceIcon name="new" />
-            New Note…
-          </button>
-          <button
-            role="menuitem"
-            type="button"
-            disabled={disabled || !vault}
-            onClick={() => {
-              closeMenu();
-              setSection('workbench');
-              workspace.importNote();
-            }}
-          >
-            <WorkspaceIcon name="import" />
-            Import Markdown…
-          </button>
-          <button
-            role="menuitem"
-            type="button"
-            disabled={disabled}
-            onClick={() => {
-              closeMenu();
-              setSection('workbench');
-              workspace.openDocument();
-            }}
-          >
-            <WorkspaceIcon name="document" />
-            Open standalone document…
-          </button>
-          <div role="separator" aria-label="Document operations" />
-          <IndexMenu workspace={workspace} closeMenu={closeMenu} />
-          <button
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              closeMenu();
-              setSection('connections');
-            }}
-          >
-            <WorkspaceIcon name="connections" />
-            Connections
-          </button>
+      {open ? (
+        <div id="app-menu" className="app-menu-panel">
+          <div className="app-menu-heading">Adamant</div>
+          <ActionList
+            actions={visible}
+            onRun={close}
+            onDismiss={close}
+            label="Adamant menu"
+            grouped="separators"
+          />
         </div>
       ) : null}
     </div>
   );
 }
 
-export default function WorkspaceRibbon({ workspace, navigation }: NavigationProps) {
+export default function WorkspaceRibbon({
+  workspace,
+  navigation,
+  actions,
+}: NavigationProps & { actions: UserAction[] }) {
   const { section, setSection, sidebarOpen, setSidebarOpen } = navigation;
   const sidebarLabel = sidebarOpen ? 'Collapse explorer' : 'Expand explorer';
-
   return (
     <nav className="icon-ribbon" aria-label="Workspace">
       <button
@@ -262,7 +106,6 @@ export default function WorkspaceRibbon({ workspace, navigation }: NavigationPro
       >
         <WorkspaceIcon name="sidebar" />
       </button>
-      <AppMenu workspace={workspace} navigation={navigation} />
       <div className="ribbon-actions">
         <button
           className="icon-button"
@@ -275,8 +118,26 @@ export default function WorkspaceRibbon({ workspace, navigation }: NavigationPro
           <WorkspaceIcon name="document" />
         </button>
       </div>
+      <AppMenu actions={actions} />
       <button
-        className="icon-button ribbon-bottom"
+        className="icon-button"
+        type="button"
+        title="Open Trash"
+        aria-label="Open Trash"
+        disabled={!native || !workspace.vault || !!workspace.busy || workspace.fileActions.busy}
+        onClick={() => {
+          const action = workspace
+            .getExplorerActions()
+            .find((item) => item.id === 'explorer.trash.manage');
+          if (action && !action.disabled) {
+            void action.run();
+          }
+        }}
+      >
+        <WorkspaceIcon name="trash" />
+      </button>
+      <button
+        className="icon-button"
         type="button"
         title="Connection checks"
         aria-label="Connection checks"

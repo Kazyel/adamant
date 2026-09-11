@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-export-recovery"
+description = "Enables the vault_export_recovery command without any pre-configured scope."
+commands.allow = ["vault_export_recovery"]
+
+[[permission]]
+identifier = "deny-vault-export-recovery"
+description = "Denies the vault_export_recovery command without any pre-configured scope."
+commands.deny = ["vault_export_recovery"]

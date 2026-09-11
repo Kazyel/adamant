@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-cancel-search"
+description = "Enables the vault_cancel_search command without any pre-configured scope."
+commands.allow = ["vault_cancel_search"]
+
+[[permission]]
+identifier = "deny-vault-cancel-search"
+description = "Denies the vault_cancel_search command without any pre-configured scope."
+commands.deny = ["vault_cancel_search"]

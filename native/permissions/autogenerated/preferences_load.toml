@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-preferences-load"
+description = "Enables the preferences_load command without any pre-configured scope."
+commands.allow = ["preferences_load"]
+
+[[permission]]
+identifier = "deny-preferences-load"
+description = "Denies the preferences_load command without any pre-configured scope."
+commands.deny = ["preferences_load"]

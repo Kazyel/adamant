@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use cap_std::fs::Dir;
+use cap_std::fs::{Dir, File};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -13,7 +13,10 @@ use crate::vault::metadata::{companion_metadata, note_metadata};
 use crate::vault::{Vault, VaultEntry, VaultError, VaultResult};
 
 use super::super::{IndexedEntry, MAX_BATCH_BYTES, MAX_METADATA_BYTES, message};
-use super::{Work, discovery::companion_original};
+use super::{
+    Work,
+    discovery::{companion_original, modified_at},
+};
 
 impl<'a> Work<'a> {
     pub(super) fn file(&mut self, dir: &Dir, name: &Path, path: &str) {
@@ -44,12 +47,25 @@ impl<'a> Work<'a> {
                 kind,
                 id: None,
                 metadata_error: None,
+                modified_at: modified_at(dir, name),
             },
             metadata: None,
+            identity: None,
             references: Vec::new(),
             epoch: self.epoch,
         };
-        self.file_metadata(dir, name, &mut row);
+        let identity = open_regular(dir, name).and_then(|mut source| {
+            let information = source.metadata()?;
+            self.file_metadata(dir, name, &mut source, &mut row)?;
+            crate::vault::navigation::target_identity(row.entry.id.as_deref(), &information)
+        });
+        match identity {
+            Ok(identity) => row.identity = Some(identity),
+            Err(error) => {
+                self.incomplete = true;
+                row.entry.metadata_error = Some(message(error.message));
+            }
+        }
 
         if let Some(error) = &row.entry.metadata_error {
             self.metadata_issues.push(path, error.clone());
@@ -57,7 +73,13 @@ impl<'a> Work<'a> {
         self.put(row);
     }
 
-    fn file_metadata(&mut self, dir: &Dir, name: &Path, row: &mut IndexedEntry) {
+    fn file_metadata(
+        &mut self,
+        dir: &Dir,
+        name: &Path,
+        source: &mut File,
+        row: &mut IndexedEntry,
+    ) -> VaultResult<()> {
         let note = row.entry.kind == "markdown";
         let metadata_name = if note {
             name.to_path_buf()
@@ -68,24 +90,19 @@ impl<'a> Work<'a> {
             PathBuf::from(name)
         };
 
-        // Missing companions are known absence, not evidence of an incomplete traversal.
+        // Originals without companions are readable; discovery must not adopt or modify them.
         if !note
             && dir
                 .symlink_metadata(&metadata_name)
                 .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound)
         {
-            row.entry.metadata_error =
-                Some("Companion metadata unavailable: no companion file.".into());
-            return;
+            return Ok(());
         }
 
-        let text = match self.metadata_text(dir, &metadata_name, note) {
-            Ok(text) => text,
-            Err(error) => {
-                self.incomplete = true;
-                row.entry.metadata_error = Some(message(error.message));
-                return;
-            }
+        let text = if note {
+            self.metadata_text(source, true)?
+        } else {
+            self.metadata_text(&mut open_regular(dir, &metadata_name)?, false)?
         };
         let metadata = if note {
             note_metadata(&text)
@@ -101,7 +118,7 @@ impl<'a> Work<'a> {
         row.entry.metadata_error = metadata.error.map(message);
 
         let Some(value) = metadata.value else {
-            return;
+            return Ok(());
         };
 
         if let Some(references) = value.get("refs").and_then(Value::as_array) {
@@ -122,10 +139,10 @@ impl<'a> Work<'a> {
         }
 
         row.metadata = Some(value.to_string());
+        Ok(())
     }
 
-    fn metadata_text(&mut self, dir: &Dir, name: &Path, note: bool) -> VaultResult<String> {
-        let mut file = open_regular(dir, name)?;
+    fn metadata_text(&mut self, file: &mut File, note: bool) -> VaultResult<String> {
         let length = file.metadata()?.len();
         if !note && length > MAX_METADATA_BYTES {
             return Err(VaultError::invalid(
