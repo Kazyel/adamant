@@ -47,10 +47,10 @@ The persistent Adamant menu remains available even when the explorer is collapse
 
 ### Validation status
 
-- 24 Rust vault tests and 4 dependency-free raw-source tests pass with the focused commands below.
+- 24 Rust vault tests and 4 CodeMirror state/history tests pass with the focused commands below.
 - Native core evidence covers create/save/reopen/copy/cache rebuild, metadata/source preservation, guards, adoption/import/collisions, paged browsing, and bounded partial indexing.
 - Resource-boundary evidence covers the 50,000-entry and 2,048-watch limits, partial state, and cancellation.
-- Actual React+Monaco evidence covers BOM/mixed-EOL grouped undo/redo, simultaneous ranges, 140 undo/redo groups, and undo→branch.
+- CodeMirror history tests cover BOM/mixed-EOL grouped undo/redo, simultaneous ranges, 140 undo/redo groups, undo→branch, and validated frontmatter. A React+CodeMirror browser smoke covers text input, Unicode, select-all, undo/redo bindings, search, read-only mode, and remount cleanup.
 - Actual PDF page 1 and DOCX text rendering, picker/read-failure preservation, and hidden-buffer guards were exercised.
 
 ```sh
@@ -114,7 +114,7 @@ bun run dev                     # Browser preview; native features unavailable
 bun run build                   # TypeScript check and frontend production build
 ```
 
-The browser preview cannot pick local documents through Tauri, open external applications, or access native credentials. Vite currently reports a large lazy-loaded Monaco chunk; this warning is not suppressed.
+The browser preview cannot pick local documents through Tauri, open external applications, or access native credentials. CodeMirror is loaded on demand for Markdown editing; the sanitized reading preview remains separate. The migration reduced the minified editor chunk from about 2.62 MB to 531 kB (673 kB to 184 kB gzip), without an editor worker. Vite still flags the chunk above its 500 kB threshold; the warning is not suppressed.
 
 ### Quality workflow
 
@@ -147,7 +147,7 @@ bun run audit:js
 bun run audit:rust
 ```
 
-The Bun audit gate fails on high/critical findings and emits unfiltered JSON so lower-severity advisories stay visible. Cargo Audit uses its default failure policy; advisory warnings remain visible. Current warnings include transitive DOMPurify in Monaco and Rust dependencies reported as unmaintained or unsound; a successful audit exit does not mean there are no advisories.
+The Bun audit gate fails on high/critical findings and emits unfiltered JSON so lower-severity advisories stay visible. Cargo Audit uses its default failure policy; advisory warnings remain visible. Rust dependencies have been reported as unmaintained or unsound; a successful audit exit does not mean there are no advisories.
 
 ## Roadmap
 
@@ -169,7 +169,7 @@ Google Calendar synchronization, remote writes to GitHub/Jira, in-app PDF/DOCX e
 | Layer                  | Technology and responsibility                                                                                                                                                                             |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Interface**          | React, TypeScript, and Vite inside Tauri 2's system WebView.                                                                                                                                              |
-| **Editor and viewers** | Monaco, Marked, DOMPurify, PDF.js, and docx-preview.                                                                                                                                                      |
+| **Editor and viewers** | CodeMirror 6, Marked, DOMPurify, PDF.js, and docx-preview.                                                                                                                                                |
 | **Native core**        | Rust commands for bounded file access, identity requests, secure credentials, and external opening.                                                                                                       |
 | **Portable Vault**     | Authoritative Notes, PDF/DOCX originals, and document companions; only `.md`, `.pdf`, and `.docx` are loaded as documents. Future formats remain roadmap work; manifest/companions are internal metadata. |
 | **Local index**        | Bounded, cancellable incremental SQLite-derived index; source files remain authoritative and partial states are visible.                                                                                  |
@@ -193,7 +193,7 @@ ui/
       useWorkspacePrompt.ts   Prompt resolution and Vault selection
       workspaceEvents.ts      Native notifications, save shortcuts, and unload listeners
       WorkspaceDialog.tsx     Guard/path dialogs; CreateVaultDialog owns the creation wizard
-    markdown/                 Monaco editor, Markdown preview, source history, and tests
+    markdown/                 CodeMirror editor/state, raw-source preservation, preview, and tests
     documents/                PDF/DOCX viewers and selected-document types
     connections/              GitHub/Jira connection-check interface
   shared/
