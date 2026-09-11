@@ -5,6 +5,7 @@ export interface VaultEntry {
   kind: 'directory' | 'markdown' | 'pdf' | 'docx';
   id: string | null;
   metadataError: string | null;
+  modifiedAt: number | null;
 }
 
 export interface IndexState {
@@ -32,6 +33,7 @@ export interface VaultPage {
   total: number;
   hasMore: boolean;
   indexing: IndexState;
+  generation: number;
 }
 
 export interface ExplorerPage {
@@ -46,6 +48,7 @@ export interface ExplorerPage {
   refreshing: boolean;
   error: string | null;
   generation: number;
+  inventoryGeneration?: number;
 }
 
 export interface NoteDocument {
@@ -56,14 +59,16 @@ export interface NoteDocument {
   metadataError: string | null;
 }
 
-export type OpenedDocument = Omit<SelectedDocument, 'bytes'> & {
+export type OpenedDocument = Omit<SelectedDocument, 'bytes' | 'identity'> & {
   bytes: Uint8Array;
   revision: number;
   vaultPath: string | null;
+  identity?: string | null;
 };
 
 export type WorkspacePrompt =
-  | { kind: 'guard'; title: string }
+  | { kind: 'confirm'; title: string; description: string; confirmLabel: string }
+  | { kind: 'guard'; title: string; documents?: string[] }
   | { kind: 'path'; title: string; initial: string; recovery: boolean }
   | { kind: 'vault'; title: string }
   | { kind: 'create'; title: string; complete: (vault: VaultSnapshot) => void };

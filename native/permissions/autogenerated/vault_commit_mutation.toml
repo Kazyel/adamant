@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-commit-mutation"
+description = "Enables the vault_commit_mutation command without any pre-configured scope."
+commands.allow = ["vault_commit_mutation"]
+
+[[permission]]
+identifier = "deny-vault-commit-mutation"
+description = "Denies the vault_commit_mutation command without any pre-configured scope."
+commands.deny = ["vault_commit_mutation"]

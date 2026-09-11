@@ -204,6 +204,7 @@ impl<'a> Work<'a> {
         if !self.checkpoint() {
             return;
         }
+        self.vault.invalidate_search_index();
         if !self.vault.inventory().put(row.clone()) {
             self.halted = true;
             self.partial(&row.entry.path, "The bounded in-memory entry, directory or metadata capacity was reached. Existing rows were retained.");
@@ -231,6 +232,7 @@ impl<'a> Work<'a> {
     }
 
     fn delete_subtree(&mut self, path: &str) {
+        self.vault.invalidate_search_index();
         for path in self.subtree_paths(path) {
             if !self.checkpoint() {
                 break;

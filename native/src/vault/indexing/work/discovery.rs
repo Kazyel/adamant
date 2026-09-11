@@ -1,7 +1,9 @@
 //! Capability-relative traversal and admission of incremental filesystem changes.
 use std::{
     collections::BTreeSet,
+    fs,
     path::{Path, PathBuf},
+    time::UNIX_EPOCH,
 };
 
 use cap_fs_ext::DirExt;
@@ -12,6 +14,15 @@ use crate::vault::{Vault, VaultEntry, VaultResult};
 
 use super::super::{IndexedEntry, MAX_DIRECTORIES, parent_path};
 use super::{Work, covered};
+const ADMIN_MARKER: &[u8] = b"adamant-admin-v1\n";
+
+fn owned_legacy_admin(dir: &Dir) -> bool {
+    let Ok(admin) = dir.open_dir_nofollow(".adamant") else {
+        return false;
+    };
+    crate::vault::capability::read_limited(&admin, Path::new("marker"), ADMIN_MARKER.len() as u64)
+        .is_ok_and(|marker| marker == ADMIN_MARKER)
+}
 
 const MAX_DEPTH: usize = 32;
 
@@ -50,11 +61,23 @@ impl Vault {
     }
 }
 
+pub(super) fn modified_at(dir: &Dir, name: &Path) -> Option<u64> {
+    dir.symlink_metadata(name)
+        .ok()?
+        .modified()
+        .ok()?
+        .into_std()
+        .duration_since(UNIX_EPOCH)
+        .ok()?
+        .as_millis()
+        .try_into()
+        .ok()
+}
+
 pub(super) fn companion_original(path: &str) -> Option<&str> {
     path.strip_suffix(".meta.yaml")
         .filter(|original| matches!(kind(Path::new(original)), "pdf" | "docx"))
 }
-
 impl<'a> Work<'a> {
     pub(super) fn directory(&mut self, dir: &Dir, path: &str, depth: usize) {
         if !self.checkpoint() {
@@ -122,7 +145,12 @@ impl<'a> Work<'a> {
                 self.partial(path, "A filename is not valid Unicode and cannot be shown.");
                 continue;
             };
-            if Vault::ignored_directory(name) {
+            if Vault::ignored_directory(name)
+                || (self.vault.content_root_relative == "."
+                    && path.is_empty()
+                    && name == ".adamant"
+                    && owned_legacy_admin(dir))
+            {
                 continue;
             }
             let child = if path.is_empty() {
@@ -164,7 +192,13 @@ impl<'a> Work<'a> {
                 kind: "directory",
                 id: None,
                 metadata_error: None,
+                modified_at: fs::symlink_metadata(self.vault.root().join(path))
+                    .ok()
+                    .and_then(|metadata| metadata.modified().ok())
+                    .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+                    .and_then(|time| time.as_millis().try_into().ok()),
             },
+            identity: None,
             metadata: None,
             references: Vec::new(),
             epoch: self.epoch,
@@ -238,6 +272,13 @@ impl<'a> Work<'a> {
 
         if relative(path).is_err() {
             self.partial("", "An unsafe watcher path was ignored.");
+            return;
+        }
+
+        if self.vault.content_root_relative == "."
+            && (path == ".adamant" || path.starts_with(".adamant/"))
+            && owned_legacy_admin(&self.vault.dir)
+        {
             return;
         }
 

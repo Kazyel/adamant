@@ -1,0 +1,450 @@
+.interaction-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+
+:where(.interaction-dialog, .interaction-context-menu, .app-menu) kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--reading);
+  box-shadow: inset 0 1px 0 var(--edge-soft);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.interaction-action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  max-height: min(50dvh, 440px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.interaction-action-list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px 16px;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.interaction-action-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.interaction-action-label > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.interaction-action-label .workspace-icon {
+  color: var(--muted);
+}
+
+.interaction-action-check {
+  display: flex;
+  flex: 0 0 16px;
+}
+
+.interaction-action-check .workspace-icon {
+  color: currentColor;
+}
+
+[aria-checked='false'] .interaction-action-check {
+  visibility: hidden;
+}
+
+.interaction-action-list:has(.workspace-icon) .interaction-action-label:not(:has(.workspace-icon)) {
+  padding-inline-start: 24px;
+}
+
+.interaction-action-list button:hover:not(:disabled),
+.interaction-action-list button:focus-visible {
+  background: var(--raised);
+}
+
+.interaction-action-list button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.interaction-action-list button[aria-checked='true']:not([aria-disabled='true']) {
+  background: var(--selection);
+  color: var(--accent);
+}
+
+.interaction-action-list button[aria-disabled='true'] {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.interaction-action-list button[aria-disabled='true']:hover:not(:focus-visible) {
+  border-color: transparent;
+  background: transparent;
+}
+
+.interaction-action-list button.interaction-action-danger:not([aria-disabled='true']),
+.interaction-action-danger:not([aria-disabled='true']) .workspace-icon {
+  color: var(--error);
+}
+
+.interaction-action-list kbd {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: right;
+}
+
+.interaction-action-heading {
+  margin: 8px 4px 2px;
+  padding: 8px 4px 2px;
+  border-top: 1px solid var(--edge-soft);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.interaction-action-heading:first-child {
+  margin-top: 0;
+  padding-top: 4px;
+  border-top: 0;
+}
+
+.interaction-action-divider {
+  flex-shrink: 0;
+  height: 1px;
+  margin: 6px 8px;
+  background: var(--edge-soft);
+}
+
+.interaction-action-divider + .interaction-action-heading {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.interaction-action-list .interaction-action-help {
+  position: sticky;
+  bottom: 0;
+  flex-shrink: 0;
+  margin: 4px 0 0;
+  padding: 8px;
+  border-top: 1px solid var(--edge-soft);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.interaction-context-menu {
+  position: fixed;
+  z-index: 40;
+  top: var(--interaction-menu-y, 8px);
+  left: var(--interaction-menu-x, 8px);
+  display: flex;
+  flex-direction: column;
+  width: min(264px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  padding: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-raised);
+}
+
+.interaction-context-menu-title {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 6px 8px 9px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.interaction-context-menu .interaction-action-list {
+  max-height: none;
+}
+
+:where(.app-menu-panel, .interaction-context-menu) .interaction-action-list {
+  gap: 1px;
+}
+
+:where(.app-menu-panel, .interaction-context-menu) .interaction-action-list button {
+  gap: 4px 12px;
+}
+
+:where(.app-menu-panel, .interaction-context-menu) .interaction-action-divider {
+  margin: 4px 7px;
+  background: var(--edge-soft);
+}
+
+:where(.app-menu-panel, .interaction-context-menu)
+  .interaction-action-list
+  button.interaction-action-danger[aria-disabled='false']:is(:focus-visible, :hover) {
+  background: color-mix(in srgb, var(--error) 8%, var(--surface));
+}
+
+.interaction-context-menu-empty {
+  margin: 0;
+  padding: 12px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.interaction-command-palette .dialog-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.interaction-command-search {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--base);
+  color: var(--muted);
+}
+
+.interaction-command-search:focus-within {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+}
+
+.interaction-command-search input {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.interaction-command-palette .interaction-result-count {
+  flex-shrink: 0;
+  margin: 12px 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.interaction-command-results {
+  min-height: 0;
+}
+
+.interaction-command-footer {
+  flex-shrink: 0;
+}
+
+.interaction-command-footer > span {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.interaction-command-footer kbd + kbd,
+.interaction-command-footer span kbd:not(:first-child) {
+  margin-left: 8px;
+}
+
+.interaction-empty {
+  padding: 20px 4px;
+  text-align: center;
+}
+
+.interaction-section-heading,
+.interaction-preference-section legend {
+  margin: 0 0 8px;
+  padding: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.interaction-shortcuts {
+  margin: 0 0 24px;
+}
+
+.interaction-shortcuts > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 16px;
+  min-height: 36px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--edge-soft);
+}
+
+.interaction-shortcuts dt {
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.interaction-shortcuts dd {
+  margin: 0;
+  text-align: right;
+}
+
+.interaction-shortcuts kbd {
+  max-width: 100%;
+  white-space: normal;
+}
+
+.interaction-shortcut-dialog .interaction-shortcut-note {
+  margin-bottom: 0;
+  font-size: 12px;
+}
+
+.interaction-preferences {
+  margin: 0;
+}
+
+.interaction-preference-section {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.interaction-preference-section + .interaction-preference-section {
+  margin-top: 24px;
+}
+
+.interaction-setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--edge-soft);
+}
+
+.interaction-setting-label label {
+  display: block;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.interaction-setting-label p,
+.interaction-preferences .interaction-setting-description {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.interaction-setting-number {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.interaction-setting-number input {
+  width: 64px;
+  text-align: right;
+}
+
+.interaction-setting-number span {
+  width: 40px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.interaction-view-choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.interaction-view-choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--reading);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.interaction-view-choice:hover:not(:has(:disabled, :checked)) {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.interaction-view-choice:has(:checked) {
+  background: var(--selection);
+  color: var(--text);
+}
+
+.interaction-view-choice:has(:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.interaction-view-choice:has(:disabled) {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+@media (max-width: 420px) {
+  .interaction-setting-row {
+    gap: 8px;
+  }
+
+  .interaction-setting-number span {
+    display: none;
+  }
+
+  .interaction-shortcuts > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .interaction-shortcuts dd {
+    text-align: left;
+  }
+}

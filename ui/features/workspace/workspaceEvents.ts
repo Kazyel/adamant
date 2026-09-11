@@ -2,12 +2,11 @@ import type { RefObject } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import type { BufferState } from './buffer';
 
 interface WorkspaceActions {
   refresh: () => void;
-  save: () => void;
   close: () => void;
+  flushDrafts: () => Promise<void>;
 }
 
 const native = isTauri();
@@ -15,8 +14,7 @@ const native = isTauri();
 export default function subscribeWorkspaceEvents(
   actions: RefObject<WorkspaceActions>,
   confirmedClose: RefObject<boolean>,
-  bufferRef: RefObject<BufferState>,
-  resolver: RefObject<((answer: string | null) => void) | null>,
+  hasUnsaved: () => boolean,
   fail: (error: unknown) => void,
   onDispose: () => void,
 ) {
@@ -43,6 +41,28 @@ export default function subscribeWorkspaceEvents(
           fail(error);
         }
       });
+    for (const name of [
+      'vault-import-start',
+      'vault-import-hover',
+      'vault-import-dropped',
+      'vault-import-error',
+    ]) {
+      void listen(name, (event) => {
+        if (!disposed) {
+          window.dispatchEvent(new CustomEvent(name, { detail: event.payload }));
+        }
+      })
+        .then(registered)
+        .catch(fail);
+    }
+    void getCurrentWindow()
+      .onFocusChanged((event) => {
+        if (!disposed && !event.payload) {
+          void actions.current.flushDrafts().catch(fail);
+        }
+      })
+      .then(registered)
+      .catch(fail);
     void getCurrentWindow()
       .onCloseRequested((event) => {
         if (disposed || confirmedClose.current) {
@@ -59,29 +79,18 @@ export default function subscribeWorkspaceEvents(
       });
   }
 
-  const saveKey = (event: KeyboardEvent) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
-      event.preventDefault();
-      if (!resolver.current) {
-        actions.current.save();
-      }
-    }
-  };
   const unload = (event: BeforeUnloadEvent) => {
-    const current = bufferRef.current;
-    if (!confirmedClose.current && (current.text !== current.savedText || current.conflict)) {
+    if (!confirmedClose.current && hasUnsaved()) {
       event.preventDefault();
       event.returnValue = '';
     }
   };
 
-  window.addEventListener('keydown', saveKey, true);
   window.addEventListener('beforeunload', unload);
   return () => {
     disposed = true;
     onDispose();
     unlisteners.forEach((unlisten) => unlisten());
-    window.removeEventListener('keydown', saveKey, true);
     window.removeEventListener('beforeunload', unload);
   };
 }

@@ -13,15 +13,27 @@
 }
 
 @media (max-width: 760px) {
+  .app-shell {
+    --workspace-gap: 4px;
+    --explorer-width: min(248px, calc(100vw - 88px));
+  }
+  .workspace-surface,
+  .workspace-tab-group,
+  .window-controls {
+    border-radius: 4px;
+  }
   .sidebar {
     position: absolute;
-    inset: 42px auto 0 44px;
+    inset: calc(40px + var(--workspace-gap) * 2) auto var(--workspace-gap) 44px;
     z-index: 5;
-    width: min(232px, calc(100vw - 88px));
-    background: hsl(247.5 17.391304% 16.152471% / 97%);
-    box-shadow:
-      inset -1px 0 hsl(255.555556 35.064935% 86.085647% / 5%),
-      20px 0 50px hsl(0 0% 7.84% / 45%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top-color: var(--edge-light);
+    border-radius: 0 6px 6px 0;
+    box-shadow: var(--shadow-raised);
+  }
+  .explorer-section {
+    width: calc(var(--explorer-width) - 2px);
   }
   .document-toolbar {
     padding-inline: 10px;
@@ -30,23 +42,6 @@
   .breadcrumb > span,
   .breadcrumb > .workspace-icon {
     display: none;
-  }
-  .document-panes[data-view='split'] {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
-  }
-  .document-panes[data-view='split'] .editor-pane {
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .document-panes[data-view='split'] .empty-editor-hint {
-    display: none;
-  }
-  .empty-editor-hint {
-    padding: 20px 24px 30px;
-  }
-  .empty-editor-hint h1 {
-    font-size: 27px;
   }
   .status-format {
     display: none;
@@ -91,5 +86,13 @@
   *::before,
   *::after {
     scroll-behavior: auto !important;
+  }
+
+  .sidebar,
+  .sidebar *,
+  .icon-ribbon *,
+  .app-shell > main {
+    animation: none !important;
+    transition: none !important;
   }
 }

@@ -20,7 +20,7 @@ The Adamant manifest is the identity marker for this format: `vault.json` must c
 | Vault             | Independent directory with its own manifest, content, connections, and export boundary. |
 | Note              | Authored Markdown content with a stable identity.                                       |
 | Topic             | A Note used to organize a subject of study.                                             |
-| Document          | An original attachment, such as PDF or DOCX, with companion metadata.                   |
+| Document          | An original attachment, such as PDF or DOCX, with optional companion metadata.          |
 | DocumentationPage | A captured technical documentation page with its source recorded.                       |
 | CalendarEvent     | A locally stored iCalendar event.                                                       |
 | ExternalItem      | A GitHub or Jira Cloud item followed by the application.                                |
@@ -61,6 +61,8 @@ Creation is a two-step capability flow: `vault_select_parent` selects a parent d
 
 The interface keeps creation and opening in the persistent Adamant menu, with New Note and Import actions contextual to the active Vault. Filesystem watching updates clean buffers and expanded listings automatically. Partial or stale index states remain recoverable through compact problem details; healthy operation does not expose indexing controls or per-folder statistics. Ctrl+S/⌘S is the explicit persistence boundary. There is no autosave or cloud synchronization in M1.
 
+The last successfully activated Vault is a machine-local preference: `last-vault.json` under Tauri's `app_local_data_dir()` contains its canonical container path and manifest UUID. Startup `vault_restore` accepts no frontend path, verifies that identity, and reuses normal session activation and indexing. A private, synced temporary record is atomically renamed at the generation-checked authority handoff; unsuccessful or superseded selections cannot replace the previous choice. This supports normal process restarts, not a stronger power-loss durability guarantee. Explicit Close Vault clears the preference, while exiting the application preserves it. Missing preferences are an ordinary empty startup; unavailable or replaced Vaults produce a notice without changing source files. Restoration blocks startup navigation and editing until settled, never replaces unsaved source, and returns an already-active session on webview reload rather than reactivating it.
+
 ### Incremental index boundary
 
 Indexing is a derived, bounded, cancellable, incremental operation. It must expose `state` (`indexing`, `ready`, `partial`, `stale`, or `cancelled`), scanned-entry and indexed-document counts, and an optional message. `ready` means the scan is complete with no queued changes; partial, stale, and cancelled states remain visible and never imply a complete inventory. Directory listing is paged (default 100, maximum 200) with `offset`, `total`, and `hasMore`; collapsed directories are not loaded. Cancellation signals independently of save/navigation work and returns the current snapshot immediately. The source files remain authoritative throughout indexing.
@@ -88,6 +90,16 @@ Discovery excludes `.git`, `.hg`, `.svn`, `node_modules`, `target`, `dist`, `bui
 Traversal limits (entries, watched directories, depth, metadata) produce explicit `partial` state; partial never claims a complete inventory or infers deletion from unseen entries. A watcher queue overflow produces `stale` state and bounded reconciliation. Page limits bound each request. Imports with supplied IDs refuse an incomplete index, while ordinary reads, same-ID saves, generated-UUID creation, and recovery copies remain available.
 
 The manifest contains a format version and a Vault identifier, not a central inventory of all files. Machine-specific preferences, generated previews, search indexes, external caches, and credentials live outside the portable directory.
+
+### M1.1 workspace and recovery
+
+File management uses native prepare/commit operations bound to the active Vault generation and source revisions. Rename/move preserves identities, remaps affected local links, and treats original documents and companions as one logical item. Independent duplication creates new identities; raw recovery copies retain their original source and identity. Occupied destinations are not silently overwritten.
+
+Recoverable trash and transaction journals live in a verified, owned `.adamant/` namespace inside the portable Vault container. They are authoritative recovery content, unlike disposable indexes. Recovery reports completed mappings and retained versions; it does not promise a globally atomic filesystem transaction. Permanent deletion requires explicit scope confirmation.
+
+Open documents have independent buffers, editor histories, positions, and view state. Source saving remains explicit. Unsaved-draft snapshots and workspace restoration are local recovery state scoped to the canonical root and Vault identity; they do not overwrite externally changed sources automatically. Invalid local workspace/draft records can be explicitly preserved as sibling `.preserved-<UUID>` files before local persistence resumes.
+
+Markdown content search is incremental, cancellable, and bounded. Pending coverage is distinguished from exhausted partial coverage; stale inventory pages restart rather than silently mix generations. Preferences, navigation history, favorites, and document positions remain machine-local state outside portable authored content.
 
 ## Identity and authoritative storage
 
@@ -168,6 +180,8 @@ Explicit authored relationships live in Markdown metadata or document companion 
 ## Documents and technical documentation
 
 PDF and DOCX originals are never replaced by converted representations. Companion metadata stores identity, optional title, and references to annotation Notes. Generated previews and extracted text are disposable derivatives.
+
+Reading an original does not require a `<filename>.meta.yaml` companion. Its absence means there is no authored UUID or relationship metadata, not a Vault issue. Opening and indexing never create a companion implicitly. Existing invalid or unreadable companions and orphaned associations remain visible as issues.
 
 Moving a Document through Adamant moves its companion metadata as well. Moving only the original externally may require explicit reassociation; filenames alone are not sufficient evidence to guess identity.
 

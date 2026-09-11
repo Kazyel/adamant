@@ -1,4 +1,3 @@
-import { useRef, useState } from 'react';
 import type { NoteDocument } from './types';
 
 interface VaultError {
@@ -26,65 +25,18 @@ export function conflictError(error: unknown): error is VaultError {
 }
 
 export function sourceName(source: Source | null): string {
-  return source?.kind === 'vault'
-    ? source.note.path.split('/').at(-1)!
-    : (source?.name ?? 'Untitled');
+  if (source?.kind === 'vault') {
+    return source.note.path.split('/').at(-1)!;
+  }
+  return source?.path ? source.name : 'New document';
 }
 
-export function useNoteBuffer() {
-  const [buffer, setBufferState] = useState<BufferState>(() => ({
-    text: '',
-    savedText: '',
-    source: null,
-    editorKey: 0,
-    conflict: null,
-  }));
-  const bufferRef = useRef(buffer);
-  const revision = useRef(0);
-
-  function updateBuffer(next: BufferState) {
-    bufferRef.current = next;
-    setBufferState(next);
+export function sourceKey(source: Source | null): string {
+  if (source?.kind === 'vault') {
+    return `vault:${source.note.path}`;
   }
-
-  function nextRevision() {
-    return ++revision.current;
+  if (source?.kind === 'standalone') {
+    return `standalone:${source.path}`;
   }
-
-  function replaceBuffer(text: string, source: Source | null) {
-    updateBuffer({ text, savedText: text, source, editorKey: nextRevision(), conflict: null });
-  }
-
-  function refreshBuffer(note: NoteDocument, editorKey: number) {
-    const latest = bufferRef.current;
-    if (latest.source?.kind !== 'vault' || latest.editorKey !== editorKey) {
-      return;
-    }
-
-    if (note.revision === latest.source.note.revision) {
-      updateBuffer({ ...latest, source: { kind: 'vault', note }, conflict: null });
-      return;
-    }
-
-    if (latest.text !== latest.savedText || latest.conflict) {
-      updateBuffer({
-        ...latest,
-        conflict: {
-          current: note,
-          message: 'This Note changed on disk. Your editor buffer has been kept.',
-        },
-      });
-      return;
-    }
-
-    updateBuffer({
-      text: note.text,
-      savedText: note.text,
-      source: { kind: 'vault', note },
-      editorKey: nextRevision(),
-      conflict: null,
-    });
-  }
-
-  return { buffer, bufferRef, nextRevision, updateBuffer, replaceBuffer, refreshBuffer };
+  return 'untitled';
 }

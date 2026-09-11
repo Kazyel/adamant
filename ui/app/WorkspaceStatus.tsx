@@ -3,24 +3,19 @@ import { getSaveStatus, indexLabels, native } from './workspaceView';
 import type { DocumentInfo, DocumentProps, WorkspaceProps } from './workspaceView';
 
 export function WorkspaceNotices({ workspace }: WorkspaceProps) {
-  const { notice, busy, prompt } = workspace;
+  const { notice } = workspace;
+
+  if (!notice) {
+    return null;
+  }
 
   return (
-    <>
-      {notice ? (
-        <div
-          className={`workbench-notice ${notice.error ? 'error' : ''}`}
-          role={notice.error ? 'alert' : 'status'}
-        >
-          {notice.text}
-        </div>
-      ) : null}
-      {busy === 'navigate' && !prompt ? (
-        <div className="workbench-notice" role="status">
-          Working with local files… Your buffer is kept until the operation succeeds.
-        </div>
-      ) : null}
-    </>
+    <div
+      className={`workbench-notice ${notice.error ? 'error' : ''}`}
+      role={notice.error ? 'alert' : 'status'}
+    >
+      {notice.text}
+    </div>
   );
 }
 
@@ -78,15 +73,13 @@ function IndexStatus({
   revealIndexDetails,
 }: WorkspaceProps & { sidebarOpen: boolean; revealIndexDetails: () => void }) {
   const { indexing } = workspace;
-  if (!indexing || indexing.state === 'ready') {
+  if (
+    !indexing ||
+    indexing.state === 'ready' ||
+    indexing.state === 'stale' ||
+    indexing.state === 'indexing'
+  ) {
     return null;
-  }
-  if (indexing.state === 'indexing') {
-    return (
-      <span className="background-indexing" role="status">
-        Indexing in background…
-      </span>
-    );
   }
   if (sidebarOpen) {
     return null;
@@ -122,11 +115,8 @@ export function StatusBar({
           <WorkspaceIcon name="warning" />
           Browser preview: desktop features unavailable
         </span>
-      ) : (
-        <span className="runtime-status" title={vault?.root}>
-          {vault?.name ?? 'No Vault open'}
-        </span>
-      )}
+      ) : null}
+      {native && !vault ? <span className="runtime-status">No Vault open</span> : null}
       <IndexStatus
         workspace={workspace}
         sidebarOpen={navigation.sidebarOpen}

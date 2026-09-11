@@ -149,3 +149,55 @@ fn manifest_replacement_during_save_preserves_the_original_note() {
         replacement
     );
 }
+
+#[test]
+fn local_storage_repair_preserves_invalid_bytes_and_resumes_scoped_writes() {
+    use crate::vault::workspace::WorkspaceState;
+    let fixture = Fixture::new();
+    let state = WorkspaceState {
+        version: 1,
+        root: fixture.root.to_string_lossy().into_owned(),
+        vault_id: fixture.vault.id.clone(),
+        navigation: None,
+        active_id: None,
+        tabs: Vec::new(),
+    };
+    fixture
+        .vault
+        .save_workspace(&fixture.state, &state)
+        .unwrap();
+    let key = crate::vault::hash(
+        format!("{}\0{}", fixture.vault.id, fixture.root.to_string_lossy()).as_bytes(),
+    );
+    let path = fixture.state.join("workspaces").join(format!("{key}.json"));
+    let corrupt = b"{ interrupted JSON \0 retained bytes";
+    fs::write(&path, corrupt).unwrap();
+    assert!(fixture.vault.load_workspace(&fixture.state).is_err());
+    let backups = fixture
+        .vault
+        .repair_workspace_storage(&fixture.state)
+        .unwrap();
+    assert_eq!(backups.len(), 1);
+    assert_eq!(fs::read(&backups[0]).unwrap(), corrupt);
+    assert!(
+        fixture
+            .vault
+            .load_workspace(&fixture.state)
+            .unwrap()
+            .is_none()
+    );
+    fixture
+        .vault
+        .save_workspace(&fixture.state, &state)
+        .unwrap();
+    assert_eq!(
+        fixture
+            .vault
+            .load_workspace(&fixture.state)
+            .unwrap()
+            .unwrap()
+            .vault_id,
+        state.vault_id
+    );
+    assert_eq!(fs::read(&backups[0]).unwrap(), corrupt);
+}

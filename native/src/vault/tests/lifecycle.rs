@@ -7,6 +7,36 @@ use super::{Fixture, reconciled};
 use crate::vault::{NoteDocument, Vault, VaultParent};
 
 #[test]
+fn originals_without_companions_remain_readable_without_vault_issues() {
+    let f = Fixture::new();
+    let original = b"%PDF-1.7\noriginal bytes";
+    let companion = f.root.join("paper.pdf.meta.yaml");
+    fs::write(f.root.join("paper.pdf"), original).unwrap();
+
+    assert_eq!(f.reconcile().issue_count, 0);
+    let (_, kind, bytes) = f.vault.read_document("paper.pdf").unwrap();
+    assert_eq!(kind, "pdf");
+    assert_eq!(bytes, original);
+    assert!(!companion.exists());
+
+    let invalid = "id: not-a-uuid\n";
+    fs::write(&companion, invalid).unwrap();
+    let snapshot = f.reconcile();
+    assert!(
+        snapshot
+            .issues
+            .iter()
+            .any(|issue| issue.path == "paper.pdf")
+    );
+    assert_eq!(fs::read_to_string(&companion).unwrap(), invalid);
+
+    fs::remove_file(&companion).unwrap();
+    assert_eq!(f.reconcile().issue_count, 0);
+    assert_eq!(f.vault.read_document("paper.pdf").unwrap().2, original);
+    assert!(!companion.exists());
+}
+
+#[test]
 fn exclusive_creation_and_path_capability_prevent_overwrites_and_escapes() {
     let f = Fixture::new();
     let note = f

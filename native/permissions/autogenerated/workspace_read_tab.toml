@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-workspace-read-tab"
+description = "Enables the workspace_read_tab command without any pre-configured scope."
+commands.allow = ["workspace_read_tab"]
+
+[[permission]]
+identifier = "deny-workspace-read-tab"
+description = "Denies the workspace_read_tab command without any pre-configured scope."
+commands.deny = ["workspace_read_tab"]

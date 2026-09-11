@@ -1,24 +1,46 @@
 .sidebar > .atmosphere {
   position: absolute;
   z-index: 0;
-  right: -40px;
-  bottom: 60px;
-  width: 260px;
-  height: 300px;
+  inset-inline: 0;
+  bottom: 0;
+  height: 272px;
+  max-height: 38%;
   isolation: isolate;
   overflow: hidden;
-  opacity: 0.5;
-  mask-image: linear-gradient(transparent, #000 24%, #000 80%, transparent);
+  opacity: 0.65;
   pointer-events: none;
+}
+
+.atmosphere::after {
+  content: '';
+  position: absolute;
+  inset: 64% 8% 0;
+  background: radial-gradient(
+    ellipse at 50% 30%,
+    rgb(212 212 212 / 8%),
+    rgb(212 212 212 / 4%) 35%,
+    rgb(212 212 212 / 1%) 65%,
+    transparent
+  );
+  mask-image: linear-gradient(transparent, #000 35%, rgb(0 0 0 / 65%) 65%, transparent);
 }
 
 .atmosphere__canvas,
 .atmosphere__fallback {
   position: absolute;
-  inset: 0;
+  inset: 0 0 auto;
   display: block;
   width: 100%;
-  height: 100%;
+  height: 88%;
+  mask-image: linear-gradient(
+    #000 38%,
+    rgb(0 0 0 / 96%) 52%,
+    rgb(0 0 0 / 80%) 65%,
+    rgb(0 0 0 / 50%) 78%,
+    rgb(0 0 0 / 20%) 89%,
+    rgb(0 0 0 / 4%) 97%,
+    transparent
+  );
 }
 
 .atmosphere__canvas {
@@ -32,51 +54,25 @@
 
 .atmosphere__fallback {
   z-index: 1;
-  stroke-width: 0.8;
+  stroke-width: 0.65;
 }
 
 .atmosphere__canvas[data-ready='true'] + .atmosphere__fallback .atmosphere__crystal {
   visibility: hidden;
 }
 
-.atmosphere__layers {
-  stroke-width: 0.65;
-}
-
 .atmosphere__crystal {
-  stroke: hsl(262.857143 25.609756% 70.364236%);
+  stroke: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .atmosphere__facet-back {
-  fill: hsl(265.16129 27.433628% 28.259764%);
+  fill: var(--border);
   stroke: none;
 }
 
 .atmosphere__facet-front {
-  fill: hsl(269.302326 24.022346% 40.186353%);
+  fill: var(--selection);
   stroke: none;
-}
-
-.atmosphere__hidden-edge {
-  opacity: 0.28;
-}
-
-.atmosphere__plane-back {
-  fill: hsl(261.6 30.864198% 22.477177% / 0.16862745);
-}
-
-.atmosphere__plane-front {
-  fill: hsl(272.727273 23.404255% 33.319529% / 0.14117647);
-}
-
-.atmosphere__silver-edge {
-  stroke: hsl(258.75 11.428571% 74.701177%);
-  opacity: 0.32;
-}
-
-.atmosphere__edge-shadow {
-  stroke: hsl(240 29.411765% 10.912%);
-  opacity: 0.8;
 }
 
 @media (max-width: 680px) {

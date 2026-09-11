@@ -14,8 +14,11 @@ pub(crate) mod commands;
 mod indexing;
 mod lifecycle;
 mod metadata;
+pub(crate) mod mutations;
+pub(crate) mod navigation;
 mod notes;
 mod persistence;
+pub(crate) mod workspace;
 
 use indexing::Inventory;
 pub use indexing::{IndexState, IndexStatus, VaultPage};
@@ -94,6 +97,7 @@ pub struct VaultEntry {
     pub kind: &'static str,
     pub id: Option<String>,
     pub metadata_error: Option<String>,
+    pub modified_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -124,14 +128,19 @@ pub struct Vault {
     name: String,
     state_dir: PathBuf,
     inventory: Mutex<Inventory>,
+    body_index: Mutex<indexing::BodyIndex>,
     index_work: Mutex<()>,
     identity_writes: Mutex<()>,
 }
 
 fn hash(bytes: &[u8]) -> String {
+    hex_digest(&Sha256::digest(bytes))
+}
+
+fn hex_digest(digest: &[u8]) -> String {
     use std::fmt::Write as _;
     let mut hex = String::with_capacity(64);
-    for byte in Sha256::digest(bytes) {
+    for byte in digest {
         write!(&mut hex, "{byte:02x}").expect("Writing to a String cannot fail");
     }
     hex

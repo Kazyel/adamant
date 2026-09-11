@@ -1,13 +1,21 @@
 .connections {
   flex: 1;
+  min-width: 0;
   min-height: 0;
-  padding: 48px clamp(22px, 6vw, 90px);
+  padding: 32px clamp(20px, 4vw, 56px);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .section-heading {
-  max-width: 760px;
+  max-width: 680px;
   margin-bottom: 24px;
+}
+
+.connections .section-heading h1 {
+  font-size: 22px;
+  letter-spacing: -0.4px;
+  line-height: 1.4;
 }
 
 .section-heading p {
@@ -18,37 +26,45 @@
 
 .connection-note {
   padding: 12px 15px;
-  background: hsl(32.727273 18.644068% 18.501647%);
-  border-left: 2px solid var(--amber);
+  background: color-mix(in srgb, var(--amber) 7%, var(--surface));
+  border-inline-start: 2px solid var(--amber);
+  border-radius: 0 6px 6px 0;
   font-size: 12px;
   line-height: 1.6;
-  color: hsl(37.826087 36.507937% 77.231059%);
+  color: var(--amber);
   max-width: 1000px;
 }
 
 .connection-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 40px;
+  gap: 32px;
   max-width: 1000px;
-  margin-top: 34px;
+  margin-top: 24px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--edge-light);
 }
 
 .connection-form {
   min-width: 0;
-  border-top: 1px solid hsl(266 18.987342% 36.391529%);
-  padding-top: 20px;
+  border-top: 1px solid var(--edge-soft);
+  padding-top: 16px;
 }
 
 .connection-form h2 {
-  font-size: 19px;
-  font-weight: 500;
-  margin-bottom: 9px;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 
 .connection-form > p {
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.6;
 }
 
 .connection-form fieldset {
@@ -82,13 +98,14 @@
   color: var(--muted);
   font-size: 12px;
   margin: 0;
+  line-height: 1.6;
 }
 
 .connection-form .connection-result {
   font-size: 12px;
   margin-top: 20px;
   padding: 12px 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--edge-soft);
   overflow-wrap: anywhere;
 }
 
@@ -102,4 +119,10 @@
 
 .connection-result.error {
   color: var(--error);
+}
+
+@media (max-width: 480px) {
+  .connection-columns {
+    padding: 16px;
+  }
 }

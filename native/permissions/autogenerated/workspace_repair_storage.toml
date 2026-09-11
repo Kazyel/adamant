@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-workspace-repair-storage"
+description = "Enables the workspace_repair_storage command without any pre-configured scope."
+commands.allow = ["workspace_repair_storage"]
+
+[[permission]]
+identifier = "deny-workspace-repair-storage"
+description = "Denies the workspace_repair_storage command without any pre-configured scope."
+commands.deny = ["workspace_repair_storage"]

@@ -10,7 +10,9 @@ use serde::Serialize;
 use super::capability::{kind, relative};
 use super::{NoteDocument, Vault, VaultEntry, VaultError, VaultIssue, VaultResult, VaultSnapshot};
 
+mod search;
 mod work;
+pub(super) use search::BodyIndex;
 
 const MAX_ENTRIES: usize = 50_000;
 const MAX_DIRECTORIES: usize = 2048;
@@ -48,6 +50,40 @@ pub struct VaultPage {
     pub total: usize,
     pub has_more: bool,
     pub indexing: IndexStatus,
+    pub generation: u64,
+}
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchHit {
+    pub path: String,
+    pub kind: String,
+    pub id: Option<String>,
+    pub identity: String,
+    pub line: Option<usize>,
+    pub column: Option<usize>,
+    pub snippet: String,
+    pub revision: Option<String>,
+}
+
+pub struct SearchQuery<'a> {
+    pub request_id: String,
+    pub query: &'a str,
+    pub mode: &'a str,
+    pub offset: usize,
+    pub limit: usize,
+    pub expected_generation: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchPage {
+    pub request_id: String,
+    pub hits: Vec<SearchHit>,
+    pub has_more: bool,
+    pub can_continue: bool,
+    pub truncated: bool,
+    pub indexing: IndexStatus,
+    pub generation: u64,
 }
 
 pub(super) fn message(mut text: String) -> String {
@@ -98,6 +134,7 @@ impl Issues {
 #[derive(Clone)]
 struct IndexedEntry {
     entry: VaultEntry,
+    identity: Option<String>,
     // Only control metadata, never Markdown bodies or original PDF/DOCX bytes.
     metadata: Option<String>,
     references: Vec<String>,
@@ -121,6 +158,8 @@ pub(super) struct Inventory {
     metadata_bytes: usize,
     directories: usize,
     epoch: u64,
+    // Public row snapshot, independent of the reconciliation sweep epoch.
+    generation: u64,
 }
 
 impl Inventory {
@@ -140,6 +179,7 @@ impl Inventory {
             metadata_bytes: 0,
             directories: 0,
             epoch: 0,
+            generation: 1,
         }
     }
 
@@ -147,6 +187,7 @@ impl Inventory {
         let Some(row) = self.rows.remove(path) else {
             return;
         };
+        self.generation += 1;
         self.metadata_bytes -= row.weight();
         if row.entry.kind == "directory" {
             self.directories -= 1;
@@ -202,6 +243,7 @@ impl Inventory {
             .or_default()
             .insert(row.entry.path.clone());
         self.rows.insert(row.entry.path.clone(), row);
+        self.generation += 1;
         true
     }
 }
@@ -249,20 +291,67 @@ impl Vault {
         offset: usize,
         limit: usize,
     ) -> VaultResult<VaultPage> {
+        self.list_entries_filtered(directory, offset, limit, "name", "", None)
+    }
+
+    pub fn list_entries_filtered(
+        &self,
+        directory: &str,
+        offset: usize,
+        limit: usize,
+        sort: &str,
+        filter: &str,
+        generation: Option<u64>,
+    ) -> VaultResult<VaultPage> {
         self.ensure_current_manifest()?;
         if !directory.is_empty() {
             relative(directory)?;
         }
         let limit = if limit == 0 { 100 } else { limit.min(200) };
         let inventory = self.inventory();
-        let children = inventory.children.get(directory);
-        let total = children.map_or(0, BTreeSet::len);
-        let entries = children
+        if let Some(expected) = generation
+            && expected != inventory.generation
+        {
+            return Err(VaultError::conflict(
+                "The Vault inventory changed. Restart this directory listing.",
+                None,
+            ));
+        }
+        let needle = filter.to_lowercase();
+        let mut children = inventory
+            .children
+            .get(directory)
             .into_iter()
             .flatten()
+            .filter(|path| needle.is_empty() || path.to_lowercase().contains(&needle))
+            .filter_map(|path| inventory.rows.get(path))
+            .collect::<Vec<_>>();
+        children.sort_by(|left, right| {
+            right
+                .entry
+                .kind
+                .eq("directory")
+                .cmp(&left.entry.kind.eq("directory"))
+                .then_with(|| match sort {
+                    "type" => left
+                        .entry
+                        .kind
+                        .cmp(right.entry.kind)
+                        .then_with(|| left.entry.path.cmp(&right.entry.path)),
+                    "modified" => right
+                        .entry
+                        .modified_at
+                        .cmp(&left.entry.modified_at)
+                        .then_with(|| left.entry.path.cmp(&right.entry.path)),
+                    _ => left.entry.path.cmp(&right.entry.path),
+                })
+        });
+        let total = children.len();
+        let entries = children
+            .into_iter()
             .skip(offset)
             .take(limit)
-            .filter_map(|path| inventory.rows.get(path).map(|row| row.entry.clone()))
+            .map(|row| row.entry.clone())
             .collect();
         Ok(VaultPage {
             directory: directory.into(),
@@ -272,6 +361,7 @@ impl Vault {
             total,
             has_more: offset.saturating_add(limit) < total,
             indexing: inventory.status.clone(),
+            generation: inventory.generation,
         })
     }
 

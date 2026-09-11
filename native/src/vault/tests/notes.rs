@@ -138,21 +138,37 @@ fn import_deduplicates_exact_identity_and_rejects_different_content() {
     let source = f._temp.path().join("import.md");
     let text = identified("# Original\n");
     fs::write(&source, &text).unwrap();
-    let first = f.vault.import_note("notes/imported.md", &source).unwrap();
+    f.vault.create_folder("notes").unwrap();
+    f.reconcile();
+    let imported = |name: &str| crate::vault::mutations::ImportedFile {
+        name: name.into(),
+        bytes: fs::read(&source).unwrap(),
+        companion: None,
+    };
+    let result = f
+        .vault
+        .import_files(vec![imported("imported.md")], "notes")
+        .unwrap();
+    assert_eq!(result.outcomes[0].status, "completed");
+    let first = f.vault.read_note("notes/imported.md").unwrap();
     assert_eq!(first.text, text);
     f.reconcile();
     let duplicate = f
         .vault
-        .import_note("notes/not-created.md", &source)
+        .import_files(vec![imported("not-created.md")], "notes")
         .unwrap();
-    assert_eq!(duplicate.path, first.path);
+    assert_eq!(duplicate.outcomes[0].status, "skipped");
+    assert_eq!(
+        duplicate.outcomes[0].destination.as_deref(),
+        Some(first.path.as_str())
+    );
     assert!(!f.root.join("notes/not-created.md").exists());
     fs::write(&source, first.text.replace("Original", "Different")).unwrap();
     let collision = f
         .vault
-        .import_note("notes/collision.md", &source)
-        .unwrap_err();
-    assert_eq!(collision.kind, "conflict");
+        .import_files(vec![imported("collision.md")], "notes")
+        .unwrap();
+    assert_eq!(collision.outcomes[0].status, "failed");
     assert_eq!(f.vault.read_note(&first.path).unwrap().text, first.text);
     assert!(!f.root.join("notes/collision.md").exists());
     f.vault.save_copy("recovery.md", &first.text).unwrap();
@@ -169,5 +185,33 @@ fn import_deduplicates_exact_identity_and_rejects_different_content() {
             .unwrap_err()
             .kind,
         "conflict"
+    );
+}
+
+#[test]
+fn identified_read_refuses_replacement_without_rebinding_the_buffer() {
+    let fixture = Fixture::new();
+    fs::write(fixture.root.join("unmanaged.md"), "Original bytes").unwrap();
+    let target =
+        crate::vault::navigation::navigation_target(&fixture.vault, "unmanaged.md").unwrap();
+    fs::rename(
+        fixture.root.join("unmanaged.md"),
+        fixture.root.join("original.md"),
+    )
+    .unwrap();
+    fs::write(fixture.root.join("unmanaged.md"), "Replacement bytes").unwrap();
+    assert!(
+        fixture
+            .vault
+            .read_note_identified("unmanaged.md", &target.identity)
+            .is_err()
+    );
+    assert_eq!(
+        fs::read_to_string(fixture.root.join("original.md")).unwrap(),
+        "Original bytes"
+    );
+    assert_eq!(
+        fs::read_to_string(fixture.root.join("unmanaged.md")).unwrap(),
+        "Replacement bytes"
     );
 }

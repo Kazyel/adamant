@@ -190,6 +190,7 @@ impl Vault {
             name,
             state_dir,
             inventory: Mutex::new(Inventory::new()),
+            body_index: Mutex::new(super::indexing::BodyIndex::new()),
             index_work: Mutex::new(()),
             identity_writes: Mutex::new(()),
         })

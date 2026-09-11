@@ -160,7 +160,7 @@ fn supported_inventory_is_case_insensitive_paged_and_never_admits_control_or_ign
 }
 
 #[test]
-fn cancellation_preserves_inventory_and_source_access_but_cannot_certify_identity_absence() {
+fn cancelled_inventory_preserves_access_and_import_rejects_unindexed_identity_conflicts() {
     let f = Fixture::new();
     let note = f.vault.create_note("note.md", "# Original\n").unwrap();
     f.reconcile();
@@ -187,11 +187,24 @@ fn cancellation_preserves_inventory_and_source_access_but_cannot_certify_identit
     assert_eq!(copy.text, saved.text);
     let created = f.vault.create_note("new.md", "# New identity\n").unwrap();
     assert_ne!(created.id, note.id);
-    let source = f._temp.path().join("import.md");
-    fs::write(&source, identified("# Supplied identity\n")).unwrap();
+    let source = identified("# Supplied identity\n");
+    let unindexed = source.replace("# Supplied identity", "# Already present on disk");
+    fs::write(f.root.join("unindexed.md"), &unindexed).unwrap();
+    let result = f
+        .vault
+        .import_files(
+            vec![crate::vault::mutations::ImportedFile {
+                name: "import.md".into(),
+                bytes: source.into_bytes(),
+                companion: None,
+            }],
+            "",
+        )
+        .unwrap();
+    assert_eq!(result.outcomes[0].status, "failed");
     assert_eq!(
-        f.vault.import_note("import.md", &source).unwrap_err().kind,
-        "invalid"
+        fs::read_to_string(f.root.join("unindexed.md")).unwrap(),
+        unindexed
     );
     assert!(!f.root.join("import.md").exists());
 }

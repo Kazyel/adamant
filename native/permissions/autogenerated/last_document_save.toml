@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-last-document-save"
+description = "Enables the last_document_save command without any pre-configured scope."
+commands.allow = ["last_document_save"]
+
+[[permission]]
+identifier = "deny-last-document-save"
+description = "Denies the last_document_save command without any pre-configured scope."
+commands.deny = ["last_document_save"]

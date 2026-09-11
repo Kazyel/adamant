@@ -2,10 +2,13 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { getDocument, GlobalWorkerOptions, TextLayer } from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import 'pdfjs-dist/web/pdf_viewer.css';
+import pdfViewerStyles from 'pdfjs-dist/web/pdf_viewer.css?inline';
 import { errorMessage } from '../../shared/errors';
+import LoadingIndicator from '../../shared/ui/LoadingIndicator';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
+
+const pageStyles = `@scope (.pdf-page) { ${pdfViewerStyles} }`;
 
 function PdfPage({
   document: pdf,
@@ -96,9 +99,9 @@ function PdfPage({
   return (
     <>
       {loading ? (
-        <p className="pdf-page-status" role="status">
-          Rendering page {number}…
-        </p>
+        <div className="pdf-page-status">
+          <LoadingIndicator label={`Rendering PDF page ${number}`} />
+        </div>
       ) : null}
       {error ? (
         <p className="viewer-message error" role="alert">
@@ -122,11 +125,19 @@ function PdfPage({
   );
 }
 
-export default memo(function PdfViewer({ bytes }: { bytes: Uint8Array }) {
+export default memo(function PdfViewer({
+  bytes,
+  position,
+  onPositionChange,
+}: {
+  bytes: Uint8Array;
+  position: { page: number; zoom: number };
+  onPositionChange: (position: { page: number; zoom: number }) => void;
+}) {
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState('');
-  const [page, setPage] = useState(1);
-  const [zoom, setZoom] = useState(1);
+  const page = Math.max(1, Math.min(position.page, pdf?.numPages ?? position.page));
+  const zoom = position.zoom;
 
   useEffect(() => {
     let cancelled = false;
@@ -173,15 +184,20 @@ export default memo(function PdfViewer({ bytes }: { bytes: Uint8Array }) {
   }
   if (!pdf) {
     return (
-      <div className="viewer-message" role="status">
-        Loading PDF. You can continue writing in the Markdown buffer.
+      <div className="viewer-message">
+        <LoadingIndicator label="Loading PDF" />
       </div>
     );
   }
   return (
     <div className="pdf-viewer">
+      <style>{pageStyles}</style>
       <div className="pdf-toolbar" aria-label="PDF controls">
-        <button type="button" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>
+        <button
+          type="button"
+          disabled={page === 1}
+          onClick={() => onPositionChange({ page: page - 1, zoom })}
+        >
           Previous
         </button>
         <span aria-live="polite">
@@ -190,13 +206,16 @@ export default memo(function PdfViewer({ bytes }: { bytes: Uint8Array }) {
         <button
           type="button"
           disabled={page === pdf.numPages}
-          onClick={() => setPage((value) => value + 1)}
+          onClick={() => onPositionChange({ page: page + 1, zoom })}
         >
           Next
         </button>
         <label>
           Zoom{' '}
-          <select value={zoom} onChange={(event) => setZoom(Number(event.target.value))}>
+          <select
+            value={zoom}
+            onChange={(event) => onPositionChange({ page, zoom: Number(event.target.value) })}
+          >
             <option value={0.5}>50%</option>
             <option value={0.75}>75%</option>
             <option value={1}>100%</option>

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-acknowledge-recovery"
+description = "Enables the vault_acknowledge_recovery command without any pre-configured scope."
+commands.allow = ["vault_acknowledge_recovery"]
+
+[[permission]]
+identifier = "deny-vault-acknowledge-recovery"
+description = "Denies the vault_acknowledge_recovery command without any pre-configured scope."
+commands.deny = ["vault_acknowledge_recovery"]

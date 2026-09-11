@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { chmod, copyFile, mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,7 +57,8 @@ if (build.status !== 0) {
 async function installFile(destination, prepare) {
   const parent = dirname(destination);
   await mkdir(parent, { recursive: true });
-  const staging = await mkdtemp(join(parent, '.adamant-update-'));
+  // Keep temporary directories outside applications/, which launchers scan and watch.
+  const staging = await mkdtemp(join(appDirectory, '.adamant-update-'));
 
   try {
     const staged = join(staging, 'file');
@@ -73,7 +74,15 @@ await installFile(executable, async (path) => {
   await copyFile(join(target, 'release', 'adamant'), path);
   await chmod(path, 0o755);
 });
-await installFile(desktopFile, (path) => writeFile(path, desktopEntry, { mode: 0o644 }));
+const installedEntry = await readFile(desktopFile, 'utf8').catch((error) => {
+  if (error.code === 'ENOENT') {
+    return null;
+  }
+  throw error;
+});
+if (installedEntry !== desktopEntry) {
+  await installFile(desktopFile, (path) => writeFile(path, desktopEntry, { mode: 0o644 }));
+}
 
 console.log(`\nAdamant installed: ${executable}`);
 console.log(

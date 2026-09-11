@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { renderAsync } from 'docx-preview';
 import type { HElement } from 'docx-preview';
-import PreviewFrame, { previewDocument } from '../../shared/ui/PreviewFrame';
+import { previewDocument } from '../../shared/ui/PreviewFrame';
 import { errorMessage } from '../../shared/errors';
+import LoadingIndicator from '../../shared/ui/LoadingIndicator';
 
 function applyElementProperties(element: Element, value: HElement) {
   const { className, style } = value;
@@ -62,9 +63,78 @@ function createInertNode(inert: Document, value: HElement | Node | string): Node
   return element;
 }
 
-export default function DocxViewer({ bytes }: { bytes: Uint8Array }) {
+export default function DocxViewer({
+  bytes,
+  scrollTop = 0,
+  onScrollTopChange,
+}: {
+  bytes: Uint8Array;
+  scrollTop?: number;
+  onScrollTopChange?: (scrollTop: number) => void;
+}) {
   const [content, setContent] = useState('');
   const [error, setError] = useState('');
+  const frame = useRef<HTMLIFrameElement>(null);
+  const restorePosition = useEffectEvent((surface: Element) => {
+    surface.scrollTop = Number.isFinite(scrollTop)
+      ? Math.max(0, Math.min(scrollTop, surface.scrollHeight - surface.clientHeight))
+      : 0;
+  });
+  const reportPosition = useEffectEvent((surface: Element) => {
+    onScrollTopChange?.(
+      Math.max(0, Math.min(surface.scrollTop, surface.scrollHeight - surface.clientHeight)),
+    );
+  });
+
+  useLayoutEffect(() => {
+    const iframe = frame.current;
+    if (!iframe || !content) {
+      return;
+    }
+    let cancelled = false;
+    let release: (() => void) | undefined;
+    const loaded = () => {
+      release?.();
+      const document = iframe.contentDocument;
+      const surface = document?.scrollingElement;
+      if (!document || !surface) {
+        return;
+      }
+      let restored = false;
+      const restore = () => {
+        if (cancelled || restored || !iframe.clientHeight) {
+          return;
+        }
+        restorePosition(surface);
+        restored = true;
+      };
+      const report = () => {
+        if (restored && iframe.clientHeight) {
+          reportPosition(surface);
+        }
+      };
+      // Hidden previews acquire a viewport only when the reading pane becomes visible.
+      const observer = new ResizeObserver(restore);
+      void document.fonts.ready.then(() => {
+        if (cancelled) {
+          return;
+        }
+        restore();
+        observer.observe(iframe);
+      });
+      document.addEventListener('scroll', report, { passive: true });
+      release = () => {
+        observer.disconnect();
+        document.removeEventListener('scroll', report);
+      };
+    };
+    iframe.addEventListener('load', loaded);
+    return () => {
+      cancelled = true;
+      iframe.removeEventListener('load', loaded);
+      release?.();
+    };
+  }, [content]);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,11 +155,11 @@ export default function DocxViewer({ bytes }: { bytes: Uint8Array }) {
       .then(() => {
         if (!cancelled) {
           setContent(
-            previewDocument(
-              container.innerHTML,
-              '.docx-wrapper{padding:24px!important;background:hsl(212.727273 31.428571% 93.675294%)!important}.docx{box-shadow:none!important;margin-bottom:24px!important}',
-              true,
-            ),
+            previewDocument(container.innerHTML, {
+              styles:
+                '.docx-wrapper{padding:24px!important;background:hsl(212.727273 31.428571% 93.675294%)!important}.docx{box-shadow:none!important;margin-bottom:24px!important}',
+              docx: true,
+            }),
           );
         }
       })
@@ -116,10 +186,20 @@ export default function DocxViewer({ bytes }: { bytes: Uint8Array }) {
   }
   if (!content) {
     return (
-      <div className="viewer-message" role="status">
-        Rendering DOCX. You can continue writing in the Markdown buffer.
+      <div className="viewer-message">
+        <LoadingIndicator label="Rendering DOCX" />
       </div>
     );
   }
-  return <PreviewFrame content={content} title="Isolated DOCX preview" />;
+  // Parent access is only for scroll state; scripts remain forbidden by sandbox and CSP.
+  return (
+    <iframe
+      ref={frame}
+      className="preview-frame"
+      title="Isolated DOCX preview"
+      sandbox="allow-same-origin"
+      referrerPolicy="no-referrer"
+      srcDoc={content}
+    />
+  );
 }

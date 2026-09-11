@@ -9,28 +9,11 @@ import WorkspaceRibbon from './WorkspaceRibbon';
 import { StatusBar, WorkspaceNotices } from './WorkspaceStatus';
 import WorkspaceTabs from './WorkspaceTabs';
 import { native } from './workspaceView';
-import type { DocumentInfo, Section, View, Workspace } from './workspaceView';
-
-function useDocumentView(showOriginal: boolean, revision: number | undefined) {
-  const [selection, setSelection] = useState({
-    showOriginal,
-    revision,
-    view: (showOriginal ? 'read' : 'edit') as View,
-  });
-  let view = selection.view;
-
-  if (selection.showOriginal !== showOriginal || selection.revision !== revision) {
-    // A newly selected original starts in reading view; explicit view choices persist otherwise.
-    view = showOriginal ? 'read' : selection.view;
-    setSelection({ showOriginal, revision, view });
-  }
-
-  function setView(next: View) {
-    setSelection({ showOriginal, revision, view: next });
-  }
-
-  return { view, setView };
-}
+import type { DocumentInfo, Section, View } from './workspaceView';
+import type { Workspace } from '../features/workspace/workspaceTypes';
+import { useWorkspaceActions } from './WorkspaceActions';
+import RecoveryDialog from '../features/workspace/session/RecoveryDialog';
+import MutationRecovery from '../features/workspace/MutationRecovery';
 
 function getBufferPath({ vault, buffer }: Workspace) {
   if (buffer.source?.kind === 'standalone') {
@@ -57,7 +40,8 @@ function getDocumentInfo(workspace: Workspace, view: View): DocumentInfo {
   const bufferName = sourceName(buffer.source);
   const bufferPath = getBufferPath(workspace);
 
-  const activeName = readingDocument?.name ?? bufferName;
+  const activeName =
+    workspace.documents.activeTab?.retained?.name ?? readingDocument?.name ?? bufferName;
   const activePath = readingDocument?.path ?? bufferPath;
 
   const activeVaultPath = readingDocument ? readingDocument.vaultPath : (note?.path ?? null);
@@ -77,7 +61,14 @@ export default function App() {
   const workspace = useWorkspace();
   const [section, setSection] = useState<Section>('workbench');
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 760);
-  const { view, setView } = useDocumentView(workspace.showOriginal, workspace.selected?.revision);
+  const activeTab = workspace.documents.activeTab;
+  const view = activeTab?.view ?? workspace.preferences.defaultView;
+  function setView(next: View) {
+    if (!activeTab || (activeTab.kind !== 'markdown' && next !== 'read')) {
+      return;
+    }
+    workspace.documents.updateTab(activeTab.id, { view: next });
+  }
   const indexDetails = useRef<HTMLDetailsElement>(null);
   const documentInfo = getDocumentInfo(workspace, view);
 
@@ -110,40 +101,87 @@ export default function App() {
     setView,
     showBuffer,
   };
+  const actionUI = useWorkspaceActions(workspace, navigation);
 
   return (
     <div className="app-shell" data-sidebar-open={sidebarOpen}>
       <a className="skip-link" href="#main">
         Skip to workspace
       </a>
-      <WorkspaceRibbon workspace={workspace} navigation={navigation} />
+      <WorkspaceRibbon workspace={workspace} navigation={navigation} actions={actionUI.actions} />
       <ExplorerSidebar
         workspace={workspace}
         navigation={navigation}
         documentInfo={documentInfo}
         detailsRef={indexDetails}
+        fileActions={workspace.fileActions}
       />
       <main id="main" tabIndex={-1}>
         <WorkspaceTabs workspace={workspace} navigation={navigation} documentInfo={documentInfo} />
-        <WorkspaceNotices workspace={workspace} />
-        <DocumentWorkbench
-          workspace={workspace}
-          navigation={navigation}
-          documentInfo={documentInfo}
-        />
-        {section === 'connections' ? <Connections native={native} /> : null}
-        <StatusBar
-          workspace={workspace}
-          navigation={navigation}
-          documentInfo={documentInfo}
-          revealIndexDetails={revealIndexDetails}
-        />
+        <div className="workspace-surface">
+          <WorkspaceNotices workspace={workspace} />
+          <MutationRecovery
+            actions={workspace.fileActions}
+            reveal={(path) => {
+              setSidebarOpen(true);
+              setSection('workbench');
+              workspace.openPath(path);
+            }}
+          />
+          {workspace.recoveries.length ? (
+            <details className="workspace-notice draft-notice">
+              <summary>
+                <span>Retained drafts: {workspace.recoveries.length}</span>
+                <small>Source files unchanged</small>
+              </summary>
+              <div className="draft-notice-list">
+                {workspace.recoveries.map((draft) => (
+                  <button
+                    key={draft.id}
+                    type="button"
+                    onClick={() => {
+                      void workspace.inspectRecovery(draft);
+                    }}
+                    title={draft.path || 'New document'}
+                  >
+                    Review {draft.path || 'New document'}
+                  </button>
+                ))}
+              </div>
+            </details>
+          ) : null}
+          <DocumentWorkbench
+            workspace={workspace}
+            navigation={navigation}
+            documentInfo={documentInfo}
+          />
+          {section === 'connections' ? <Connections native={native} /> : null}
+          <StatusBar
+            workspace={workspace}
+            navigation={navigation}
+            documentInfo={documentInfo}
+            revealIndexDetails={revealIndexDetails}
+          />
+        </div>
       </main>
       {workspace.prompt ? (
         <WorkspaceDialog
           key={workspace.prompt.kind}
           prompt={workspace.prompt}
           answer={workspace.answer}
+        />
+      ) : null}
+      {actionUI.overlays}
+      {workspace.recovery ? (
+        <RecoveryDialog
+          draft={workspace.recovery.draft}
+          sourceText={workspace.recovery.source?.text ?? null}
+          sourceChanged={workspace.recovery.sourceChanged}
+          onRecover={workspace.recoverDraft}
+          onDiscard={() => {
+            void workspace.discardRecovery(workspace.recovery!.draft.id).catch(workspace.fail);
+          }}
+          onCancel={workspace.cancelRecovery}
         />
       ) : null}
     </div>

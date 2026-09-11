@@ -1,22 +1,35 @@
 use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex, atomic::AtomicU64},
+    collections::HashMap,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicU64},
+    },
 };
 
 use tauri::State;
 
 use super::{NoteDocument, Vault, VaultError, VaultPage, VaultParent, VaultResult, VaultSnapshot};
 use crate::documents::{Document, DocumentState};
-use session::{ActiveVault, Session, activate_vault, close_vault, with_vault};
+use session::{
+    ActiveVault, Session, activate_vault, close_vault, restore_vault, with_vault, with_write,
+};
 
 mod background;
+pub(crate) mod imports;
+mod remembered;
 mod session;
+pub(crate) mod usability;
+pub(crate) mod workspace;
 
 #[derive(Default, Clone)]
 pub(crate) struct VaultState {
     session: Arc<Mutex<Session>>,
     // Updated only under the session lock; dialogs/runtime tasks can capture it without blocking.
     generation: Arc<AtomicU64>,
+    authority: Arc<Mutex<()>>,
+    imports: Arc<Mutex<imports::ImportStore>>,
+    searches: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
+    mutation_plans: Arc<Mutex<HashMap<String, u64>>>,
 }
 
 #[tauri::command]
@@ -68,6 +81,15 @@ pub(crate) async fn vault_open(
 }
 
 #[tauri::command]
+pub(crate) async fn vault_restore(
+    state: State<'_, VaultState>,
+    app_state: State<'_, DocumentState>,
+    app: tauri::AppHandle,
+) -> VaultResult<Option<VaultSnapshot>> {
+    restore_vault(state, app_state, app).await
+}
+
+#[tauri::command]
 pub(crate) async fn vault_create(
     name: String,
     state: State<'_, VaultState>,
@@ -98,10 +120,20 @@ pub(crate) async fn vault_list_entries(
     directory: String,
     offset: usize,
     limit: usize,
+    sort: Option<String>,
+    filter: Option<String>,
+    generation: Option<u64>,
     state: State<'_, VaultState>,
 ) -> VaultResult<VaultPage> {
     with_vault(&state, state.generation(), move |active| {
-        let mut page = active.vault.list_entries(&directory, offset, limit)?;
+        let mut page = active.vault.list_entries_filtered(
+            &directory,
+            offset,
+            limit,
+            sort.as_deref().unwrap_or("name"),
+            filter.as_deref().unwrap_or(""),
+            generation,
+        )?;
         active.background.project_status(&mut page.indexing);
         Ok(page)
     })
@@ -130,18 +162,25 @@ pub(crate) async fn vault_cancel_index(state: State<'_, VaultState>) -> VaultRes
 pub(crate) async fn vault_close(
     state: State<'_, VaultState>,
     app_state: State<'_, DocumentState>,
+    app: tauri::AppHandle,
 ) -> VaultResult<()> {
-    close_vault(state, app_state).await
+    close_vault(state, app_state, app).await
 }
 
 #[tauri::command]
 pub(crate) async fn vault_read_note(
     path: String,
+    expected_identity: Option<String>,
     state: State<'_, VaultState>,
 ) -> VaultResult<NoteDocument> {
-    with_vault(&state, state.generation(), move |active| {
-        active.vault.read_note(&path)
-    })
+    with_vault(
+        &state,
+        state.generation(),
+        move |active| match expected_identity {
+            Some(identity) => active.vault.read_note_identified(&path, &identity),
+            None => active.vault.read_note(&path),
+        },
+    )
     .await
 }
 
@@ -151,7 +190,7 @@ pub(crate) async fn vault_create_note(
     text: String,
     state: State<'_, VaultState>,
 ) -> VaultResult<NoteDocument> {
-    with_vault(&state, state.generation(), move |active| {
+    with_write(&state, state.generation(), move |active| {
         active.mutate(|vault| vault.create_note(&path, &text))
     })
     .await
@@ -164,7 +203,7 @@ pub(crate) async fn vault_save_note(
     expected_revision: String,
     state: State<'_, VaultState>,
 ) -> VaultResult<NoteDocument> {
-    with_vault(&state, state.generation(), move |active| {
+    with_write(&state, state.generation(), move |active| {
         active.mutate(|vault| vault.save_note(&path, &text, &expected_revision))
     })
     .await
@@ -176,7 +215,7 @@ pub(crate) async fn vault_save_copy(
     text: String,
     state: State<'_, VaultState>,
 ) -> VaultResult<NoteDocument> {
-    with_vault(&state, state.generation(), move |active| {
+    with_write(&state, state.generation(), move |active| {
         active.mutate(|vault| vault.save_copy(&path, &text))
     })
     .await
@@ -188,32 +227,10 @@ pub(crate) async fn vault_adopt_note(
     expected_revision: String,
     state: State<'_, VaultState>,
 ) -> VaultResult<NoteDocument> {
-    with_vault(&state, state.generation(), move |active| {
+    with_write(&state, state.generation(), move |active| {
         active.mutate(|vault| vault.adopt_note(&path, &expected_revision))
     })
     .await
-}
-
-#[tauri::command]
-pub(crate) async fn vault_import_note(
-    path: String,
-    state: State<'_, VaultState>,
-) -> VaultResult<Option<NoteDocument>> {
-    let generation = state.generation();
-    let Some(file) = rfd::AsyncFileDialog::new()
-        .set_title("Import a Markdown Note")
-        .add_filter("Markdown", &["md"])
-        .pick_file()
-        .await
-    else {
-        return Ok(None);
-    };
-    let source: PathBuf = file.path().to_owned();
-    with_vault(&state, generation, move |active| {
-        active.mutate(|vault| vault.import_note(&path, &source))
-    })
-    .await
-    .map(Some)
 }
 
 #[tauri::command]
@@ -226,12 +243,9 @@ pub(crate) async fn vault_open_document(
     let authority = state.inner().clone();
     let selected_paths = app_state.selected_paths.clone();
     with_vault(&state, generation, move |active| {
-        let (absolute, kind, bytes) = active.vault.read_document(&path)?;
-        let name = absolute
-            .file_name()
-            .and_then(|name| name.to_str())
-            .ok_or_else(|| VaultError::invalid("The document filename must be Unicode."))?
-            .to_owned();
+        let target = super::navigation::navigation_target(&active.vault, &path)?;
+        let absolute = active.vault.root.join(super::capability::relative(&path)?);
+        let document = crate::documents::read_target(absolute.clone(), target)?;
         // Keep the generation check and grant atomic with respect to choose/close clearing grants.
         let _session = authority
             .session
@@ -242,12 +256,7 @@ pub(crate) async fn vault_open_document(
             .lock()
             .map_err(|_| VaultError::io("Document access is unavailable."))?
             .insert(absolute.clone());
-        Ok(Document {
-            path: absolute.to_string_lossy().into_owned(),
-            name,
-            kind,
-            bytes,
-        })
+        Ok(document)
     })
     .await
 }

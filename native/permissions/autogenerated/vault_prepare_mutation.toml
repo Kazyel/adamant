@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-prepare-mutation"
+description = "Enables the vault_prepare_mutation command without any pre-configured scope."
+commands.allow = ["vault_prepare_mutation"]
+
+[[permission]]
+identifier = "deny-vault-prepare-mutation"
+description = "Denies the vault_prepare_mutation command without any pre-configured scope."
+commands.deny = ["vault_prepare_mutation"]

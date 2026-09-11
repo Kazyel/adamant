@@ -221,3 +221,117 @@ pub(crate) fn adopt(text: &str) -> VaultResult<String> {
     }
     Ok(result)
 }
+
+/// YAML's parser supplies the scalar offsets: nested `id` keys, flow mappings,
+/// comments and quotes must not be mistaken for the document's identity.
+pub(crate) fn duplicate_source(
+    text: &str,
+    note: bool,
+    fresh: &str,
+    identities: &std::collections::HashMap<String, String>,
+) -> VaultResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Reference {
+        kind: String,
+        id: serde_saphyr::Spanned<String>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Fields {
+        id: serde_saphyr::Spanned<String>,
+        #[serde(default)]
+        refs: Vec<Reference>,
+    }
+    let adopted;
+    let text = if note && frontmatter(text).map_err(VaultError::invalid)?.is_none() {
+        adopted = adopt(text)?;
+        adopted.as_str()
+    } else {
+        text
+    };
+    let inspected = if note {
+        note_metadata(text)
+    } else {
+        companion_metadata(text)
+    };
+    if inspected.error.is_some() || inspected.id.is_none() {
+        return Err(VaultError::invalid(
+            "Invalid or missing identity metadata cannot be duplicated safely. Adopt or repair it explicitly first.",
+        ));
+    }
+    let (yaml, offset) = if note {
+        let front = frontmatter(text).map_err(VaultError::invalid)?.unwrap();
+        (front.yaml, front.start)
+    } else {
+        (text, 0)
+    };
+    let fields: Fields = serde_saphyr::from_str(yaml)
+        .map_err(|error| VaultError::invalid(format!("Cannot locate identity scalars: {error}")))?;
+    let mut replacements = vec![(fields.id, fresh.to_owned())];
+    for reference in fields.refs {
+        if matches!(
+            reference.kind.as_str(),
+            "note" | "topic" | "document" | "documentation-page"
+        ) && let Ok(id) = Uuid::parse_str(&reference.id.value)
+            && let Some(replacement) = identities.get(&id.to_string())
+        {
+            replacements.push((reference.id, replacement.clone()));
+        }
+    }
+    let mut edits = Vec::new();
+    for (scalar, replacement) in replacements {
+        if scalar.referenced != scalar.defined {
+            return Err(VaultError::invalid(
+                "Aliased or merged identities require an explicit source edit before duplication.",
+            ));
+        }
+        let span = scalar.referenced.span();
+        let start = span
+            .byte_offset()
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| VaultError::invalid("Identity scalar has no byte location."))?;
+        let len = span
+            .byte_len()
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| VaultError::invalid("Identity scalar has no byte extent."))?;
+        let raw = yaml
+            .get(start..start + len)
+            .ok_or_else(|| VaultError::invalid("Identity scalar location is invalid."))?;
+        let value = scalar.value.as_str();
+        let inner = if raw == value {
+            0
+        } else if (raw.starts_with('"') && raw.ends_with('"')
+            || raw.starts_with('\'') && raw.ends_with('\''))
+            && raw.get(1..raw.len() - 1) == Some(value)
+        {
+            1
+        } else {
+            return Err(VaultError::invalid(
+                "This identity scalar spelling cannot be duplicated without rewriting source.",
+            ));
+        };
+        edits.push((
+            offset + start + inner,
+            offset + start + inner + value.len(),
+            replacement,
+        ));
+    }
+    edits.sort_by_key(|edit| edit.0);
+    if edits.windows(2).any(|pair| pair[0].1 > pair[1].0) {
+        return Err(VaultError::invalid("Identity scalar locations overlap."));
+    }
+    let mut result = text.to_owned();
+    for (start, end, replacement) in edits.into_iter().rev() {
+        result.replace_range(start..end, &replacement);
+    }
+    let verified = if note {
+        note_metadata(&result)
+    } else {
+        companion_metadata(&result)
+    };
+    if verified.id.as_deref() != Some(fresh) || verified.error.is_some() {
+        return Err(VaultError::invalid(
+            "Duplicated identity metadata failed validation.",
+        ));
+    }
+    Ok(result)
+}
