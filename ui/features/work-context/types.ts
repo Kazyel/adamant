@@ -1,5 +1,5 @@
-export type Provider = 'github' | 'jira';
-export type ItemKind = 'local' | 'github-issue' | 'github-pr' | 'jira';
+type Provider = 'github' | 'jira';
+type ItemKind = 'local' | 'github-issue' | 'github-pr' | 'jira';
 export type Priority = 'none' | 'low' | 'medium' | 'high' | 'urgent';
 
 export interface Connection {
@@ -77,14 +77,7 @@ export interface WorkState {
   drafts: WorkDraft[];
 }
 
-export type RemoteActionKind =
-  | 'comment'
-  | 'edit'
-  | 'close'
-  | 'reopen'
-  | 'transition'
-  | 'review'
-  | 'merge';
+type RemoteActionKind = 'comment' | 'edit' | 'close' | 'reopen' | 'transition' | 'review' | 'merge';
 export interface RemoteAction {
   kind: RemoteActionKind;
   body?: string;

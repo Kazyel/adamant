@@ -600,8 +600,7 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn work_storage_confines_identity_rejects_stale_and_preserves_malformed_source() {
+    fn work_fixture() -> (tempfile::TempDir, Vault, WorkState) {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path().join("vault");
         fs::create_dir(&root).unwrap();
@@ -640,6 +639,14 @@ mod tests {
             body: "Unsent work".into(),
             updated_at: "2026-09-12T12:00:00+00:00".into(),
         });
+        (temp, vault, state)
+    }
+
+    #[test]
+    fn work_storage_confines_identity_rejects_stale_and_preserves_malformed_source() {
+        let (temp, vault, state) = work_fixture();
+        let id = state.vault_id.clone();
+        let root = temp.path().join("vault");
         assert!(vault.load_work(&Uuid::new_v4().to_string()).is_err());
         let first = vault.save_work(&id, state.clone(), 0).unwrap();
         let saved = vault.save_work(&id, first.clone(), 1).unwrap();
@@ -668,6 +675,17 @@ mod tests {
         assert!(vault.load_work(&id).is_err());
         assert!(vault.save_work(&id, saved.clone(), 2).is_err());
         assert_eq!(fs::read(&source).unwrap(), malformed);
+    }
+
+    #[test]
+    fn work_storage_rejects_symlinked_state_and_admin_directory() {
+        let (temp, vault, state) = work_fixture();
+        let id = state.vault_id.clone();
+        let root = temp.path().join("vault");
+        let first = vault.save_work(&id, state, 0).unwrap();
+        let saved = vault.save_work(&id, first, 1).unwrap();
+        let source = root.join(".adamant").join(FILE);
+        let bytes = fs::read(&source).unwrap();
 
         let outside = temp.path().join("outside.json");
         fs::write(&outside, &bytes).unwrap();
