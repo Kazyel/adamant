@@ -25,7 +25,7 @@ Adamant is also a personal learning project, developed through small, verifiable
 
 ## Current status
 
-**Early development · M0 approved; M1 and M1.1 implemented with scoped Linux verification.**
+**Early development · M0 approved; M1/M1.1 and the expanded M2 workspace implemented. Verification remains scoped; live provider writes are not certified.**
 
 Vault creation explicitly creates a new child folder inside a chosen parent; existing destinations, even empty folders, are refused. Adamant manifests use `format: "adamant-vault"`, `formatVersion: 1`, and a UUID. Supported loaded documents are case-insensitive `.md`, `.pdf`, and `.docx`; `vault.json` and `.meta.yaml` companions are internal metadata.
 
@@ -38,18 +38,29 @@ New Vaults create `content/` as their content root, recorded as `"contentRoot": 
 - **Vault & Markdown:** create/open/reopen portable Vaults, explicit Ctrl+S/⌘S persistence, external-change conflicts, adoption/import, collision reporting, recovery copies retaining raw source and UUID, and a bounded incremental index with visible partial/cancelled states.
 - **Markdown workbench:** editing, sanitized reading preview, and split view, with bundled fonts and a collapsible document explorer. The reading column stays centered; long text wraps, and wide code blocks and tables scroll within their own bounds rather than widening the page. Preview links open web/email destinations externally, scroll to local headings, or navigate to relative documents inside the current Vault. Right-click in the editor or press `Shift+F10` for undo/redo, clipboard actions, selection deletion, and select-all. Actions preserve selection and undo history and respect read-only state.
 - **Local document previews:** PDF navigation, zoom, and text selection; approximate DOCX rendering; native file selection and external opening. Files are limited to 64 MiB.
-- **Connection checks:** real, read-only GitHub and Jira Cloud identity requests, with successful credentials saved through the OS credential store. This does not yet synchronize work items.
+- **Project workspace:** project spaces with typed local/GitHub/Jira cards, saved list/board filters, adjustable personal columns, drag/menu/keyboard movement, expandable details, local task checklists/priorities/dates, and links. Personal columns never change remote status.
+- **Connections and work context:** GitHub/Jira account verification with OS-keyring tokens, scoped source refresh/pagination, offline snapshots, and unsent comment/review drafts. Explicit provider actions include comments, supported field/state edits, general PR reviews and merge; immutable item identity and inspected commit checks guard remote targets.
 - **Focused desktop interface:** a matte writing surface flush against the sidebar, with equal top/right/bottom gutters and separate tab and window-control blocks above the content. Gutters share the sidebar's continuous gradient rather than a separate frame background; there is no sidebar title. Hover and selected states use flat fills and text contrast, never lighting, bevels, or state-indicating borders. Atmosphere stays in the surrounding surfaces and sidebar crystal, separate from interaction feedback. Keyboard focus remains visible; focused tabs underline their label instead of drawing a border. The compact Adamant menu and contextual file actions remain familiar; **All commands…** (`Ctrl+Shift+P`) opens the full command palette, including recovery and maintenance operations. Warning/error colors and original PDF/DOCX content are preserved.
 - **Sidebar atmosphere:** a centered, softly lit crystal dissolves into a subtle fade below. Its scale follows the window height; it stays behind file controls, respects reduced motion, and retains a static SVG fallback when WebGL is unavailable.
 - **Surface rendering:** the editor footer, menus, dialogs, and small panels use solid fills. The icon ribbon shares the shell's continuous gradient; a tiny static monochrome dither tile reduces visible 8-bit banding without covering text or adding animated noise.
 - **Sidebar navigation:** distinct Vault, folder, and file typography; consistent row spacing; and short CSS transitions for collapse, hover, and folder chevrons. The sort control uses the app's themed menu with checked Name/Type/Modified choices, keyboard navigation, and focus restoration instead of an unstyled native popup. Collapsed content is inert, and reduced motion disables sidebar transitions and menu animation.
 - **Reading context:** breadcrumbs name the current Vault without repeating it in the status bar. Breadcrumb and status text have stronger contrast without brightening disabled controls. The writing column remains centered; split view stacks vertically when the document area—not the whole window—is too narrow for two comfortable columns.
 
+### Project workspace
+
+Open **Project workspace** from the ribbon or command palette, then create a space in an open Vault. **New task** creates local work; **Add existing** shares an item with another space without sharing its column position. **Columns** adjusts the flow. Alt+Left/Right moves the focused card across columns; the action menu and list column selector provide non-drag alternatives.
+
+Connect accounts under **Connections** and add repository/project scopes under **Sources**, with optional GitHub search qualifiers or Jira JQL. **Follow URL** includes an individual GitHub issue/PR or Jira issue. Refresh is manual and every five minutes while the workspace is visible; additional pages load explicitly. Previously followed items are retained when filters or sources change.
+
+Details separate local organization from provider state and actions. Comments/field edits use explicit Send/Save; approval, change requests, state transitions, and merge require confirmation. Reviews and merge are pinned to the inspected head SHA. No write is automatically retried, including after reconnecting. GitHub inline reviews and remote item creation are outside M2; Jira transitions requiring additional fields must be completed in Jira.
+
+Portable work state lives in `.adamant/work-context.json`, without tokens. Detailed offline discussions/diffs use an account-scoped machine-local cache of the 16 most recent snapshots (up to 2 MiB each); summaries, tasks, links, and drafts remain in the Vault. Failed local writes keep edits in memory and block normal app/Vault departure until resolved; unsaved failures are not claimed as restart-durable. Note links are relative paths and are not rewritten automatically by file moves. See the [work-context storage contract](docs/vault-contract.md#m2-project-workspace) for revision, recovery, and platform limits.
+
 ### Vault creation and local synchronization
 
 Create Vault opens a two-step wizard: choose a parent folder, then name the new Vault. The parent may already contain files and is not changed by selection. Adamant previews the full destination and creates one new child directory exclusively; existing files and folders, including empty ones, are refused and never adopted. The parent's contents are not scanned or imported.
 
-The persistent Adamant menu sits in the bottom icon group, immediately above Trash, and remains available when the explorer is collapsed. Its panel opens upward within the window. Trash stays directly above Connection checks; selection stays highlighted in the file list without a separate footer strip. New Note and Import actions are contextual to the open Vault. Filesystem watching updates clean notes and listings automatically; partial or cancelled indexing exposes compact recovery controls. Saving is explicit with Ctrl+S/⌘S—there is no autosave or cloud synchronization.
+The persistent Adamant menu sits in the bottom icon group, immediately above Trash, and remains available when the explorer is collapsed. Its panel opens upward within the window. Trash stays directly above Connections; selection stays highlighted in the file list without a separate footer strip. New Note and Import actions are contextual to the open Vault. Filesystem watching updates clean notes and listings automatically; partial or cancelled indexing exposes compact recovery controls. Markdown saving is explicit with Ctrl+S/⌘S. Project-workspace changes save automatically to the Vault; provider writes remain explicit.
 
 Routine saves, copies, and local navigation do not show success or processing banners. Longer saves show progress only in the Save button. The unsaved marker clears only after a confirmed write; edits made during that write remain pending. Background navigation keeps loaded editors usable, while operations that can replace buffers or mutate files retain their safety guards. Errors, conflicts, recovery details, and partial or cancelled indexing remain visible. A stale index does not produce workspace warnings; search still reports incomplete coverage where relevant.
 
@@ -173,18 +184,18 @@ The Bun audit gate fails on high/critical findings and emits unfiltered JSON so 
 
 ## Roadmap
 
-| Milestone                         | Outcome                                                                                  | Status                      |
-| --------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------- |
-| **M0 · Technical validation**     | Exercise the desktop editor, document viewers, and account/credential boundaries.        | Approved                    |
-| **M1 · Vault & Markdown**         | Create/open portable Vaults; save notes safely; recognize external edits and conflicts.  | Implemented; Linux verified |
-| **M2 · Work context**             | Follow GitHub issues/PRs and Jira tasks, link notes, and consult cached context offline. | Planned                     |
-| **M3 · Document library**         | Preserve originals, attach Markdown annotations, and capture technical documentation.    | Planned                     |
-| **M4 · Knowledge navigation**     | Connect Topics, folders, tags, references, and resumption points.                        | Planned                     |
-| **M5 · Local calendar**           | Plan local events and study blocks, with iCalendar import/export.                        | Planned                     |
-| **M6 · Today**                    | Bring priorities, events, and the next activity into one view.                           | Planned                     |
-| **M7 · Portable desktop release** | Package, export, move, and reopen the workspace on another installation.                 | Planned                     |
+| Milestone                         | Outcome                                                                                       | Status                           |
+| --------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------- |
+| **M0 · Technical validation**     | Exercise the desktop editor, document viewers, and account/credential boundaries.             | Approved                         |
+| **M1 · Vault & Markdown**         | Create/open portable Vaults; save notes safely; recognize external edits and conflicts.       | Implemented; Linux verified      |
+| **M2 · Work context**             | Project spaces, personal Kanban, typed details, offline drafts and explicit provider actions. | Implemented; scoped verification |
+| **M3 · Document library**         | Preserve originals, attach Markdown annotations, and capture technical documentation.         | Planned                          |
+| **M4 · Knowledge navigation**     | Connect Topics, folders, tags, references, and resumption points.                             | Planned                          |
+| **M5 · Local calendar**           | Plan local events and study blocks, with iCalendar import/export.                             | Planned                          |
+| **M6 · Today**                    | Bring priorities, events, and the next activity into one view.                                | Planned                          |
+| **M7 · Portable desktop release** | Package, export, move, and reopen the workspace on another installation.                      | Planned                          |
 
-Google Calendar synchronization, remote writes to GitHub/Jira, in-app PDF/DOCX editing, and a plugin platform are outside the current roadmap. AI-friendly means portable, inspectable data—not a built-in chatbot or mandatory AI service.
+Google Calendar synchronization, in-app PDF/DOCX editing, and a plugin platform are outside the current roadmap. M2 explicitly includes guarded GitHub/Jira writes; it does not include remote item creation or inline PR review. AI-friendly means portable, inspectable data—not a built-in chatbot or mandatory AI service.
 
 ## Architecture
 

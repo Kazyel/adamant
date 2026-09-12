@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-work-connections"
+description = "Enables the work_connections command without any pre-configured scope."
+commands.allow = ["work_connections"]
+
+[[permission]]
+identifier = "deny-work-connections"
+description = "Denies the work_connections command without any pre-configured scope."
+commands.deny = ["work_connections"]

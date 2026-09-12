@@ -1,11 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from '../../shared/errors';
+import type { Connection } from '../work-context/types';
 
 type CheckState = { status: 'idle' | 'loading' | 'success' | 'error'; message: string };
 
-function IdentityCheck({ provider, native }: { provider: 'github' | 'jira'; native: boolean }) {
+function IdentityCheck({
+  provider,
+  native,
+  onConnected,
+}: {
+  provider: 'github' | 'jira';
+  native: boolean;
+  onConnected: () => void;
+}) {
   const [result, setResult] = useState<CheckState>({ status: 'idle', message: '' });
   const jira = provider === 'jira';
   const title = jira ? 'Jira Cloud' : 'GitHub';
@@ -36,6 +45,7 @@ function IdentityCheck({ provider, native }: { provider: 'github' | 'jira'; nati
         status: 'success',
         message: `Verified ${identity.account}. Token stored in the OS credential store.`,
       });
+      onConnected();
     } catch (error) {
       const message = errorMessage(error);
       setResult({
@@ -50,8 +60,8 @@ function IdentityCheck({ provider, native }: { provider: 'github' | 'jira'; nati
       <h2>{title}</h2>
       <p>
         {jira
-          ? 'Read your account through Jira Cloud REST API v3. Use a personal API token only if your organization permits it.'
-          : 'Read your account through the GitHub REST API. Use a personal access token authorized for your account.'}
+          ? 'Connect Jira Cloud with your account email and an API token permitted by your organization.'
+          : 'Connect GitHub with a personal access token restricted to the repositories and permissions you need.'}
       </p>
       <fieldset disabled={!native || result.status === 'loading'}>
         <legend className="visually-hidden">{title} credentials</legend>
@@ -83,10 +93,12 @@ function IdentityCheck({ provider, native }: { provider: 'github' | 'jira'; nati
           aria-describedby={`${provider}-token-help`}
         />
         <p className="field-help" id={`${provider}-token-help`}>
-          Cleared from this form when submitted. Never saved in browser storage or the Vault.
+          Cleared from this form when submitted. Never saved in browser storage or the Vault.{' '}
+          Reading and writing require the corresponding provider permissions. Connecting does not
+          modify remote items.
         </p>
         <button className="primary" type="submit">
-          {result.status === 'loading' ? 'Checking…' : `Check ${title} identity`}
+          {result.status === 'loading' ? 'Connecting…' : `Connect ${title}`}
         </button>
       </fieldset>
       {result.status !== 'idle' ? (
@@ -102,22 +114,78 @@ function IdentityCheck({ provider, native }: { provider: 'github' | 'jira'; nati
 }
 
 export default function Connections({ native }: { native: boolean }) {
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    if (!native) {
+      return;
+    }
+    let current = true;
+    void invoke<Connection[]>('work_connections').then(
+      (result) => {
+        if (current) {
+          setConnections(result);
+          setError('');
+        }
+      },
+      (reason: unknown) => {
+        if (current) {
+          setError(errorMessage(reason));
+        }
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [native, revision]);
+
   return (
     <section className="connections" aria-labelledby="connections-heading">
       <header className="section-heading">
-        <h1 id="connections-heading">Connection checks</h1>
+        <h1 id="connections-heading">Connections</h1>
         <p>
-          Real, read-only identity requests. A check succeeds only after secure credential storage
-          succeeds.
+          Connect accounts here, then choose repositories and Jira projects in your project
+          workspace. Tokens stay in the OS credential store.
         </p>
       </header>
-      <div className="connection-note">
-        M0 checks account access only. Repositories, work items, synchronization, and Vault-scoped
-        connections are not implemented yet.
-      </div>
+      {!native ? (
+        <p className="connection-note">
+          Open the desktop application to connect accounts securely.
+        </p>
+      ) : null}
+      {error ? <p role="alert">{error}</p> : null}
+      {connections.length ? (
+        <section className="connected-accounts" aria-labelledby="connected-accounts-heading">
+          <h2 id="connected-accounts-heading">Connected accounts</h2>
+          <ul>
+            {connections.map((connection) => (
+              <li key={connection.id}>
+                <strong>{connection.account}</strong>
+                <span>
+                  {connection.provider === 'github' ? 'GitHub' : 'Jira Cloud'} · {connection.host}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="field-help">
+            Reconnect the same account below to replace an expired token. Saved context remains
+            available offline.
+          </p>
+        </section>
+      ) : null}
       <div className="connection-columns">
-        <IdentityCheck provider="github" native={native} />
-        <IdentityCheck provider="jira" native={native} />
+        <IdentityCheck
+          provider="github"
+          native={native}
+          onConnected={() => setRevision((value) => value + 1)}
+        />
+        <IdentityCheck
+          provider="jira"
+          native={native}
+          onConnected={() => setRevision((value) => value + 1)}
+        />
       </div>
     </section>
   );

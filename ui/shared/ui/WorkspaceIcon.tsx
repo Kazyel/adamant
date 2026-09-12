@@ -1,5 +1,6 @@
 export type IconName =
   | 'document'
+  | 'board'
   | 'folder'
   | 'connections'
   | 'sidebar'
@@ -37,6 +38,7 @@ export type IconName =
 
 const paths: Record<IconName, string> = {
   document: 'M13 3H5v18h14V9l-6-6Zm0 0v6h6M8 13h8M8 17h6',
+  board: 'M3 4h18v16H3V4Zm6 0v16m6-16v16M5 8h2m4 0h2m4 0h2M5 12h2m6 0h-2',
   folder: 'M3 7V5h6l2 2h10v13H3V7Zm0 4h18',
   connections:
     'M8 8 5 5m11 3 3-3M8 16l-3 3m11-3 3 3M8 8h8v8H8V8ZM3 3h4v4H3V3Zm14 0h4v4h-4V3ZM3 17h4v4H3v-4Zm14 0h4v4h-4v-4Z',

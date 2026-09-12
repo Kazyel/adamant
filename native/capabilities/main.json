@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Bundled main webview: scoped Vault, document and identity commands, invalidation events, and integrated window controls.",
+  "description": "Bundled main webview: scoped Vault, document, project workspace and provider commands, invalidation events, and integrated window controls.",
   "webviews": ["main"],
   "permissions": [
     "allow-pick-document",
@@ -9,6 +9,12 @@
     "allow-open-link",
     "allow-check-github",
     "allow-check-jira",
+    "allow-work-connections",
+    "allow-work-remote-list",
+    "allow-work-remote-detail",
+    "allow-work-remote-act",
+    "allow-work-load",
+    "allow-work-save",
     "allow-vault-open",
     "allow-vault-restore",
     "allow-vault-select-parent",

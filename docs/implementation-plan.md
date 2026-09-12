@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Status: approved roadmap and revised technology baseline. M0 was approved by the owner on September 6, 2026; M1 is implemented and Linux-verified with focused native/frontend evidence. The executable build and Linux tmpfs/btrfs source-write smoke are verified; M2–M7 remain planned, with other operating systems and installers unverified.
+Status: approved roadmap and revised technology baseline. M0 was approved by the owner on September 6, 2026; M1/M1.1 have scoped Linux evidence. The expanded M2 project workspace is implemented, with live provider authorization/write acceptance still unverified. M3–M7 remain planned; other operating systems and installers remain unverified.
 
 ## Delivery strategy
 
@@ -110,19 +110,28 @@ M2 starts only after the complete workflow passes native and installed-executabl
 
 ### M2 — Work Context
 
-**Workflow:** connect accounts, choose relevant repositories/projects, follow a work item, attach a Note, and act in the original tool.
+**Workflow:** connect accounts, create project spaces, select repositories/projects and filters, triage typed work items in a list or personal Kanban, inspect an expandable detail panel, attach authored context, and explicitly act on the remote provider.
+
+The owner approved this expanded M2 scope on September 12, 2026. It supersedes the original read-only integration contract.
 
 Work:
 
-- Query GitHub issues/PRs and Jira Cloud tasks, including available description, state, assignee, updates, and discussions.
-- Select relevant scope rather than importing an entire organization indiscriminately.
-- Create explicit portable references between work context and authored content.
-- Support manual/background updates, pagination, and provider rate limits.
-- Expose expired credentials, denied access, partial data, and stale cache states.
+- Project spaces inside each Vault; each has one adjustable column flow and a saved list/board view with filters and ordering.
+- Typed local tasks, GitHub issues, GitHub PRs, and Jira Cloud tasks. Remote content has shared stable identity; an item's personal column placement is independent in each space.
+- Source selection combines repository/project-scoped filters with explicit inclusion of individual items. Reading supports manual/background refresh, pagination, rate limits, and partial coverage.
+- Moving cards is local only, with drag/drop, menu, and keyboard alternatives. Provider status remains separately visible.
+- Local tasks include title, description, priority, due date, checklist, and links to Notes or external items.
+- An expandable side panel preserves list/board context. PR details include description, discussions, commits, checks, and per-file diff.
+- Explicit remote actions include comments, supported assignee/label/priority edits, issue state changes, Jira transitions, general PR reviews, approval, change requests, and merge.
+- Ordinary remote edits use explicit send/save controls. Approval, change requests, closing/transitions, and merge require target/effect confirmation; provider permissions and checks are not bypassed.
+- Offline work retains cached context, local task editing, and personal organization. Comments and general reviews can be drafted locally and sent explicitly after reconnecting; there is no automatic mutation queue.
+- Preserve the current visual language, light interaction treatment, accessible controls, and subtle reduced-motion-aware animations.
 
-Acceptance: follow one real item from each service, observe a change made in the original tool, and consult the saved context offline. No operation modifies remote content.
+Excluded: remote item creation, line-level review, metrics dashboards as the delivery focus, and automatic replay of remote writes.
 
-Learning goal: HTTP, authentication, asynchronous work, stable remote identity, idempotent synchronization, and failure states.
+Acceptance: use local tasks and one real item from each service in project spaces; demonstrate independent local progress for a shared item, durable views/drafts across restart, a remote change detected by refresh, and offline cached reading/local editing. Remote action verification must distinguish deterministic fixtures from live provider evidence; live writes require explicit authorization of the target and operation. Exercise accessible confirmations, permission/error handling, and stale-head merge rejection without bypassing provider safeguards.
+
+Learning goal: HTTP, authentication, asynchronous work, stable remote identity, idempotent synchronization, local/remote state separation, and safe explicit mutations.
 
 ### M3 — Document Library
 
@@ -250,4 +259,16 @@ Owner acceptance (September 6, 2026): M0 is approved, with initial connections a
 
 Integrated window controls: native decorations are disabled; tab-bar drag regions and minimize, maximize/restore, and close actions use narrowly scoped Tauri permissions. Production build passed. Native Wayland maximize/restore changed the window size and restored it; closing an empty X11 test instance exited successfully. On the tested Niri session, minimize left the window visible. Dragging is wired through Tauri's native drag-region handling but has not been verified with a physical pointer gesture in this session. No compositor-specific hide/recovery workaround is implemented.
 
-Next: assess other operating systems, installers, and unsupported filesystem behavior. M2 and later workflows remain planned.
+## M2 verification record
+
+September 12, 2026:
+
+- `bun run typecheck` and `bun run lint` passed without suppressions. Four focused TypeScript tests passed: shared remote identity preserves authored context and independent memberships, manual URLs reject credential/origin confusion, recent-update sorting compares instants across provider time zones, and Jira cards remain searchable by human key despite stable numeric identity. The Jira key regression failed before the search fix and passed afterward.
+- Native Clippy passed with `-D warnings`. Fourteen provider/cache tests passed, covering scoped queries, immutable targets, inspected-head checks, Jira field metadata, account isolation, and cache bounds. The native workspace persistence test passed for identity confinement, stale revisions, and preserving malformed source files.
+- A DOM-driven browser smoke mounted the real workspace components with an explicitly isolated IPC transport. It exercised task/checklist/note-link editing, immediate title persistence, independent placement of one shared PR in two spaces, column rename/add/reorder, saved views/filters, source pagination, retained offline drafts, disabled stale-provider writes, copied Vault roots sharing a UUID, and explicit revision-conflict resolution.
+- The same fixture verified that local keyboard movement issued no provider mutation; approval required a target/account/SHA confirmation and carried the immutable item ID and inspected SHA; an in-flight action blocked Vault departure. Fixture receipts were local observations, not GitHub/Jira requests.
+- Screenshots covered 1800-, 900-, and 760-pixel widths. A reproduced compact-layout rule that overrode expanded details was corrected; the expanded panel filled its 860-pixel container at a 900-pixel viewport, and narrow details filled their 720-pixel container without page overflow.
+- `bun run app:update` built the production frontend/native executable and installed it under an isolated temporary `XDG_DATA_HOME`, leaving the user's installed application untouched. Vite reported chunks larger than 500 kB. The installed Linux window opened the test Vault; native input verification stopped when the desktop portal denied the input session and the WebKit accessibility subtree was unreadable. This is launch evidence, not an end-to-end native task/restart acceptance claim.
+- No existing credentials were read and no live comments, field changes, transitions, reviews, or merges were sent. Real-account refresh/write acceptance, physical drag gestures, and installed-app task/draft recovery across restart remain unverified.
+
+Next: complete live-provider acceptance with explicitly authorized test items, and assess other operating systems, installers, and unsupported filesystem behavior. M3 and later workflows remain planned.

@@ -117,6 +117,16 @@ export default function WorkspaceRibbon({
         >
           <WorkspaceIcon name="document" />
         </button>
+        <button
+          className="icon-button"
+          type="button"
+          title="Project workspace"
+          aria-label="Project workspace"
+          aria-pressed={section === 'work'}
+          onClick={() => setSection('work')}
+        >
+          <WorkspaceIcon name="board" />
+        </button>
       </div>
       <AppMenu actions={actions} />
       <button
@@ -139,8 +149,8 @@ export default function WorkspaceRibbon({
       <button
         className="icon-button"
         type="button"
-        title="Connection checks"
-        aria-label="Connection checks"
+        title="Connections"
+        aria-label="Connections"
         aria-pressed={section === 'connections'}
         onClick={() => setSection('connections')}
       >

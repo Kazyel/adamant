@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-work-save"
+description = "Enables the work_save command without any pre-configured scope."
+commands.allow = ["work_save"]
+
+[[permission]]
+identifier = "deny-work-save"
+description = "Denies the work_save command without any pre-configured scope."
+commands.deny = ["work_save"]

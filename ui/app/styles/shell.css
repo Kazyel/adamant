@@ -343,3 +343,11 @@ main {
     width: 28px;
   }
 }
+
+.work-context-host {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}

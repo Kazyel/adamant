@@ -121,6 +121,33 @@
   color: var(--error);
 }
 
+.connected-accounts {
+  max-width: 1000px;
+  margin-top: 24px;
+}
+
+.connected-accounts h2 {
+  font-size: 15px;
+}
+
+.connected-accounts ul {
+  list-style: none;
+  padding: 0;
+}
+
+.connected-accounts li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.connected-accounts li span {
+  color: var(--muted);
+}
+
 @media (max-width: 480px) {
   .connection-columns {
     padding: 16px;
