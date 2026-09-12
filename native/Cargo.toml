@@ -2,6 +2,7 @@
 name = "adamant"
 version = "0.1.0"
 description = "Adamant local-first workspace"
+license = "MIT"
 edition = "2024"
 rust-version = "1.97"
 
