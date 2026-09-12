@@ -466,7 +466,7 @@ fn validate_admin(dir: Dir) -> VaultResult<Dir> {
     Ok(dir)
 }
 
-fn admin_dir(vault: &Vault) -> VaultResult<Dir> {
+pub(super) fn admin_dir(vault: &Vault) -> VaultResult<Dir> {
     let parent = &vault.manifest_dir;
     match parent.symlink_metadata(ADMIN) {
         Ok(metadata) => {
@@ -488,7 +488,7 @@ fn admin_dir(vault: &Vault) -> VaultResult<Dir> {
     validate_admin(parent.open_dir_nofollow(ADMIN)?)
 }
 
-fn existing_admin_dir(vault: &Vault) -> VaultResult<Option<Dir>> {
+pub(super) fn existing_admin_dir(vault: &Vault) -> VaultResult<Option<Dir>> {
     match vault.manifest_dir.symlink_metadata(ADMIN) {
         Ok(metadata) => {
             if !metadata.is_dir() || metadata.file_type().is_symlink() {

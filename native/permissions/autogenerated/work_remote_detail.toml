@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-work-remote-detail"
+description = "Enables the work_remote_detail command without any pre-configured scope."
+commands.allow = ["work_remote_detail"]
+
+[[permission]]
+identifier = "deny-work-remote-detail"
+description = "Denies the work_remote_detail command without any pre-configured scope."
+commands.deny = ["work_remote_detail"]

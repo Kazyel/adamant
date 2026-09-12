@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-work-remote-list"
+description = "Enables the work_remote_list command without any pre-configured scope."
+commands.allow = ["work_remote_list"]
+
+[[permission]]
+identifier = "deny-work-remote-list"
+description = "Denies the work_remote_list command without any pre-configured scope."
+commands.deny = ["work_remote_list"]

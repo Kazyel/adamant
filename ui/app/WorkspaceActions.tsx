@@ -332,8 +332,14 @@ function panelActions(navigation: Navigation, openPanel: (panel: Panel) => void)
       run: () => openPanel('palette'),
     },
     {
+      id: 'work-context',
+      label: 'Open project workspace',
+      icon: 'board',
+      run: () => navigation.setSection('work'),
+    },
+    {
       id: 'connections',
-      label: 'Connection checks',
+      label: 'Connections',
       icon: 'connections',
       run: () => navigation.setSection('connections'),
     },

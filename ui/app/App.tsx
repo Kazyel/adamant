@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import Connections from '../features/connections/Connections';
 import WorkspaceDialog from '../features/workspace/WorkspaceDialog';
 import { sourceName } from '../features/workspace/buffer';
@@ -14,6 +14,7 @@ import type { Workspace } from '../features/workspace/workspaceTypes';
 import { useWorkspaceActions } from './WorkspaceActions';
 import RecoveryDialog from '../features/workspace/session/RecoveryDialog';
 import MutationRecovery from '../features/workspace/MutationRecovery';
+import WorkContext from '../features/work-context/WorkContext';
 
 function getBufferPath({ vault, buffer }: Workspace) {
   if (buffer.source?.kind === 'standalone') {
@@ -58,7 +59,13 @@ function getDocumentInfo(workspace: Workspace, view: View): DocumentInfo {
 }
 
 export default function App() {
-  const workspace = useWorkspace();
+  const workPersistenceGuard = useRef<(() => Promise<void>) | null>(null);
+  const registerWorkGuard = useCallback((guard: (() => Promise<void>) | null) => {
+    workPersistenceGuard.current = guard;
+  }, []);
+  const workspace = useWorkspace(async () => {
+    await workPersistenceGuard.current?.();
+  });
   const [section, setSection] = useState<Section>('workbench');
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 760);
   const activeTab = workspace.documents.activeTab;
@@ -155,13 +162,27 @@ export default function App() {
             navigation={navigation}
             documentInfo={documentInfo}
           />
+          <div className="work-context-host" hidden={section !== 'work'}>
+            <WorkContext
+              vault={workspace.vault}
+              active={section === 'work'}
+              onRegisterPersistenceGuard={registerWorkGuard}
+              onOpenNote={(target) => {
+                setSection('workbench');
+                workspace.openPath(target);
+              }}
+              onConnections={() => setSection('connections')}
+            />
+          </div>
           {section === 'connections' ? <Connections native={native} /> : null}
-          <StatusBar
-            workspace={workspace}
-            navigation={navigation}
-            documentInfo={documentInfo}
-            revealIndexDetails={revealIndexDetails}
-          />
+          {section !== 'work' ? (
+            <StatusBar
+              workspace={workspace}
+              navigation={navigation}
+              documentInfo={documentInfo}
+              revealIndexDetails={revealIndexDetails}
+            />
+          ) : null}
         </div>
       </main>
       {workspace.prompt ? (

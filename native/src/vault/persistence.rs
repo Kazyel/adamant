@@ -208,7 +208,7 @@ impl Vault {
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-fn exchange(dir: &Dir, staging: &str, destination: &Path) -> std::io::Result<()> {
+pub(super) fn exchange(dir: &Dir, staging: &str, destination: &Path) -> std::io::Result<()> {
     rustix::fs::renameat_with(
         dir,
         staging,
@@ -220,7 +220,7 @@ fn exchange(dir: &Dir, staging: &str, destination: &Path) -> std::io::Result<()>
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-fn exchange(_dir: &Dir, _staging: &str, _destination: &Path) -> std::io::Result<()> {
+pub(super) fn exchange(_dir: &Dir, _staging: &str, _destination: &Path) -> std::io::Result<()> {
     Err(std::io::Error::new(
         std::io::ErrorKind::Unsupported,
         "This platform has no supported atomic exchange primitive. Save a recovery copy instead; the original was not overwritten.",

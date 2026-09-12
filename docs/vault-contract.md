@@ -25,6 +25,10 @@ The Adamant manifest is the identity marker for this format: `vault.json` must c
 | CalendarEvent     | A locally stored iCalendar event.                                                       |
 | ExternalItem      | A GitHub or Jira Cloud item followed by the application.                                |
 | Reference         | An explicit association between identified elements.                                    |
+| ProjectSpace      | A project context inside a Vault, with its own sources, view, and personal column flow. |
+| LocalTask         | A user-authored task with priority, due date, checklist, and explicit links.            |
+| Card              | An item's membership and personal position in one ProjectSpace, not its remote status.  |
+| RemoteDraft       | An unsent comment or general review retained locally until explicit submission.         |
 
 ## Directory layout
 
@@ -89,7 +93,7 @@ Discovery excludes `.git`, `.hg`, `.svn`, `node_modules`, `target`, `dist`, `bui
 
 Traversal limits (entries, watched directories, depth, metadata) produce explicit `partial` state; partial never claims a complete inventory or infers deletion from unseen entries. A watcher queue overflow produces `stale` state and bounded reconciliation. Page limits bound each request. Imports with supplied IDs refuse an incomplete index, while ordinary reads, same-ID saves, generated-UUID creation, and recovery copies remain available.
 
-The manifest contains a format version and a Vault identifier, not a central inventory of all files. Machine-specific preferences, generated previews, search indexes, external caches, and credentials live outside the portable directory.
+The manifest contains a format version and a Vault identifier, not a central inventory of all files. Machine-specific preferences, generated previews, search indexes, detailed external caches, and credentials live outside the portable directory. M2's followed-item summary snapshots accompany portable authored work context as described below; they do not become authoritative provider records.
 
 ### M1.1 workspace and recovery
 
@@ -100,6 +104,22 @@ Recoverable trash and transaction journals live in a verified, owned `.adamant/`
 Open documents have independent buffers, editor histories, positions, and view state. Source saving remains explicit. Unsaved-draft snapshots and workspace restoration are local recovery state scoped to the canonical root and Vault identity; they do not overwrite externally changed sources automatically. Invalid local workspace/draft records can be explicitly preserved as sibling `.preserved-<UUID>` files before local persistence resumes.
 
 Markdown content search is incremental, cancellable, and bounded. Pending coverage is distinguished from exhausted partial coverage; stale inventory pages restart rather than silently mix generations. Preferences, navigation history, favorites, and document positions remain machine-local state outside portable authored content.
+
+### M2 project workspace
+
+`.adamant/work-context.json` stores versioned project spaces, local tasks, followed-item summary snapshots, per-space memberships and column order, saved views, explicit links, and unsent comment/review drafts. Remote identity and content are shared across spaces; membership order and personal progress are not. Moving a card never writes to GitHub or Jira. Note links are Vault-content-relative paths; external links are credential-free HTTP(S) URLs. These work-context links are not currently included in Markdown link rewriting during file moves.
+
+Work-context saves are automatic and serialized, unlike explicit Markdown source saves. Native commands bind both the selected canonical root and Vault UUID, validate the complete bounded record, and reject stale revisions. Frontend sessions also distinguish root plus UUID, so two copied Vaults with the same portable identity do not share live edits. App/Vault transitions wait for writes and are blocked by unresolved save failures or pending remote mutations.
+
+The record is limited to 32 MiB, 10,000 items, 128 spaces, 64 columns per space, 256 sources per space, and 1,000 drafts. Descriptions and draft bodies are bounded to 512 KiB; provider limits can be smaller. The administration ownership marker and capability-confined I/O reject file/directory symlink escapes. A kernel lock coordinates cooperating work-context writers; external editors must preserve the schema and advance the revision when changing the record. Changes detected during replacement retain recovery bytes rather than silently discarding them.
+
+Creation uses exclusive hard-link installation; replacement uses the existing Linux/macOS atomic-exchange primitive. Unsupported platforms/filesystems refuse safely rather than fall back to unsafe overwrite. `.adamant-write-work-*` staging files retained after an error or interrupted write are manual recovery material, not automatically recovered mutation journals. Existing hard-link aliases are not updated by replacing the canonical work-context file.
+
+Connections are machine-local: `connections/accounts.json` beneath application-local data stores account metadata (including Jira account email); tokens remain exclusively in the OS keyring. Reconnecting replaces the account's token without putting credentials in browser storage or the Vault. `connections/details.json` retains at most 16 recent detailed snapshots, each at most 2 MiB, partitioned by account and remote target. Thus saved summary context remains portable, while offline discussions/diffs depend on this bounded machine-local cache. Evicted or never-fetched details require a live refresh.
+
+Remote reads report stale/partial results, authentication failures, denied permissions, and rate limits. Cached detail cannot authorize a write. Every mutation validates the expected immutable item identity against the provider; reviews and merge also require the inspected head SHA. Ordinary comments/field edits have explicit Send/Save controls; approval, change requests, state changes, and merge require target/effect confirmation. Provider permissions, required checks, and workflow validators remain authoritative. Jira transitions requiring additional fields report the provider's validation error; those fields must be supplied in Jira.
+
+No remote write is automatically retried or queued for reconnect. An ambiguous network failure retains the draft and instructs the user to inspect the provider before retrying. Background refresh never submits drafts or changes personal columns.
 
 ## Identity and authoritative storage
 

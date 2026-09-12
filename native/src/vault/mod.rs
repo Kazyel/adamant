@@ -18,6 +18,7 @@ pub(crate) mod mutations;
 pub(crate) mod navigation;
 mod notes;
 mod persistence;
+pub(crate) mod work_context;
 pub(crate) mod workspace;
 
 use indexing::Inventory;

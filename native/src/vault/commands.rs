@@ -19,6 +19,7 @@ pub(crate) mod imports;
 mod remembered;
 mod session;
 pub(crate) mod usability;
+pub(crate) mod work_context;
 pub(crate) mod workspace;
 
 #[derive(Default, Clone)]

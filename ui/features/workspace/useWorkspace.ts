@@ -23,7 +23,7 @@ import type { Workspace } from './workspaceTypes';
 
 const native = isTauri();
 
-export default function useWorkspace(): Workspace {
+export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspace {
   const [vault, setVaultState] = useState<VaultSnapshot | null>(null);
   const vaultRef = useRef(vault);
   const session = useRef(0);
@@ -417,6 +417,9 @@ export default function useWorkspace(): Workspace {
     paths?: readonly string[],
     ids?: readonly string[],
   ): Promise<boolean> {
+    if (!paths && !ids) {
+      await beforeLeave?.();
+    }
     const previous = documents.activeIdRef.current;
     const pending = documents.tabsRef.current.filter(
       (tab) =>
