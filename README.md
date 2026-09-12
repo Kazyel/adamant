@@ -273,3 +273,9 @@ Keep related state and its mutation together: the workspace coordinator owns ses
 - [Implementation plan](docs/implementation-plan.md) — milestones, reviewed technology baseline, acceptance criteria, and learning goals.
 
 Inter and JetBrains Mono are bundled locally. Their redistribution notices are included in [public/licenses](public/licenses/).
+
+## License
+
+Adamant is licensed under the [MIT License](LICENSE).
+
+Third-party dependencies and assets retain their respective licenses, including the bundled fonts and their notices in [public/licenses](public/licenses/).
