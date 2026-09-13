@@ -128,10 +128,10 @@ This produces a local executable, not an installer. The production application d
 
 ### Install or update locally (Linux)
 
-With the prerequisites and dependencies installed through Bun, run from this checkout:
+With the prerequisites and dependencies installed through Bun, run from this checkout. Limit Cargo's parallel jobs because a release build uses substantial CPU and memory.
 
 ```sh
-bun run app:update
+CARGO_BUILD_JOBS=2 bun run app:update
 ```
 
 This builds the current local source in release mode and installs **Adamant** in your applications menu, without sudo. It does not pull Git changes or download published releases. Build tools may download missing dependencies.
