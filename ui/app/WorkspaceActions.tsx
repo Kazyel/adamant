@@ -9,6 +9,7 @@ import type { Navigation } from './workspaceView';
 import type { Workspace } from '../features/workspace/workspaceTypes';
 import { isEmptyDraft } from '../features/workspace/session/useDocumentSession';
 import { native } from './workspaceView';
+import { OverlayPresence } from '../features/interaction/OverlayPresence';
 
 type Panel = 'palette' | 'shortcuts' | 'preferences' | 'quick' | 'search' | 'favorites' | null;
 
@@ -490,89 +491,103 @@ export function useWorkspaceActions(workspace: Workspace, navigation: Navigation
   };
   const overlays = (
     <>
-      {panel === 'palette' ? (
-        <CommandPalette actions={[...actions, ...paletteActions]} onClose={closePanel} />
-      ) : null}
-      {panel === 'shortcuts' ? (
-        <ShortcutReference actions={[...actions, ...paletteActions]} onClose={closePanel} />
-      ) : null}
-      {panel === 'preferences' ? (
-        <PreferencesDialog
-          value={workspace.preferences}
-          onClose={closePanel}
-          onSave={workspace.savePreferences}
-        />
-      ) : null}
-      {panel === 'quick' ? (
-        <Dialog
-          title="Quick open"
-          description="Find a document or return to a recent one."
-          className="navigation-dialog"
-          open
-          onClose={closePanel}
-        >
-          <QuickOpen
-            query={query}
-            onQuery={changeQuery}
-            recent={finder.state.recent}
-            items={finder.results.map((hit) => hit.path)}
-            missing={finder.missing}
-            onOpen={openPath}
-            {...searchFeedback}
+      <OverlayPresence>
+        {panel === 'palette' ? (
+          <CommandPalette actions={[...actions, ...paletteActions]} onClose={closePanel} />
+        ) : null}
+      </OverlayPresence>
+      <OverlayPresence>
+        {panel === 'shortcuts' ? (
+          <ShortcutReference actions={[...actions, ...paletteActions]} onClose={closePanel} />
+        ) : null}
+      </OverlayPresence>
+      <OverlayPresence>
+        {panel === 'preferences' ? (
+          <PreferencesDialog
+            value={workspace.preferences}
+            onClose={closePanel}
+            onSave={workspace.savePreferences}
           />
-        </Dialog>
-      ) : null}
-      {panel === 'search' ? (
-        <Dialog
-          title="Search Vault"
-          description="Search local documents by content or location."
-          className="navigation-dialog"
-          open
-          onClose={closePanel}
-        >
-          <SearchResults
-            query={query}
-            mode={mode}
-            onQuery={changeQuery}
-            onMode={(next) => {
-              if (next !== mode) {
-                setMode(next);
-                setSearchPending(!!query.trim());
-              }
-            }}
-            hits={finder.results}
-            onOpen={(hit) => {
-              closePanel();
-              navigation.setSection('workbench');
-              workspace.openSearchHit(hit);
-            }}
-            {...searchFeedback}
-          />
-        </Dialog>
-      ) : null}
-      {panel === 'favorites' ? (
-        <Dialog
-          title="Favorites"
-          description="Documents and folders you keep close at hand."
-          className="navigation-dialog"
-          open
-          onClose={closePanel}
-          initialFocus={
-            finder.state.favorites.some((path) => !finder.missing.has(path)) ? 'control' : 'heading'
-          }
-        >
-          <Favorites
-            paths={finder.state.favorites}
-            missing={finder.missing}
-            onOpen={(path) => {
-              closePanel();
-              navigation.setSection('workbench');
-              workspace.openPath(path, finder.state.favoriteIdentities[path] ?? null);
-            }}
-            onRemove={finder.toggleFavorite}
-          />
-        </Dialog>
-      ) : null}
+        ) : null}
+      </OverlayPresence>
+      <OverlayPresence>
+        {panel === 'quick' ? (
+          <Dialog
+            title="Quick open"
+            description="Find a document or return to a recent one."
+            className="navigation-dialog"
+            open
+            onClose={closePanel}
+          >
+            <QuickOpen
+              query={query}
+              onQuery={changeQuery}
+              recent={finder.state.recent}
+              items={finder.results.map((hit) => hit.path)}
+              missing={finder.missing}
+              onOpen={openPath}
+              {...searchFeedback}
+            />
+          </Dialog>
+        ) : null}
+      </OverlayPresence>
+      <OverlayPresence>
+        {panel === 'search' ? (
+          <Dialog
+            title="Search Vault"
+            description="Search local documents by content or location."
+            className="navigation-dialog"
+            open
+            onClose={closePanel}
+          >
+            <SearchResults
+              query={query}
+              mode={mode}
+              onQuery={changeQuery}
+              onMode={(next) => {
+                if (next !== mode) {
+                  setMode(next);
+                  setSearchPending(!!query.trim());
+                }
+              }}
+              hits={finder.results}
+              onOpen={(hit) => {
+                closePanel();
+                navigation.setSection('workbench');
+                workspace.openSearchHit(hit);
+              }}
+              {...searchFeedback}
+            />
+          </Dialog>
+        ) : null}
+      </OverlayPresence>
+      <OverlayPresence>
+        {panel === 'favorites' ? (
+          <Dialog
+            title="Favorites"
+            description="Documents and folders you keep close at hand."
+            className="navigation-dialog"
+            open
+            onClose={closePanel}
+            initialFocus={
+              finder.state.favorites.some((path) => !finder.missing.has(path))
+                ? 'control'
+                : 'heading'
+            }
+          >
+            <Favorites
+              paths={finder.state.favorites}
+              missing={finder.missing}
+              onOpen={(path) => {
+                closePanel();
+                navigation.setSection('workbench');
+                workspace.openPath(path, finder.state.favoriteIdentities[path] ?? null);
+              }}
+              onRemove={finder.toggleFavorite}
+            />
+          </Dialog>
+        ) : null}
+      </OverlayPresence>
     </>
   );
 

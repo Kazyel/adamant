@@ -269,13 +269,27 @@ main {
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow-raised);
-  animation: app-menu-enter 140ms ease-out;
+  transition:
+    opacity var(--overlay-enter-duration) var(--overlay-easing),
+    transform var(--overlay-enter-duration) var(--overlay-easing);
 }
 
-@keyframes app-menu-enter {
-  from {
-    opacity: 0;
-    transform: translateX(-4px);
+.app-menu-panel[data-overlay-presence='entering'] {
+  opacity: 0;
+  transform: translateX(-4px);
+}
+
+.app-menu-panel[data-overlay-presence='exiting'] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-4px);
+  transition-duration: var(--overlay-exit-duration);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-menu-panel {
+    transition: none;
+    transform: none;
   }
 }
 

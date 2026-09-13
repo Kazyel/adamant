@@ -4,6 +4,7 @@ import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import DialogFrame from './DialogFrame';
 import type { FileActions } from './useFileActions';
 import type { RecoveryRecord } from './usabilityTypes';
+import { OverlayPresence } from '../interaction/OverlayPresence';
 
 function RecoveryReview({
   record,
@@ -232,42 +233,43 @@ export default function MutationRecovery({
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const record = actions.recoveries.find((item) => item.id === selected);
-  if (!actions.recoveries.length) {
-    return null;
-  }
   return (
     <>
-      <div className="workspace-notice recovery-notice" role="status">
-        <WorkspaceIcon name="warning" />
-        <div className="recovery-notice-content">
-          <span>
-            {actions.recoveries.length} interrupted file operation
-            {actions.recoveries.length === 1 ? '' : 's'} need review. Retained versions have not
-            been discarded.
-          </span>
-          <div className="recovery-notice-actions">
-            {actions.recoveries.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                disabled={actions.busy}
-                onClick={() => setSelected(item.id)}
-              >
-                Review operation {item.id.slice(0, 8)}
-              </button>
-            ))}
+      {actions.recoveries.length ? (
+        <div className="workspace-notice recovery-notice" role="status">
+          <WorkspaceIcon name="warning" />
+          <div className="recovery-notice-content">
+            <span>
+              {actions.recoveries.length} interrupted file operation
+              {actions.recoveries.length === 1 ? '' : 's'} need review. Retained versions have not
+              been discarded.
+            </span>
+            <div className="recovery-notice-actions">
+              {actions.recoveries.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={actions.busy}
+                  onClick={() => setSelected(item.id)}
+                >
+                  Review operation {item.id.slice(0, 8)}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-      {record ? (
-        <RecoveryReview
-          key={record.id}
-          record={record}
-          actions={actions}
-          close={() => setSelected(null)}
-          reveal={reveal}
-        />
       ) : null}
+      <OverlayPresence>
+        {record ? (
+          <RecoveryReview
+            key={record.id}
+            record={record}
+            actions={actions}
+            close={() => setSelected(null)}
+            reveal={reveal}
+          />
+        ) : null}
+      </OverlayPresence>
     </>
   );
 }

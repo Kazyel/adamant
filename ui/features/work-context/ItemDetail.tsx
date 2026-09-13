@@ -1,4 +1,5 @@
-import { useEffect, useEffectEvent, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { OverlayPresence, useOverlayPresence } from '../interaction/OverlayPresence';
 import { kindLabels } from './state';
 import { DetailLocalEditor, DetailOrganization } from './DetailLocal';
 import {
@@ -110,7 +111,8 @@ export default function ItemDetail({
   const headingId = useId();
   const bodyId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
-  const panel = useRef<HTMLElement>(null);
+  const panel = useRef<HTMLDialogElement>(null);
+  const presence = useOverlayPresence();
   const [expanded, setExpanded] = useState(false);
   const [selectedConnection, setSelectedConnection] = useState('');
   const accounts = detailAccounts(item, connections);
@@ -120,29 +122,21 @@ export default function ItemDetail({
   const sendingAs = `${account?.account ?? 'No connected account'} · ${target}`;
   const remoteState = useDetailRemote(item, connectionId, onChange, onBusyChange);
   const { pending, confirmation } = remoteState;
-  const handlePanelKey = useEffectEvent((event: KeyboardEvent) => {
-    if (event.key !== 'Escape' || confirmation || pending || event.defaultPrevented) {
-      return;
-    }
-    event.stopPropagation();
-    if (expanded) {
-      setExpanded(false);
-    } else {
-      onClose();
-    }
-  });
 
   useEffect(() => {
-    const element = panel.current;
+    const element = panel.current!;
     const trigger = document.activeElement;
+    element.showModal();
     heading.current?.focus({ preventScroll: true });
-    element?.addEventListener('keydown', handlePanelKey);
     return () => {
-      element?.removeEventListener('keydown', handlePanelKey);
+      const ownedFocus =
+        element.contains(document.activeElement) || document.activeElement === document.body;
+      element.close();
       if (
+        ownedFocus &&
         trigger instanceof HTMLElement &&
         trigger.isConnected &&
-        (element?.contains(document.activeElement) || document.activeElement === document.body)
+        (document.activeElement === document.body || document.activeElement === trigger)
       ) {
         trigger.focus({ preventScroll: true });
       }
@@ -155,10 +149,25 @@ export default function ItemDetail({
   const openExternal: DetailOpenExternal = (url) => openDetailExternal(url, onError);
 
   return (
-    <aside
+    <dialog
       ref={panel}
       className={`work-item-detail${expanded ? ' is-expanded' : ''}`}
+      data-overlay-presence={presence}
+      inert={presence === 'exiting' ? true : undefined}
+      aria-hidden={presence === 'exiting' ? true : undefined}
       aria-labelledby={headingId}
+      onCancel={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (confirmation || pending) {
+          return;
+        }
+        if (expanded) {
+          setExpanded(false);
+        } else {
+          onClose();
+        }
+      }}
     >
       <header className="work-detail-header">
         <div>
@@ -220,18 +229,20 @@ export default function ItemDetail({
         ) : null}
         <DetailActionFeedback {...remoteState} />
       </div>
-      {confirmation ? (
-        <DetailConfirmationDialog
-          confirmation={confirmation}
-          target={target}
-          title={item.title}
-          account={account}
-          pending={pending}
-          actionsReady={remoteState.actionsReady}
-          onClose={remoteState.dismissConfirmation}
-          execute={remoteState.execute}
-        />
-      ) : null}
-    </aside>
+      <OverlayPresence>
+        {confirmation ? (
+          <DetailConfirmationDialog
+            confirmation={confirmation}
+            target={target}
+            title={item.title}
+            account={account}
+            pending={pending}
+            actionsReady={remoteState.actionsReady}
+            onClose={remoteState.dismissConfirmation}
+            execute={remoteState.execute}
+          />
+        ) : null}
+      </OverlayPresence>
+    </dialog>
   );
 }
