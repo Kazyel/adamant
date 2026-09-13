@@ -1,4 +1,5 @@
 import type { DragEvent, KeyboardEvent, MouseEvent } from 'react';
+import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import { kindLabels } from './state';
 import { itemReference } from './BoardModel';
 import type { BoardDialog } from './BoardModel';
@@ -52,7 +53,7 @@ function BoardCard({
             aria-haspopup="menu"
             onClick={(event) => itemActions(item, columnId, event)}
           >
-            …
+            <WorkspaceIcon name="more" />
           </button>
         </div>
         <button
@@ -135,7 +136,7 @@ export function BoardColumns({
               aria-label={`Add task to ${column.name}`}
               onClick={() => showDialog({ kind: 'task', columnId: column.id })}
             >
-              +
+              <WorkspaceIcon name="plus" />
             </button>
           </header>
           <ol className="work-cards">

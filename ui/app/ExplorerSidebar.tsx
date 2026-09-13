@@ -23,6 +23,7 @@ import type {
   TrashEntry,
 } from '../features/workspace/usabilityTypes';
 import { ContextMenu } from '../features/interaction/ContextMenu';
+import { OverlayPresence } from '../features/interaction/OverlayPresence';
 import type { UserAction } from '../features/interaction/types';
 import type { VaultEntry } from '../features/workspace/types';
 import type { DocumentProps, WorkspaceProps } from './workspaceView';
@@ -104,19 +105,20 @@ function ExplorerMenu({
   vaultName: string;
   onClose: () => void;
 }) {
-  if (!menu) {
-    return null;
-  }
-  const allowed = contextActionIds(menu);
+  const allowed = menu ? contextActionIds(menu) : null;
   return (
-    <ContextMenu
-      actions={actions.filter((action) => allowed.has(action.id))}
-      position={menu}
-      label={`Actions for ${contextTitle(menu, vaultName)}`}
-      title={menu.paths.length > 1 ? contextTitle(menu, vaultName) : undefined}
-      returnFocus={menu.trigger}
-      onClose={onClose}
-    />
+    <OverlayPresence>
+      {menu ? (
+        <ContextMenu
+          actions={actions.filter((action) => allowed?.has(action.id) ?? false)}
+          position={menu}
+          label={`Actions for ${contextTitle(menu, vaultName)}`}
+          title={menu.paths.length > 1 ? contextTitle(menu, vaultName) : undefined}
+          returnFocus={menu.trigger}
+          onClose={onClose}
+        />
+      ) : null}
+    </OverlayPresence>
   );
 }
 
@@ -844,24 +846,28 @@ function MutationDialogs({
 }) {
   return (
     <>
-      {plan ? (
-        <PlanDialog
-          state={plan}
-          busy={actions.busy || commitPending}
-          cancel={cancelPlan}
-          commit={commitPlan}
-        />
-      ) : null}
-      {destination ? (
-        <DestinationDialog
-          directories={directories}
-          initial={destination.initial}
-          title={destination.kind === 'move' ? 'Move selected items' : 'Duplicate selected items'}
-          busy={actions.busy}
-          close={closeDestination}
-          choose={chooseDestination}
-        />
-      ) : null}
+      <OverlayPresence>
+        {plan ? (
+          <PlanDialog
+            state={plan}
+            busy={actions.busy || commitPending}
+            cancel={cancelPlan}
+            commit={commitPlan}
+          />
+        ) : null}
+      </OverlayPresence>
+      <OverlayPresence>
+        {destination ? (
+          <DestinationDialog
+            directories={directories}
+            initial={destination.initial}
+            title={destination.kind === 'move' ? 'Move selected items' : 'Duplicate selected items'}
+            busy={actions.busy}
+            close={closeDestination}
+            choose={chooseDestination}
+          />
+        ) : null}
+      </OverlayPresence>
     </>
   );
 }
@@ -1589,24 +1595,28 @@ function VaultFiles({
           beginMutation(destination.kind, destination.paths, path);
         }}
       />
-      {result
-        ? createPortal(
-            <ResultDialog result={result} close={() => setResult(null)} />,
-            document.body,
-          )
-        : null}
-      {trashOpen
-        ? createPortal(
-            <TrashDialog
-              actions={fileActions}
-              directories={directories}
-              busy={fileActions.busy}
-              close={() => setTrashOpen(false)}
-              onResult={reportResult}
-            />,
-            document.body,
-          )
-        : null}
+      <OverlayPresence>
+        {result
+          ? createPortal(
+              <ResultDialog result={result} close={() => setResult(null)} />,
+              document.body,
+            )
+          : null}
+      </OverlayPresence>
+      <OverlayPresence>
+        {trashOpen
+          ? createPortal(
+              <TrashDialog
+                actions={fileActions}
+                directories={directories}
+                busy={fileActions.busy}
+                close={() => setTrashOpen(false)}
+                onResult={reportResult}
+              />,
+              document.body,
+            )
+          : null}
+      </OverlayPresence>
     </div>
   );
 }

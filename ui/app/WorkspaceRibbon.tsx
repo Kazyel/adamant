@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import WorkspaceIcon from '../shared/ui/WorkspaceIcon';
 import { ActionList } from '../features/interaction/ActionCatalog';
+import { OverlayPresence, useOverlayPresence } from '../features/interaction/OverlayPresence';
 import type { UserAction } from '../features/interaction/types';
 import type { NavigationProps } from './workspaceView';
 import { native } from './workspaceView';
@@ -11,6 +12,28 @@ const menuGroups = {
   Vault: ['vault-create', 'vault-open'],
   Application: ['preferences', 'palette'],
 };
+
+function AppMenuPanel({ actions, onRun }: { actions: UserAction[]; onRun: () => void }) {
+  const presence = useOverlayPresence();
+  return (
+    <div
+      id="app-menu"
+      className="app-menu-panel"
+      data-overlay-presence={presence}
+      inert={presence === 'exiting' ? true : undefined}
+      aria-hidden={presence === 'exiting' ? true : undefined}
+    >
+      <div className="app-menu-heading">Adamant</div>
+      <ActionList
+        actions={actions}
+        onRun={onRun}
+        onDismiss={onRun}
+        label="Adamant menu"
+        grouped="separators"
+      />
+    </div>
+  );
+}
 
 function AppMenu({ actions }: { actions: UserAction[] }) {
   const [open, setOpen] = useState(false);
@@ -70,18 +93,9 @@ function AppMenu({ actions }: { actions: UserAction[] }) {
       >
         <WorkspaceIcon name="menu" />
       </button>
-      {open ? (
-        <div id="app-menu" className="app-menu-panel">
-          <div className="app-menu-heading">Adamant</div>
-          <ActionList
-            actions={visible}
-            onRun={close}
-            onDismiss={close}
-            label="Adamant menu"
-            grouped="separators"
-          />
-        </div>
-      ) : null}
+      <OverlayPresence>
+        {open ? <AppMenuPanel actions={visible} onRun={close} /> : null}
+      </OverlayPresence>
     </div>
   );
 }

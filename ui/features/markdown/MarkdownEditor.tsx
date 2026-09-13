@@ -19,6 +19,7 @@ import { createMarkdownState, readMarkdownSource } from './markdownState';
 import type { EditorPreferences } from '../interaction/types';
 import { defaultEditorPreferences } from '../interaction/types';
 import { ContextMenu } from '../interaction/ContextMenu';
+import { OverlayPresence } from '../interaction/OverlayPresence';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import { editorActions } from './editorActions';
 
@@ -342,15 +343,17 @@ export default function MarkdownEditor({
         onContextMenu={openContextMenu}
         onKeyDown={openKeyboardMenu}
       />
-      {menu ? (
-        <ContextMenu
-          actions={editorActions(menu.view, setMenuError)}
-          position={menu}
-          label="Editor actions"
-          returnFocus={menu.view.contentDOM}
-          onClose={() => setMenu(null)}
-        />
-      ) : null}
+      <OverlayPresence>
+        {menu ? (
+          <ContextMenu
+            actions={editorActions(menu.view, setMenuError)}
+            position={menu}
+            label="Editor actions"
+            returnFocus={menu.view.contentDOM}
+            onClose={() => setMenu(null)}
+          />
+        ) : null}
+      </OverlayPresence>
     </>
   );
 }

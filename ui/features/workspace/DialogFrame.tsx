@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
-
+import { useOverlayPresence } from '../interaction/OverlayPresence';
 export default function DialogFrame({
   title,
   creating = false,
@@ -19,6 +19,7 @@ export default function DialogFrame({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const presence = useOverlayPresence();
 
   useEffect(() => {
     const element = dialog.current!;
@@ -48,6 +49,9 @@ export default function DialogFrame({
   return (
     <dialog
       className={`dialog-frame ${className}${creating ? ' create-vault-dialog' : ''}`}
+      data-overlay-presence={presence}
+      inert={presence === 'exiting' ? true : undefined}
+      aria-hidden={presence === 'exiting' ? true : undefined}
       ref={dialog}
       onCancel={(event) => {
         event.preventDefault();

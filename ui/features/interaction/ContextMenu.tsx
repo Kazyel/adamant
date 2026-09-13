@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ActionList } from './ActionCatalog';
 import type { UserAction } from './types';
+import { useOverlayPresence } from './OverlayPresence';
 
 export function ContextMenu({
   actions,
@@ -26,7 +27,7 @@ export function ContextMenu({
   const restore = useRef(true);
   const closing = useRef(false);
   const focusFrame = useRef<number | null>(null);
-
+  const presence = useOverlayPresence();
   function close(restoreFocus: boolean) {
     if (closing.current) {
       return;
@@ -138,10 +139,9 @@ export function ContextMenu({
     <div
       ref={menu}
       className="interaction-context-menu"
-      onContextMenu={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
+      data-overlay-presence={presence}
+      inert={presence === 'exiting' ? true : undefined}
+      aria-hidden={presence === 'exiting' ? true : undefined}
       onKeyDownCapture={(event) => {
         if (event.key === 'Escape') {
           event.preventDefault();

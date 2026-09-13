@@ -18,6 +18,9 @@
   --edge-light: rgb(255 255 255 / 13%);
   --edge-soft: rgb(255 255 255 / 5.5%);
   --shadow-raised: 0 16px 44px rgb(0 0 0 / 30%), inset 0 1px 0 var(--edge-light);
+  --overlay-enter-duration: 140ms;
+  --overlay-exit-duration: 110ms;
+  --overlay-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
   --amber: hsl(37.5 53.932584% 67.834353%);
   --error: hsl(2.857143 68.852459% 77.953882%);
   --mono: 'Adamant Mono', monospace;

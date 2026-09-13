@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import type { UserAction } from './types';
+import { useOverlayPresence } from './OverlayPresence';
 
 export function Dialog({
   title,
@@ -24,6 +25,7 @@ export function Dialog({
   const titleId = useId();
   const descriptionId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
+  const presence = useOverlayPresence();
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog || !open) {
@@ -58,6 +60,9 @@ export function Dialog({
     <dialog
       ref={ref}
       className={`interaction-dialog${className ? ` ${className}` : ''}`}
+      data-overlay-presence={presence}
+      inert={presence === 'exiting' ? true : undefined}
+      aria-hidden={presence === 'exiting' ? true : undefined}
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
       onCancel={(event) => {

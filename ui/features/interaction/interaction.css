@@ -181,6 +181,31 @@
   box-shadow: var(--shadow-raised);
 }
 
+.interaction-context-menu {
+  transition:
+    opacity var(--overlay-enter-duration) var(--overlay-easing),
+    transform var(--overlay-enter-duration) var(--overlay-easing);
+}
+
+.interaction-context-menu[data-overlay-presence='entering'] {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.interaction-context-menu[data-overlay-presence='exiting'] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition-duration: var(--overlay-exit-duration);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interaction-context-menu {
+    transition: none;
+    transform: none;
+  }
+}
+
 .interaction-context-menu-title {
   flex-shrink: 0;
   margin: 0;

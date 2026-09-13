@@ -1,29 +1,67 @@
 .work-item-detail {
-  display: flex;
-  flex: 0 0 min(440px, 45%);
+  position: fixed;
+  inset: 0 0 0 auto;
   flex-direction: column;
-  width: min(440px, 100%);
-  min-width: 300px;
-  min-height: 0;
-  max-height: 100%;
+  width: min(520px, 100vw);
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
+  border: 0;
   border-left: 1px solid var(--border);
+  border-radius: 0;
   background: var(--reading);
   color: var(--text);
+  box-shadow: var(--shadow-raised);
   font-size: 13px;
+  transition:
+    opacity var(--overlay-enter-duration) var(--overlay-easing),
+    transform var(--overlay-enter-duration) var(--overlay-easing);
+}
+
+.work-item-detail[open] {
+  display: flex;
+}
+
+.work-item-detail::backdrop {
+  background: color-mix(in srgb, var(--base) 75%, transparent);
+  transition: opacity var(--overlay-enter-duration) var(--overlay-easing);
+}
+
+.work-item-detail[data-overlay-presence='entering'],
+.work-item-detail[data-overlay-presence='exiting'] {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.work-item-detail[data-overlay-presence='entering']::backdrop,
+.work-item-detail[data-overlay-presence='exiting']::backdrop {
+  opacity: 0;
+}
+
+.work-item-detail[data-overlay-presence='exiting'],
+.work-item-detail[data-overlay-presence='exiting']::backdrop {
+  transition-duration: var(--overlay-exit-duration);
 }
 
 .work-item-detail.is-expanded {
-  position: absolute;
-  z-index: 5;
-  inset: 0;
-  width: 100%;
-  min-width: 0;
+  width: 100vw;
   border-left: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .work-item-detail,
+  .work-item-detail::backdrop {
+    transition: none;
+    transform: none;
+  }
 }
 
 .work-detail-header {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
@@ -357,17 +395,6 @@
   overflow-wrap: anywhere;
   font-family: var(--mono);
   color: var(--text);
-}
-
-@media (max-width: 760px) {
-  .work-item-detail {
-    position: absolute;
-    inset: 0;
-    z-index: 5;
-    width: 100%;
-    min-width: 0;
-    border-left: 0;
-  }
 }
 
 @media (max-width: 380px) {

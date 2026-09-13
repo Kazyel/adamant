@@ -15,6 +15,7 @@ import { useWorkspaceActions } from './WorkspaceActions';
 import RecoveryDialog from '../features/workspace/session/RecoveryDialog';
 import MutationRecovery from '../features/workspace/MutationRecovery';
 import WorkContext from '../features/work-context/WorkContext';
+import { OverlayPresence } from '../features/interaction/OverlayPresence';
 
 function getBufferPath({ vault, buffer }: Workspace) {
   if (buffer.source?.kind === 'standalone') {
@@ -185,26 +186,30 @@ export default function App() {
           ) : null}
         </div>
       </main>
-      {workspace.prompt ? (
-        <WorkspaceDialog
-          key={workspace.prompt.kind}
-          prompt={workspace.prompt}
-          answer={workspace.answer}
-        />
-      ) : null}
+      <OverlayPresence>
+        {workspace.prompt ? (
+          <WorkspaceDialog
+            key={workspace.prompt.kind}
+            prompt={workspace.prompt}
+            answer={workspace.answer}
+          />
+        ) : null}
+      </OverlayPresence>
       {actionUI.overlays}
-      {workspace.recovery ? (
-        <RecoveryDialog
-          draft={workspace.recovery.draft}
-          sourceText={workspace.recovery.source?.text ?? null}
-          sourceChanged={workspace.recovery.sourceChanged}
-          onRecover={workspace.recoverDraft}
-          onDiscard={() => {
-            void workspace.discardRecovery(workspace.recovery!.draft.id).catch(workspace.fail);
-          }}
-          onCancel={workspace.cancelRecovery}
-        />
-      ) : null}
+      <OverlayPresence>
+        {workspace.recovery ? (
+          <RecoveryDialog
+            draft={workspace.recovery.draft}
+            sourceText={workspace.recovery.source?.text ?? null}
+            sourceChanged={workspace.recovery.sourceChanged}
+            onRecover={workspace.recoverDraft}
+            onDiscard={() => {
+              void workspace.discardRecovery(workspace.recovery!.draft.id).catch(workspace.fail);
+            }}
+            onCancel={workspace.cancelRecovery}
+          />
+        ) : null}
+      </OverlayPresence>
     </div>
   );
 }

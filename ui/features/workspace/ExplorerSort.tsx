@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ContextMenu } from '../interaction/ContextMenu';
+import { OverlayPresence } from '../interaction/OverlayPresence';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import type { DirectoryListingOptions } from './useDirectoryPages';
 
@@ -67,22 +68,24 @@ export default function ExplorerSort({
       >
         <WorkspaceIcon name="sort" />
       </button>
-      {menu ? (
-        <ContextMenu
-          position={menu}
-          returnFocus={menu.trigger}
-          label="Sort files"
-          title="Sort files"
-          onClose={() => setMenu(null)}
-          triggerTogglesMenu
-          actions={Object.entries(labels).map(([sort, label]) => ({
-            id: sort,
-            label,
-            selected: sort === value,
-            run: () => onChange(sort as Sort),
-          }))}
-        />
-      ) : null}
+      <OverlayPresence>
+        {menu ? (
+          <ContextMenu
+            position={menu}
+            returnFocus={menu.trigger}
+            label="Sort files"
+            title="Sort files"
+            onClose={() => setMenu(null)}
+            triggerTogglesMenu
+            actions={Object.entries(labels).map(([sort, label]) => ({
+              id: sort,
+              label,
+              selected: sort === value,
+              run: () => onChange(sort as Sort),
+            }))}
+          />
+        ) : null}
+      </OverlayPresence>
     </>
   );
 }

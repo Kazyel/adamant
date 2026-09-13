@@ -16,6 +16,44 @@
   flex-direction: column;
 }
 
+:where(.dialog-frame, .interaction-dialog) {
+  transition:
+    opacity var(--overlay-enter-duration) var(--overlay-easing),
+    transform var(--overlay-enter-duration) var(--overlay-easing);
+}
+
+:where(.dialog-frame, .interaction-dialog)[data-overlay-presence='entering'] {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+:where(.dialog-frame, .interaction-dialog)[data-overlay-presence='exiting'] {
+  opacity: 0;
+  transform: translateY(4px);
+  transition-duration: var(--overlay-exit-duration);
+}
+
+:where(.dialog-frame, .interaction-dialog)::backdrop {
+  transition: opacity var(--overlay-enter-duration) var(--overlay-easing);
+}
+
+:where(.dialog-frame, .interaction-dialog)[data-overlay-presence='entering']::backdrop,
+:where(.dialog-frame, .interaction-dialog)[data-overlay-presence='exiting']::backdrop {
+  opacity: 0;
+}
+
+:where(.dialog-frame, .interaction-dialog)[data-overlay-presence='exiting']::backdrop {
+  transition-duration: var(--overlay-exit-duration);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.dialog-frame, .interaction-dialog),
+  :where(.dialog-frame, .interaction-dialog)::backdrop {
+    transition: none;
+    transform: none;
+  }
+}
+
 :where(.dialog-frame, .interaction-dialog)::backdrop {
   background: color-mix(in srgb, var(--base) 75%, transparent);
 }
