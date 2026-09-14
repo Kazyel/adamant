@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-change-annotation"
+description = "Enables the vault_change_annotation command without any pre-configured scope."
+commands.allow = ["vault_change_annotation"]
+
+[[permission]]
+identifier = "deny-vault-change-annotation"
+description = "Denies the vault_change_annotation command without any pre-configured scope."
+commands.deny = ["vault_change_annotation"]

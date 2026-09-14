@@ -9,6 +9,7 @@ use cap_std::fs::Dir;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
+pub(crate) mod annotations;
 mod capability;
 pub(crate) mod commands;
 mod indexing;

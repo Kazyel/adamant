@@ -28,14 +28,18 @@ Your files live in a **Vault**, a portable folder you control. Accounts are opti
 
 ### Write and read in one place
 
-Choose **Dark graphite** or **Cool white** in **Preferences → Appearance**, then save preferences. Both themes separate the writing surface, cards, and overlays with restrained shadows and edge lighting. The editor and Markdown preview follow the selected palette; original PDF and DOCX pages retain their document colors. The welcome crystal stays silver in both themes, including its static fallback. The desktop app remembers the choice. Existing preferences default to dark.
+Choose **Dark graphite** or **Cool white** in **Preferences → Appearance**, then save preferences. Both themes separate the writing surface, cards, and overlays with restrained shadows and edge lighting. The editor and Markdown preview follow the selected palette; original PDF and DOCX pages retain their document colors. The welcome crystal stays silver in both themes, including its static fallback. The desktop app remembers the choice. Existing preferences default to dark. Text fields and searches share the sidebar’s input styling across dialogs, connections, tasks, preferences, and editor search, including keyboard focus and reduced-motion support.
 
 - Edit Markdown with undo history, search, reading preview, and split view.
-- Open PDF and DOCX documents alongside your notes. PDF supports navigation, zoom, and text selection; DOCX rendering is approximate.
+- Open PDF and DOCX documents alongside your notes. PDF supports navigation, zoom, and text selection. DOCX previews separate pages using document breaks and available page height, including long paragraphs and tables. Layout remains approximate; oversized objects and merged table rows may extend a page. Markdown editing and saving controls appear only for Markdown.
 - Browse, filter, import, and organize files in a Vault, with Trash and recovery workflows.
 - Resume your last Vault and document session when you reopen the app.
 
 Markdown saves explicitly with **Ctrl+S / ⌘S**. External changes, unsaved edits, and recovery copies remain visible. Original PDF and DOCX files stay unchanged; open them in an external application when layout fidelity matters.
+
+In a Vault PDF or DOCX, use **New note**, **Link existing note**, and **Notes** in the document toolbar. Creating and linking notes use separate dialogs. **Notes** opens a drawer containing only linked notes, with the same search field as the sidebar. Select a note to open it in the main editor; saving uses the disk icon or Ctrl+S / ⌘S. On narrow windows the drawer appears below the document. A Note can belong to several documents. Use **Sources** in a Note to return to its originals. Unlinking removes the association and keeps the Note.
+
+Annotation links use stable identities in the document's companion metadata and travel with the Vault. Missing or duplicate targets remain visible as unresolved references. Linking existing Notes requires a ready inventory; creating annotations and unlinking remain available with incomplete indexing. Changes reject stale metadata. These annotations apply to the whole document; page highlights and anchored selections are not included.
 
 ### Give each project its own workspace
 
@@ -200,16 +204,16 @@ Read the [Vault contract](docs/vault-contract.md) before changing persistence, f
 
 ## Roadmap
 
-| Stage     | Scope                                                                      | Status                                   |
-| --------- | -------------------------------------------------------------------------- | ---------------------------------------- |
-| M0        | Native, editor, document, and credential validation                        | Approved                                 |
-| M1 / M1.1 | Vaults, Markdown, saving, recovery, and file workflows                     | Implemented                              |
-| M2        | Project workspaces, GitHub and Jira context, and explicit provider actions | Implemented; verification remains scoped |
-| M3        | Document library and documentation capture                                 | Planned                                  |
-| M4        | Knowledge navigation and relationships                                     | Planned                                  |
-| M5        | Local calendar and iCalendar support                                       | Planned                                  |
-| M6        | Today view for priorities and activities                                   | Planned                                  |
-| M7        | Portable desktop release                                                   | Planned                                  |
+| Stage     | Scope                                                                      | Status                                        |
+| --------- | -------------------------------------------------------------------------- | --------------------------------------------- |
+| M0        | Native, editor, document, and credential validation                        | Approved                                      |
+| M1 / M1.1 | Vaults, Markdown, saving, recovery, and file workflows                     | Implemented                                   |
+| M2        | Project workspaces, GitHub and Jira context, and explicit provider actions | Implemented; verification remains scoped      |
+| M3        | Document library and documentation capture                                 | Annotation links implemented; capture planned |
+| M4        | Knowledge navigation and relationships                                     | Planned                                       |
+| M5        | Local calendar and iCalendar support                                       | Planned                                       |
+| M6        | Today view for priorities and activities                                   | Planned                                       |
+| M7        | Portable desktop release                                                   | Planned                                       |
 
 A due-date picker is available for tasks; the local calendar milestone is still planned. Remote item creation, GitHub inline reviews, in-app PDF/DOCX editing, Google Calendar synchronization, and a plugin platform are outside the current implemented scope.
 

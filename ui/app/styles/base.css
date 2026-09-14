@@ -89,12 +89,7 @@ button.danger:hover:not(:disabled) {
   outline-offset: 2px;
 }
 
-:where(
-  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']),
-  select,
-  .dialog-frame textarea,
-  .interaction-dialog textarea
-) {
+:where(select) {
   min-width: 0;
   min-height: 32px;
   border: 1px solid var(--control-border);

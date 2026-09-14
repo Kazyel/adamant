@@ -43,11 +43,20 @@ impl Vault {
         Ok(document(path, text.to_owned()))
     }
 
-    fn retain(&self, path: &str, text: &[u8], label: &str) -> VaultResult<PathBuf> {
+    pub(super) fn retain(&self, path: &str, text: &[u8], label: &str) -> VaultResult<PathBuf> {
         let recovery = self.recovery_directory();
         private_dir(&recovery)?;
         let dir = Dir::open_ambient_dir(&recovery, ambient_authority())?;
-        let name = format!("{}-{}-{label}.md", hash(path.as_bytes()), Uuid::new_v4());
+        let extension = if path.ends_with(".meta.yaml") {
+            "yaml"
+        } else {
+            "md"
+        };
+        let name = format!(
+            "{}-{}-{label}.{extension}",
+            hash(path.as_bytes()),
+            Uuid::new_v4()
+        );
         write_new(&dir, Path::new(&name), text)?;
         sync_dir(&dir)?;
         Ok(recovery.join(name))

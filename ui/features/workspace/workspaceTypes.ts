@@ -1,4 +1,5 @@
 import type { BufferState } from './buffer';
+import type { AnnotationChange, AnnotationRequest } from '../documents/annotationTypes';
 import type {
   ExplorerPage,
   IndexState,
@@ -25,6 +26,7 @@ export interface Workspace {
   documents: WorkspaceDocuments;
   finder: NavigationController;
   fileActions: FileActions;
+  changeAnnotation: (request: AnnotationRequest) => Promise<AnnotationChange>;
   preferences: EditorPreferences;
   savePreferences: (preferences: EditorPreferences) => Promise<void>;
   recoveries: DraftRecord[];

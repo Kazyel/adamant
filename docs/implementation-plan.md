@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Status: approved roadmap and revised technology baseline. M0 was approved by the owner on September 6, 2026; M1/M1.1 have scoped Linux evidence. The expanded M2 project workspace is implemented, with live provider authorization/write acceptance still unverified. M3–M7 remain planned; other operating systems and installers remain unverified.
+Status: approved roadmap and revised technology baseline. M0 was approved by the owner on September 6, 2026; M1/M1.1 have scoped Linux evidence. The expanded M2 project workspace is implemented, with live provider authorization/write acceptance still unverified. M3 has document viewing and annotation links implemented; documentation capture remains planned. M4–M7 remain planned; other operating systems and installers remain unverified.
 
 ## Delivery strategy
 
@@ -137,6 +137,8 @@ Learning goal: HTTP, authentication, asynchronous work, stable remote identity, 
 
 **Workflow:** import a document, view it, annotate through Markdown, and open its original externally.
 
+Implemented: PDF/DOCX import and reading, original preservation and external opening, and whole-document Markdown annotation links. Documents can create a new annotation Note or link an existing adopted Note. Notes expose derived source-document links. Unlinking preserves the Note, and unresolved targets remain visible. First association creates companion metadata explicitly. Page highlights and selection anchors are outside this increment.
+
 Work:
 
 - Preserve PDF/DOCX originals and create companion metadata.
@@ -148,6 +150,8 @@ Work:
 Acceptance: PDF, DOCX, and captured documentation are usable offline; originals remain intact; annotations survive moving the Vault. Missing capture resources are reported honestly.
 
 Learning goal: untrusted inputs, derived data, resource lifecycle, and asynchronous document processing.
+
+Annotation verification, September 14, 2026: nine native tests cover creation, shared links, unlinking, moves and Vault relocation, metadata preservation, missing and duplicate identities, partial inventories, bounded results, and external-write races. A TypeScript regression covers history and favorites when the first association gives a document its UUID. An isolated browser fixture exercised the rendered controls, errors, navigation, focus, pending-write dismissal, both themes, narrow layouts, and reduced motion. These are native-core and browser-fixture results, not an end-to-end desktop session claim. `bun run check` passed.
 
 ### M4 — Knowledge Navigation
 
@@ -271,4 +275,4 @@ September 12, 2026:
 - `bun run app:update` built the production frontend/native executable and installed it under an isolated temporary `XDG_DATA_HOME`, leaving the user's installed application untouched. Vite reported chunks larger than 500 kB. The installed Linux window opened the test Vault; native input verification stopped when the desktop portal denied the input session and the WebKit accessibility subtree was unreadable. This is launch evidence, not an end-to-end native task/restart acceptance claim.
 - No existing credentials were read and no live comments, field changes, transitions, reviews, or merges were sent. Real-account refresh/write acceptance, physical drag gestures, and installed-app task/draft recovery across restart remain unverified.
 
-Next: complete live-provider acceptance with explicitly authorized test items, and assess other operating systems, installers, and unsupported filesystem behavior. M3 and later workflows remain planned.
+Next: complete live-provider acceptance with explicitly authorized test items, and assess other operating systems, installers, and unsupported filesystem behavior. M3 documentation capture and M4–M7 workflows remain planned.

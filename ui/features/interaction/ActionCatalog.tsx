@@ -190,7 +190,7 @@ export function CommandPalette({
 
   return (
     <Dialog title="Command palette" open onClose={onClose} className="interaction-command-palette">
-      <div className="interaction-command-search">
+      <div className="input-field interaction-command-search">
         <WorkspaceIcon name="search" />
         <input
           value={query}

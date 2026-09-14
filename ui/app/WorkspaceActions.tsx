@@ -112,7 +112,7 @@ function noteActions(workspace: Workspace): UserAction[] {
   const note = workspace.buffer.source?.kind === 'vault' ? workspace.buffer.source.note : null;
   const markdownDisabled =
     active?.kind === 'markdown' ? disabled : 'Select an editable Markdown document.';
-  return [
+  const actions: UserAction[] = [
     {
       id: 'note-save',
       label: 'Save',
@@ -158,6 +158,11 @@ function noteActions(workspace: Workspace): UserAction[] {
       run: workspace.openOriginal,
     },
   ];
+  return active?.kind === 'markdown'
+    ? actions
+    : actions.filter(
+        (action) => action.id === 'document-open-external' || action.id === 'notes-save-all',
+      );
 }
 
 function tabActions(workspace: Workspace): UserAction[] {
@@ -285,6 +290,9 @@ function navigationActions(
 
 function viewActions(workspace: Workspace, navigation: Navigation): UserAction[] {
   const active = workspace.documents.activeTab;
+  if (active?.kind !== 'markdown') {
+    return [];
+  }
   return [
     {
       id: 'view-edit',

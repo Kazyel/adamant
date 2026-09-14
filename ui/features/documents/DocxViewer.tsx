@@ -3,6 +3,7 @@ import { renderAsync } from 'docx-preview';
 import type { HElement } from 'docx-preview';
 import { previewDocument } from '../../shared/ui/PreviewFrame';
 import { errorMessage } from '../../shared/errors';
+import { paginateDocx } from './paginateDocx';
 import LoadingIndicator from '../../shared/ui/LoadingIndicator';
 
 function applyElementProperties(element: Element, value: HElement) {
@@ -101,10 +102,12 @@ export default function DocxViewer({
         return;
       }
       let restored = false;
+      let ready = false;
       const restore = () => {
-        if (cancelled || restored || !iframe.clientHeight) {
+        if (cancelled || restored || !ready || !iframe.clientHeight) {
           return;
         }
+        paginateDocx(document);
         restorePosition(surface);
         restored = true;
       };
@@ -115,10 +118,14 @@ export default function DocxViewer({
       };
       // Hidden previews acquire a viewport only when the reading pane becomes visible.
       const observer = new ResizeObserver(restore);
-      void document.fonts.ready.then(() => {
+      void Promise.all([
+        document.fonts.ready,
+        ...Array.from(document.images, (image) => image.decode().catch(() => {})),
+      ]).then(() => {
         if (cancelled) {
           return;
         }
+        ready = true;
         restore();
         observer.observe(iframe);
       });
@@ -157,7 +164,7 @@ export default function DocxViewer({
           setContent(
             previewDocument(container.innerHTML, {
               styles:
-                '.docx-wrapper{padding:24px!important;background:hsl(212.727273 31.428571% 93.675294%)!important}.docx{box-shadow:none!important;margin-bottom:24px!important}',
+                '.docx-wrapper{padding:24px!important;background:hsl(212.727273 31.428571% 93.675294%)!important}.docx{box-shadow:0 2px 8px #22304426!important;margin-bottom:24px!important}',
               docx: true,
             }),
           );
@@ -191,7 +198,7 @@ export default function DocxViewer({
       </div>
     );
   }
-  // Parent access is only for scroll state; scripts remain forbidden by sandbox and CSP.
+  // Parent access handles pagination and scroll state; scripts remain forbidden by sandbox and CSP.
   return (
     <iframe
       ref={frame}

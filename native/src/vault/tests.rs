@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use super::{IndexState, Vault, VaultSnapshot};
 
+mod annotations;
 mod inventory;
 mod lifecycle;
 mod mutations;

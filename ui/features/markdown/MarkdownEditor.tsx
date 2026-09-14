@@ -67,17 +67,12 @@ const theme = EditorView.theme(
     },
     '.cm-panels': { backgroundColor: 'var(--surface)', color: 'var(--text)' },
     '.cm-panels.cm-panels-top': { borderBottom: '1px solid var(--border)' },
-    '.cm-textfield': {
-      backgroundColor: 'var(--base)',
-      color: 'var(--text)',
-      border: '1px solid var(--border)',
-    },
     '.cm-button': {
       background: 'var(--surface)',
       color: 'var(--text)',
       border: '1px solid var(--border)',
     },
-    '.cm-textfield:focus-visible, .cm-button:focus-visible': {
+    '.cm-button:focus-visible': {
       outline: '1px solid var(--accent)',
     },
   },
@@ -139,6 +134,7 @@ export default function MarkdownEditor({
   location,
   onLocationChange,
   readOnly = false,
+  focusOnOpen = false,
 }: {
   initialValue: string;
   validatedSource?: string;
@@ -149,6 +145,7 @@ export default function MarkdownEditor({
   location?: { line: number; column: number };
   onLocationChange?: (line: number, column: number) => void;
   readOnly?: boolean;
+  focusOnOpen?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const editor = useRef<EditorView | null>(null);
@@ -171,6 +168,12 @@ export default function MarkdownEditor({
   const notifyLocation = useEffectEvent((line: number, column: number) =>
     onLocationChange?.(line + prefix.current.split('\n').length - 1, column),
   );
+
+  const focusWhenReady = useEffectEvent((view: EditorView) => {
+    if (focusOnOpen) {
+      view.focus();
+    }
+  });
 
   function showMenu(view: EditorView, position?: { x: number; y: number }) {
     const caret = view.coordsAtPos(view.state.selection.main.head);
@@ -279,6 +282,7 @@ export default function MarkdownEditor({
       }).state,
     });
     editor.current = instance;
+    focusWhenReady(instance);
 
     let disposed = false;
     void Promise.all([

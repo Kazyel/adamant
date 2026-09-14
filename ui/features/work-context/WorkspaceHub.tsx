@@ -155,7 +155,7 @@ export default function WorkspaceHub({
                 {search ? `${spaces.length} of ${state.spaces.length}` : state.spaces.length}{' '}
                 {state.spaces.length === 1 ? 'workspace' : 'workspaces'}
               </span>
-              <div className="work-hub-search">
+              <div className="input-field work-hub-search">
                 <WorkspaceIcon name="search" />
                 <input
                   ref={searchInput}

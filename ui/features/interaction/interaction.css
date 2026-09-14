@@ -255,31 +255,7 @@
 }
 
 .interaction-command-search {
-  display: flex;
-  align-items: center;
   flex-shrink: 0;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--base);
-  color: var(--muted);
-}
-
-.interaction-command-search:focus-within {
-  border-color: var(--accent);
-  outline: 1px solid var(--accent);
-}
-
-.interaction-command-search input {
-  width: 100%;
-  min-height: 38px;
-  padding: 8px 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  box-shadow: none;
 }
 
 .interaction-command-palette .interaction-result-count {

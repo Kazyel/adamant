@@ -42,6 +42,8 @@ pub fn run() {
             commands::vault_close,
             commands::vault_read_note,
             commands::vault_create_note,
+            commands::annotations::vault_annotations,
+            commands::annotations::vault_change_annotation,
             commands::vault_save_note,
             commands::vault_save_copy,
             commands::vault_adopt_note,

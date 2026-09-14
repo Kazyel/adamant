@@ -13,7 +13,7 @@
   justify-content: center;
   gap: 8px 12px;
   flex-shrink: 0;
-  min-height: 44px;
+  min-height: var(--document-pane-header-height);
   border-bottom: 1px solid var(--border);
   padding: 8px 12px;
   background: var(--surface);
@@ -77,5 +77,211 @@
   .pdf-toolbar {
     gap: 8px;
     padding-inline: 8px;
+  }
+}
+
+.document-workspace {
+  --document-pane-header-height: 56px;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.document-workspace > .document-panes {
+  flex: 1;
+  min-width: 0;
+}
+.annotation-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.annotation-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border-color: transparent;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+.annotation-tool[aria-expanded='true'] {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.annotation-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 340px;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  outline: none;
+}
+.annotation-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: var(--document-pane-header-height);
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.document-workspace:has(.annotation-panel) .pane-heading {
+  min-height: var(--document-pane-header-height);
+}
+
+.annotation-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.annotation-heading h2 {
+  margin: 0;
+  font-size: 0.929rem;
+  font-weight: 600;
+}
+.annotation-count {
+  font-size: 0.786rem;
+  color: var(--muted);
+}
+.annotation-body {
+  padding: 16px;
+  overflow: auto;
+}
+.annotation-search {
+  margin: 0 0 16px;
+}
+.annotation-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.annotation-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 7px;
+  padding: 2px 4px;
+  margin-bottom: 4px;
+}
+.annotation-target {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 10px;
+  padding: 10px 6px;
+  background: transparent;
+  border-color: transparent;
+  text-align: left;
+}
+.annotation-target > span {
+  flex: 1;
+  min-width: 0;
+}
+.annotation-target strong {
+  display: block;
+  font-size: 0.929rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.annotation-target small {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.786rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.annotation-target > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.annotation-unlink {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.annotation-empty {
+  padding: 36px 12px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.929rem;
+}
+.annotation-empty > svg {
+  width: 24px;
+  height: 24px;
+}
+.annotation-empty p {
+  line-height: 1.6;
+}
+.annotation-status,
+.annotation-create p {
+  color: var(--muted);
+  font-size: 0.857rem;
+  line-height: 1.6;
+}
+.annotation-create p {
+  margin: 10px 0 20px;
+}
+.annotation-create label {
+  font-size: 0.857rem;
+}
+.annotation-create input {
+  width: 100%;
+  margin-top: 6px;
+}
+.annotation-create-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.annotation-error {
+  font-size: 0.857rem;
+  overflow-wrap: anywhere;
+}
+.interaction-dialog.annotation-modal {
+  width: min(460px, calc(100vw - 32px));
+}
+.annotation-modal .annotation-body {
+  padding: 0;
+  max-height: min(420px, 60vh);
+}
+.annotation-modal .annotation-create-submit {
+  display: flex;
+  margin-left: auto;
+}
+.annotation-list li:hover,
+.annotation-list li:focus-within {
+  background: var(--raised);
+}
+.annotation-list .annotation-target:hover {
+  background: transparent;
+}
+.annotation-count {
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.annotation-heading > div > .workspace-icon {
+  color: var(--muted);
+}
+@container (max-width: 900px) {
+  .document-workspace:has(.annotation-panel) {
+    flex-direction: column;
+    overflow: auto;
+  }
+  .document-workspace:has(.annotation-panel) > .document-panes {
+    flex: 1 0 45%;
+    min-height: 240px;
+  }
+  .annotation-panel {
+    flex: 1 0 260px;
+    border-left: 0;
+    border-top: 1px solid var(--border);
   }
 }

@@ -1,0 +1,88 @@
+/* Native text fields share the explorer's control style, including editor search. */
+:is(
+  input:not(
+    [type='checkbox'],
+    [type='radio'],
+    [type='range'],
+    [type='file'],
+    [type='hidden'],
+    [type='button'],
+    [type='submit'],
+    [type='reset'],
+    [type='image'],
+    [type='color']
+  ),
+  textarea:not(.recovery-source)
+),
+.cm-editor .cm-textfield {
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid var(--edge-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 18px;
+  transition:
+    border-color 120ms ease-out,
+    background-color 120ms ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+
+  &:hover:not(:disabled) {
+    border-color: var(--border);
+  }
+  &:focus-visible {
+    border-color: var(--focus);
+    outline: 2px solid color-mix(in srgb, var(--focus) 25%, transparent);
+    outline-offset: 2px;
+    background: var(--reading);
+  }
+  &::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
+  &:disabled {
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+}
+
+.input-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.input-field > input {
+  width: 100%;
+  padding-left: 34px;
+}
+.input-field > .workspace-icon {
+  position: absolute;
+  left: 12px;
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  pointer-events: none;
+  transition: color 120ms ease-out;
+}
+.input-field:focus-within > .workspace-icon {
+  color: var(--focus);
+}
+.input-field > button {
+  position: absolute;
+  right: 4px;
+}
+.input-field:has(> button) > input {
+  padding-right: 40px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .input-field > .workspace-icon {
+    transition: none;
+  }
+}

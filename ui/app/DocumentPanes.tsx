@@ -7,7 +7,6 @@ import LoadingIndicator from '../shared/ui/LoadingIndicator';
 import WorkspaceIcon from '../shared/ui/WorkspaceIcon';
 import { getSaveStatus, native } from './workspaceView';
 import type { DocumentProps, WorkspaceProps } from './workspaceView';
-import type { Workspace } from '../features/workspace/workspaceTypes';
 import type { SessionTab } from '../features/workspace/session';
 import { isEmptyDraft } from '../features/workspace/session/useDocumentSession';
 import Atmosphere from './Atmosphere';
@@ -35,17 +34,6 @@ class ViewerBoundary extends Component<{ children: ReactNode }, { error: string 
       this.props.children
     );
   }
-}
-
-function getPreviewNote(readingDocument: Workspace['selected']) {
-  if (readingDocument?.kind === 'pdf') {
-    return 'One page rendered at a time. No PDF scripts, forms, or link actions.';
-  }
-  if (readingDocument?.kind === 'docx') {
-    return 'Isolated preview; Word layout may differ. Embedded HTML and remote resources are blocked.';
-  }
-
-  return null;
 }
 
 function RestoredDocument({
@@ -97,7 +85,12 @@ function RestoredDocument({
   );
 }
 
-export function EditorPane({ workspace, navigation, documentInfo }: DocumentProps) {
+export function EditorPane({
+  workspace,
+  navigation,
+  documentInfo,
+  focusOnOpen = false,
+}: DocumentProps & { focusOnOpen?: boolean }) {
   const { buffer, dirty, busy } = workspace;
   const { view } = navigation;
   const { note, bufferName } = documentInfo;
@@ -150,6 +143,7 @@ export function EditorPane({ workspace, navigation, documentInfo }: DocumentProp
             }
           >
             <MarkdownEditor
+              focusOnOpen={focusOnOpen}
               initialValue={buffer.text}
               validatedSource={validatedSource}
               onChange={(text) => {
@@ -177,15 +171,17 @@ export function EditorPane({ workspace, navigation, documentInfo }: DocumentProp
   );
 }
 
-function OriginalPreview({ workspace }: WorkspaceProps) {
-  const { selected, showOriginal } = workspace;
-  const tab = workspace.documents.activeTab;
+export function OriginalPreview({
+  workspace,
+  tab = workspace.documents.activeTab,
+  shown = workspace.showOriginal,
+}: WorkspaceProps & { tab?: SessionTab | null; shown?: boolean }) {
+  const selected = tab?.document;
   if (!selected || !tab) {
     return null;
   }
   const updateViewerState = (viewerState: Partial<typeof tab.viewerState>) => {
     if (
-      workspace.documents.activeIdRef.current === tab.id &&
       workspace.documents.tabsRef.current.find((item) => item.id === tab.id)?.document === selected
     ) {
       workspace.documents.updateTab(tab.id, (current) => ({
@@ -196,7 +192,7 @@ function OriginalPreview({ workspace }: WorkspaceProps) {
   };
 
   return (
-    <div className="reading-content" hidden={!showOriginal}>
+    <div className="reading-content" hidden={!shown}>
       <ViewerBoundary key={`${tab.id}:${selected.revision}`}>
         <Suspense
           fallback={
@@ -235,7 +231,6 @@ export function ReadingPane({ workspace, navigation, documentInfo }: DocumentPro
   const { note, readingDocument, activeName } = documentInfo;
   const validatedSource = note && !note.metadataError ? buffer.savedText : undefined;
   const tab = workspace.documents.activeTab;
-  const previewNote = getPreviewNote(readingDocument);
   const linkIsActive =
     !!linkTarget &&
     linkTarget.vaultId === workspace.vault?.id &&
@@ -316,7 +311,6 @@ export function ReadingPane({ workspace, navigation, documentInfo }: DocumentPro
         </ViewerBoundary>
       </div>
       <OriginalPreview workspace={workspace} />
-      {previewNote ? <div className="pane-footer">{previewNote}</div> : null}
     </section>
   );
 }
