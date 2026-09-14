@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import './atmosphere.css';
+import crystalLogo from '../../assets/adamant.png';
 
 const vertexSource = `
   precision mediump float;
@@ -10,6 +10,7 @@ const vertexSource = `
   varying float v_light;
   varying float v_depth;
   varying float v_glint;
+  varying vec2 v_uv;
 
   void main() {
     float angle = 0.55 + u_time * 0.07;
@@ -25,6 +26,10 @@ const vertexSource = `
     v_light = 0.25 + 0.75 * max(dot(normal, normalize(vec3(-0.4, 0.7, 1.0))), 0.0);
     v_glint = pow(max(dot(normal, normalize(vec3(-0.45, 0.8, 1.7))), 0.0), 16.0);
     v_depth = clamp(0.5 + position.z * 0.5, 0.0, 1.0);
+    // Project the logo's crystal bounds onto the existing octahedron.
+    // Object-space coordinates keep the engraving attached during rotation.
+    v_uv = vec2(0.5 + a_position.x / 0.78 * 0.27,
+      0.5 - a_position.y / 1.25 * 0.40);
   }
 `;
 
@@ -34,11 +39,15 @@ const fragmentSource = `
   uniform float u_wire;
   varying float v_light;
   varying float v_depth;
+  varying vec2 v_uv;
+  uniform sampler2D u_logo;
 
   void main() {
-    float facet = mix(0.09, 0.34, v_light) + 0.14 * v_glint;
-    float wire = mix(0.28, 0.56, v_depth);
-    gl_FragColor = vec4(vec3(mix(facet, wire, u_wire)), 1.0);
+    vec4 logo = texture2D(u_logo, v_uv);
+    vec3 silver = mix(vec3(0.68, 0.72, 0.78), logo.rgb, logo.a);
+    vec3 facet = silver * mix(0.55, 1.0, v_light) + 0.08 * v_glint;
+    vec3 wire = vec3(mix(0.55, 0.85, v_depth));
+    gl_FragColor = vec4(mix(facet, wire, u_wire), 1.0);
   }
 `;
 
@@ -138,15 +147,20 @@ export default function Atmosphere() {
     const fragment = gl.createShader(gl.FRAGMENT_SHADER);
     const program = gl.createProgram();
     const buffer = gl.createBuffer();
+    const texture = gl.createTexture();
+    const logo = new Image();
     const releaseGpu = () => {
+      logo.onload = null;
+      logo.onerror = null;
       gl.useProgram(null);
       gl.bindBuffer(gl.ARRAY_BUFFER, null);
       gl.deleteBuffer(buffer);
+      gl.deleteTexture(texture);
       gl.deleteProgram(program);
       gl.deleteShader(vertex);
       gl.deleteShader(fragment);
     };
-    if (!vertex || !fragment || !program || !buffer) {
+    if (!vertex || !fragment || !program || !buffer || !texture) {
       releaseGpu();
       return;
     }
@@ -170,6 +184,12 @@ export default function Atmosphere() {
     }
 
     gl.useProgram(program);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.uniform1i(gl.getUniformLocation(program, 'u_logo'), 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, geometry, gl.STATIC_DRAW);
     const position = gl.getAttribLocation(program, 'a_position');
@@ -196,6 +216,7 @@ export default function Atmosphere() {
     let failed = false;
     let ready = false;
     let hasSize = false;
+    let textureReady = false;
     const stop = () => {
       cancelAnimationFrame(frame);
       frame = 0;
@@ -229,7 +250,7 @@ export default function Atmosphere() {
     };
     const sync = () => {
       stop();
-      if (failed) {
+      if (failed || !textureReady) {
         return;
       }
       const width = canvas.clientWidth;
@@ -260,6 +281,20 @@ export default function Atmosphere() {
       delete canvas.dataset.ready;
     };
     const observer = new ResizeObserver(sync);
+    logo.onload = () => {
+      if (failed) {
+        return;
+      }
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, logo);
+      if (gl.getError() !== gl.NO_ERROR) {
+        loseContext();
+        return;
+      }
+      textureReady = true;
+      sync();
+    };
+    logo.src = crystalLogo;
     observer.observe(canvas);
     canvas.addEventListener('webglcontextlost', loseContext);
     document.addEventListener('visibilitychange', sync);
@@ -280,13 +315,7 @@ export default function Atmosphere() {
   return (
     <div className="atmosphere" aria-hidden="true">
       <canvas className="atmosphere__canvas" ref={canvasRef} width={260} height={240} />
-      <svg className="atmosphere__fallback" viewBox="0 0 260 240" fill="none" focusable="false">
-        <g className="atmosphere__crystal">
-          <path className="atmosphere__facet-back" d="M130 38L181 123L130 202L79 117Z" />
-          <path className="atmosphere__facet-front" d="M130 38L119 113L130 202L79 117Z" />
-          <path d="M130 38L181 123L130 202L79 117ZM130 38L119 113L130 202M79 117L119 113L181 123" />
-        </g>
-      </svg>
+      <img className="atmosphere__fallback" src={crystalLogo} alt="" />
     </div>
   );
 }

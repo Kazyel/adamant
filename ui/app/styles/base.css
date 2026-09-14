@@ -3,7 +3,7 @@
   color: var(--text);
   background: var(--base);
   color-scheme: dark;
-  font-synthesis: none;
+  font-synthesis: style;
   font-size: 14px;
   --base: #151515;
   --surface: #202020;
@@ -18,9 +18,13 @@
   --edge-light: rgb(255 255 255 / 13%);
   --edge-soft: rgb(255 255 255 / 5.5%);
   --shadow-raised: 0 16px 44px rgb(0 0 0 / 30%), inset 0 1px 0 var(--edge-light);
+  --overlay-enter-duration: 140ms;
+  --overlay-exit-duration: 110ms;
+  --overlay-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
   --amber: hsl(37.5 53.932584% 67.834353%);
   --error: hsl(2.857143 68.852459% 77.953882%);
   --mono: 'Adamant Mono', monospace;
+  --heading-font: 'Adamant Heading', 'Adamant Sans', sans-serif;
 }
 
 * {
@@ -162,8 +166,16 @@ p {
   margin-top: 0;
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--heading-font);
+}
+
 h1 {
-  font-family: 'Adamant Sans', sans-serif;
   font-size: 30px;
   font-weight: 600;
   letter-spacing: -1px;

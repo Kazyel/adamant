@@ -166,12 +166,12 @@
 .interaction-context-menu {
   position: fixed;
   z-index: 40;
-  top: var(--interaction-menu-y, 8px);
-  left: var(--interaction-menu-x, 8px);
+  top: var(--interaction-menu-y, 16px);
+  left: var(--interaction-menu-x, 16px);
   display: flex;
   flex-direction: column;
-  width: min(264px, calc(100vw - 16px));
-  max-height: calc(100dvh - 16px);
+  width: min(264px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
   padding: 6px;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -179,6 +179,31 @@
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow-raised);
+}
+
+.interaction-context-menu {
+  transition:
+    opacity var(--overlay-enter-duration) var(--overlay-easing),
+    transform var(--overlay-enter-duration) var(--overlay-easing);
+}
+
+.interaction-context-menu[data-overlay-presence='entering'] {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.interaction-context-menu[data-overlay-presence='exiting'] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition-duration: var(--overlay-exit-duration);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interaction-context-menu {
+    transition: none;
+    transform: none;
+  }
 }
 
 .interaction-context-menu-title {

@@ -1,3 +1,5 @@
+import DateField from '../interaction/DateField';
+import SelectField from '../interaction/SelectField';
 import { useEffect, useRef, useState } from 'react';
 import DialogFrame from '../workspace/DialogFrame';
 import { errorMessage } from '../../shared/errors';
@@ -45,7 +47,7 @@ export function NameDialog({
             Cancel
           </button>
           <button className="primary" disabled={!name.trim()}>
-            Save space
+            Save workspace
           </button>
         </div>
       </form>
@@ -90,7 +92,7 @@ export function TaskDialog({
         <div className="work-field-pair">
           <label className="work-field">
             Priority
-            <select name="priority" defaultValue="none">
+            <SelectField name="priority" defaultValue="none">
               {priorities.map((priority) => (
                 <option key={priority} value={priority}>
                   {priority === 'none'
@@ -98,11 +100,11 @@ export function TaskDialog({
                     : priority[0].toUpperCase() + priority.slice(1)}
                 </option>
               ))}
-            </select>
+            </SelectField>
           </label>
           <label className="work-field">
             Due date
-            <input name="dueDate" type="date" />
+            <DateField name="dueDate" />
           </label>
         </div>
         <div className="dialog-actions">
@@ -211,11 +213,13 @@ export function FlowDialog({
 
 export function FollowDialog({
   connections,
+  onConnections,
   follow,
   onDone,
   onClose,
 }: {
   connections: Connection[];
+  onConnections: () => void;
   follow: (url: string, connectionId: string, signal?: AbortSignal) => Promise<RemoteDetail | null>;
   onDone: (id: string, warning: string | null) => void;
   onClose: () => void;
@@ -279,8 +283,8 @@ export function FollowDialog({
         </p>
         <label className="work-field">
           Connection
-          <select
-            disabled={pending}
+          <SelectField
+            disabled={pending || !connections.length}
             value={connectionId}
             onChange={(event) => setConnectionId(event.target.value)}
             required
@@ -293,8 +297,16 @@ export function FollowDialog({
                 {entry.account} / {entry.host}
               </option>
             ))}
-          </select>
+          </SelectField>
         </label>
+        {!connections.length ? (
+          <p>
+            Connect an account to follow work from a URL.{' '}
+            <button type="button" onClick={onConnections}>
+              Connect GitHub or Jira
+            </button>
+          </p>
+        ) : null}
         <label className="work-field">
           Issue or pull request URL
           <input

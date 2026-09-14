@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "react", "jsx-a11y", "import", "unicorn", "oxc"],
+  "settings": { "jsx-a11y": { "components": { "SelectField": "select", "DateField": "input" } } },
   "categories": {
     "correctness": "error"
   },

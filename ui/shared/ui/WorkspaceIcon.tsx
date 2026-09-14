@@ -1,4 +1,5 @@
 export type IconName =
+  | 'calendar'
   | 'document'
   | 'board'
   | 'folder'
@@ -34,9 +35,16 @@ export type IconName =
   | 'restore'
   | 'filter'
   | 'keyboard'
-  | 'settings';
+  | 'settings'
+  | 'list'
+  | 'link'
+  | 'columns'
+  | 'help'
+  | 'plus'
+  | 'task';
 
 const paths: Record<IconName, string> = {
+  calendar: 'M4 5h16v16H4V5Zm0 5h16M8 3v4m8-4v4M8 14h2m4 0h2M8 17h2',
   document: 'M13 3H5v18h14V9l-6-6Zm0 0v6h6M8 13h8M8 17h6',
   board: 'M3 4h18v16H3V4Zm6 0v16m6-16v16M5 8h2m4 0h2m4 0h2M5 12h2m6 0h-2',
   folder: 'M3 7V5h6l2 2h10v13H3V7Zm0 4h18',
@@ -74,6 +82,12 @@ const paths: Record<IconName, string> = {
   filter: 'M3 5h18l-7 8v7l-4-2v-5L3 5Z',
   keyboard: 'M3 5h18v14H3V5ZM6 9h1m4 0h1m4 0h1M6 12h1m4 0h1m4 0h1M7 16h10',
   settings: 'M4 6h16M4 12h16M4 18h16M8 3v6m8 0v6m-6 0v6',
+  list: 'M4 6h3M10 6h10M4 12h3m3 0h10M4 18h3m3 0h10',
+  link: 'M10 14 14 10M8 16H6a4 4 0 0 1 0-8h4m4 0h4a4 4 0 0 1 0 8h-4',
+  columns: 'M3 4h18v16H3V4Zm6 0v16m6-16v16',
+  help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm-3-12a3 3 0 1 1 4.2 2.75c-.75.35-1.2.95-1.2 1.75M12 18h.01',
+  plus: 'M12 5v14M5 12h14',
+  task: 'M4 4h16v16H4V4Zm4 8 2.5 2.5L16 9',
 };
 
 export default function WorkspaceIcon({ name }: { name: IconName }) {

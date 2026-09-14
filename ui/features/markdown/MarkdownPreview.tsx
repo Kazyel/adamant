@@ -8,7 +8,7 @@ const readingStyles = `
   html { width: 100%; min-height: 100%; background: #1c1c1c; scrollbar-color: #484848 #1c1c1c; scrollbar-width: thin; }
   body { width: 100%; max-width: 816px; margin-inline: auto; padding: 56px 48px 96px; font-size: 17px; line-height: 1.6; overflow-wrap: anywhere; }
   body > :first-child { margin-top: 0; }
-  h1, h2, h3, h4, h5, h6 { font-family: "Adamant Sans", sans-serif; color: #ededed; line-height: 1.25; font-weight: 700; margin-top: 1.7em; margin-bottom: .65em; }
+  h1, h2, h3, h4, h5, h6 { font-family: "Adamant Heading", "Adamant Sans", sans-serif; color: #ededed; line-height: 1.25; font-weight: 700; margin-top: 1.7em; margin-bottom: .65em; }
   h1 { font-size: 36px; letter-spacing: -1.1px; }
   h2 { font-size: 27px; letter-spacing: -.6px; }
   h3 { font-size: 21px; letter-spacing: -.3px; }

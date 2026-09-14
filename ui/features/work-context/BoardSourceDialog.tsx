@@ -1,3 +1,4 @@
+import SelectField from '../interaction/SelectField';
 import { useState } from 'react';
 import DialogFrame from '../workspace/DialogFrame';
 import type { Connection, WorkSource } from './types';
@@ -36,7 +37,11 @@ function SourceConnection({
     <>
       <label className="work-field">
         Connection
-        <select value={connectionId} onChange={(event) => onChange(event.target.value)} required>
+        <SelectField
+          value={connectionId}
+          onChange={(event) => onChange(event.target.value)}
+          required
+        >
           <option value="" disabled>
             Select a connection
           </option>
@@ -50,7 +55,7 @@ function SourceConnection({
               {entry.provider === 'github' ? 'GitHub' : 'Jira'} / {entry.account} / {entry.host}
             </option>
           ))}
-        </select>
+        </SelectField>
       </label>
       {!connections.length ? (
         <button type="button" onClick={onConnections}>

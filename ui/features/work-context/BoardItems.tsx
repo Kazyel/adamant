@@ -1,8 +1,12 @@
+import { dateLabel } from '../interaction/calendar';
+import SelectField from '../interaction/SelectField';
 import type { DragEvent, KeyboardEvent, MouseEvent } from 'react';
+import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import { kindLabels } from './state';
 import { itemReference } from './BoardModel';
 import type { BoardDialog } from './BoardModel';
 import type { WorkItem, WorkSpace } from './types';
+import useBoardMotion from './useBoardMotion';
 
 type ItemInteractions = {
   selected: WorkItem | null | undefined;
@@ -34,10 +38,14 @@ function BoardCard({
     item: WorkItem;
     columnId: string;
   }) {
+  const fetchedAt = item.fetchedAt
+    ? `Last fetched ${new Date(item.fetchedAt).toLocaleString()}`
+    : 'No fetch timestamp';
   return (
     <li>
       <div
         className={`work-card${selected?.id === item.id ? ' is-selected' : ''}`}
+        title={item.remote ? `Cached snapshot. ${fetchedAt}` : undefined}
         draggable
         onDragStart={(event) => onDragStart(event, item)}
         onDragEnd={onDragEnd}
@@ -45,14 +53,17 @@ function BoardCard({
         onDrop={(event) => drop(event, columnId, item.id)}
       >
         <div className="work-card-top">
-          <span className="work-kind">{kindLabels[item.kind]}</span>
+          <span className="work-kind">
+            <WorkspaceIcon name={item.remote ? 'link' : 'task'} />
+            {kindLabels[item.kind]}
+          </span>
           <button
             className="icon-button"
             aria-label={`Actions for ${item.title}`}
             aria-haspopup="menu"
             onClick={(event) => itemActions(item, columnId, event)}
           >
-            …
+            <WorkspaceIcon name="more" />
           </button>
         </div>
         <button
@@ -67,7 +78,7 @@ function BoardCard({
         {item.remote ? (
           <div className="work-remote-line">
             <span>{itemReference(item)}</span>
-            <span>{item.remoteState}</span>
+            <span className="work-item-state">{item.remoteState}</span>
           </div>
         ) : null}
         <div className="work-card-metadata">
@@ -90,18 +101,7 @@ function BoardCard({
             {item.labels.length > 3 ? <span>+{item.labels.length - 3}</span> : null}
           </div>
         ) : null}
-        {item.remote ? (
-          <small
-            className="work-cache-label"
-            title={
-              item.fetchedAt
-                ? `Last fetched ${new Date(item.fetchedAt).toLocaleString()}`
-                : 'No fetch timestamp'
-            }
-          >
-            Cached remote snapshot
-          </small>
-        ) : null}
+        {item.remote ? <small className="work-cache-label">Cached snapshot</small> : null}
       </div>
     </li>
   );
@@ -118,13 +118,18 @@ export function BoardColumns({
     visibleByColumn: Map<string, WorkItem[]>;
     showDialog: (dialog: BoardDialog) => void;
   }) {
+  const { boardRef, over } = useBoardMotion(space.view.sort === 'manual');
+  const onDragOver = (event: DragEvent) => {
+    interactions.onDragOver(event);
+    over(event);
+  };
   return (
-    <section className="work-board" aria-label={`${space.name} board`}>
+    <section ref={boardRef} className="work-board" aria-label={`${space.name} board`}>
       {space.columns.map((column) => (
         <div
           className="work-column"
           key={column.id}
-          onDragOver={interactions.onDragOver}
+          onDragOver={onDragOver}
           onDrop={(event) => interactions.drop(event, column.id)}
         >
           <header>
@@ -135,18 +140,28 @@ export function BoardColumns({
               aria-label={`Add task to ${column.name}`}
               onClick={() => showDialog({ kind: 'task', columnId: column.id })}
             >
-              +
+              <WorkspaceIcon name="plus" />
             </button>
           </header>
           <ol className="work-cards">
             {(visibleByColumn.get(column.id) ?? []).map((item) => (
-              <BoardCard key={item.id} item={item} columnId={column.id} {...interactions} />
+              <BoardCard
+                key={item.id}
+                item={item}
+                columnId={column.id}
+                {...interactions}
+                onDragOver={onDragOver}
+              />
             ))}
           </ol>
           {!visibleByColumn.get(column.id)?.length ? (
-            <p className="work-column-empty">
-              {space.members.length ? 'No items in this column' : 'Add a task or follow work'}
-            </p>
+            <div className="work-column-empty">
+              <p>No items here</p>
+              <button onClick={() => showDialog({ kind: 'task', columnId: column.id })}>
+                <WorkspaceIcon name="plus" />
+                Add task
+              </button>
+            </div>
           ) : null}
         </div>
       ))}
@@ -170,21 +185,37 @@ function BoardListRow({
 }) {
   return (
     <tr key={item.id} className={selected?.id === item.id ? 'is-selected' : ''}>
-      <td>
-        <button
-          className="work-list-open"
-          onClick={(event) => openItem(item, event.currentTarget)}
-          onKeyDown={(event) => keyboardMove(event, item, column.id)}
-        >
-          {item.title}
-        </button>
-        <small>
-          {kindLabels[item.kind]}
-          {item.remote ? ` / ${itemReference(item)} / cached` : ''}
-        </small>
+      <td className="work-list-identity">
+        <span className="work-list-kind-icon" title={kindLabels[item.kind]}>
+          <WorkspaceIcon name={item.remote ? 'link' : 'task'} />
+        </span>
+        <div className="work-list-title-block">
+          <button
+            className="work-list-open"
+            data-work-item={item.id}
+            aria-pressed={selected?.id === item.id}
+            onClick={(event) => openItem(item, event.currentTarget)}
+            onKeyDown={(event) => keyboardMove(event, item, column.id)}
+          >
+            {item.title}
+          </button>
+          <div className="work-list-reference">
+            <span>{kindLabels[item.kind]}</span>
+            {item.remote ? <span title="Cached remote snapshot">{itemReference(item)}</span> : null}
+            {item.remoteState ? (
+              <span className="work-list-remote-state">{item.remoteState}</span>
+            ) : null}
+            {item.assignee ? <span>{item.assignee}</span> : null}
+            {item.checklist.length ? (
+              <span>
+                {item.checklist.filter((entry) => entry.done).length}/{item.checklist.length} done
+              </span>
+            ) : null}
+          </div>
+        </div>
       </td>
       <td>
-        <select
+        <SelectField
           aria-label={`Column for ${item.title}`}
           value={column.id}
           onChange={(event) => move(item, event.target.value)}
@@ -194,13 +225,25 @@ function BoardListRow({
               {column.name}
             </option>
           ))}
-        </select>
+        </SelectField>
       </td>
-      <td>{item.remoteState ?? 'Local task'}</td>
-      <td className={`work-priority priority-${item.priority}`}>
-        {item.priority === 'none' ? '—' : item.priority}
+      <td>
+        {item.priority !== 'none' ? (
+          <span className={`work-list-priority work-priority priority-${item.priority}`}>
+            <span aria-hidden="true" />
+            {item.priority}
+          </span>
+        ) : (
+          <span className="work-list-muted">No priority</span>
+        )}
       </td>
-      <td>{item.dueDate || '—'}</td>
+      <td className="work-list-date">
+        {item.dueDate ? (
+          <time dateTime={item.dueDate}>{dateLabel(item.dueDate)}</time>
+        ) : (
+          <span className="work-list-muted">No date</span>
+        )}
+      </td>
       <td>
         <button
           className="icon-button"
@@ -208,7 +251,7 @@ function BoardListRow({
           aria-haspopup="menu"
           onClick={(event) => itemActions(item, column.id, event)}
         >
-          …
+          <WorkspaceIcon name="more" />
         </button>
       </td>
     </tr>
@@ -234,8 +277,7 @@ export function BoardList({
         <thead>
           <tr>
             <th scope="col">Work item</th>
-            <th scope="col">Column</th>
-            <th scope="col">Remote state</th>
+            <th scope="col">Personal column</th>
             <th scope="col">Priority</th>
             <th scope="col">Due date</th>
             <th scope="col">

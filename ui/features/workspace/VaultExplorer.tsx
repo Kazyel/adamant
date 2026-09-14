@@ -1,11 +1,12 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { DragEvent, KeyboardEvent, MouseEvent } from 'react';
+import type { DragEvent, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import LoadingIndicator from '../../shared/ui/LoadingIndicator';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import type { ExplorerPage, IndexState, VaultEntry } from './types';
 
 export interface ExplorerProps {
   pages: ReadonlyMap<string, ExplorerPage>;
+  emptyContent?: ReactNode;
   indexing: IndexState;
   activePath: string | null;
   dirtyPath: string | null;
@@ -49,15 +50,26 @@ function visibleEntries(pages: ReadonlyMap<string, ExplorerPage>) {
   return entries;
 }
 
-function EmptyFolder({ page, state }: { page: ExplorerPage; state: IndexState['state'] }) {
-  if (!page.loaded || page.loading || page.error || page.entries.length) {
+function EmptyFolder({
+  page,
+  state,
+  children,
+}: {
+  page: ExplorerPage;
+  state: IndexState['state'];
+  children?: ReactNode;
+}) {
+  if (!page.loaded || page.loading || page.error || page.entries.length || page.hasMore) {
     return null;
   }
+  if (state === 'ready' && children) {
+    return children;
+  }
   return (
-    <p>
+    <p className="explorer-folder-empty">
       {state === 'ready'
-        ? 'No supported files or folders here.'
-        : 'No entries indexed here yet. This does not mean the folder is empty.'}
+        ? 'No documents here yet.'
+        : 'No documents to show yet. The file list is incomplete.'}
     </p>
   );
 }
@@ -68,12 +80,14 @@ function Status({
   indexing,
   onLoadMore,
   onNavigate,
+  emptyContent,
 }: {
   directory: string;
   page: ExplorerPage;
   indexing: IndexState;
   onLoadMore: (directory: string) => void;
   onNavigate: Props['onNavigate'];
+  emptyContent?: ReactNode;
 }) {
   if (page.loaded && !page.error && page.entries.length && !page.hasMore) {
     return null;
@@ -100,7 +114,9 @@ function Status({
           </button>
         </div>
       ) : null}
-      <EmptyFolder page={page} state={state} />
+      <EmptyFolder page={page} state={state}>
+        {emptyContent}
+      </EmptyFolder>
       {page.hasMore ? (
         <button
           type="button"
@@ -338,6 +354,7 @@ function Branches({ directory, id, ...props }: Props & { directory: string; id?:
       ))}
       <Status
         directory={directory}
+        emptyContent={directory ? undefined : props.emptyContent}
         page={page}
         indexing={indexing}
         onLoadMore={onLoadMore}
@@ -590,9 +607,6 @@ export default function VaultExplorer(props: ExplorerProps) {
       }}
     >
       <Branches directory="" {...dragAwareProps} />
-      {!ordered.length && !props.pages.get('')?.loading ? (
-        <p className="explorer-empty-state">No entries loaded.</p>
-      ) : null}
     </div>
   );
 }

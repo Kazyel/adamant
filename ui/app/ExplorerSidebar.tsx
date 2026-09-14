@@ -1,3 +1,4 @@
+import ExplorerEmptyState from '../features/workspace/ExplorerEmptyState';
 import {
   useCallback,
   useEffect,
@@ -23,6 +24,7 @@ import type {
   TrashEntry,
 } from '../features/workspace/usabilityTypes';
 import { ContextMenu } from '../features/interaction/ContextMenu';
+import { OverlayPresence } from '../features/interaction/OverlayPresence';
 import type { UserAction } from '../features/interaction/types';
 import type { VaultEntry } from '../features/workspace/types';
 import type { DocumentProps, WorkspaceProps } from './workspaceView';
@@ -30,7 +32,7 @@ import type { Workspace } from '../features/workspace/workspaceTypes';
 import { indexLabels, native } from './workspaceView';
 import WorkspaceIcon from '../shared/ui/WorkspaceIcon';
 import LoadingIndicator from '../shared/ui/LoadingIndicator';
-import Atmosphere from './Atmosphere';
+import crystalLogo from '../../assets/adamant.png';
 
 type MenuState = {
   x: number;
@@ -104,19 +106,20 @@ function ExplorerMenu({
   vaultName: string;
   onClose: () => void;
 }) {
-  if (!menu) {
-    return null;
-  }
-  const allowed = contextActionIds(menu);
+  const allowed = menu ? contextActionIds(menu) : null;
   return (
-    <ContextMenu
-      actions={actions.filter((action) => allowed.has(action.id))}
-      position={menu}
-      label={`Actions for ${contextTitle(menu, vaultName)}`}
-      title={menu.paths.length > 1 ? contextTitle(menu, vaultName) : undefined}
-      returnFocus={menu.trigger}
-      onClose={onClose}
-    />
+    <OverlayPresence>
+      {menu ? (
+        <ContextMenu
+          actions={actions.filter((action) => allowed?.has(action.id) ?? false)}
+          position={menu}
+          label={`Actions for ${contextTitle(menu, vaultName)}`}
+          title={menu.paths.length > 1 ? contextTitle(menu, vaultName) : undefined}
+          returnFocus={menu.trigger}
+          onClose={onClose}
+        />
+      ) : null}
+    </OverlayPresence>
   );
 }
 
@@ -844,24 +847,28 @@ function MutationDialogs({
 }) {
   return (
     <>
-      {plan ? (
-        <PlanDialog
-          state={plan}
-          busy={actions.busy || commitPending}
-          cancel={cancelPlan}
-          commit={commitPlan}
-        />
-      ) : null}
-      {destination ? (
-        <DestinationDialog
-          directories={directories}
-          initial={destination.initial}
-          title={destination.kind === 'move' ? 'Move selected items' : 'Duplicate selected items'}
-          busy={actions.busy}
-          close={closeDestination}
-          choose={chooseDestination}
-        />
-      ) : null}
+      <OverlayPresence>
+        {plan ? (
+          <PlanDialog
+            state={plan}
+            busy={actions.busy || commitPending}
+            cancel={cancelPlan}
+            commit={commitPlan}
+          />
+        ) : null}
+      </OverlayPresence>
+      <OverlayPresence>
+        {destination ? (
+          <DestinationDialog
+            directories={directories}
+            initial={destination.initial}
+            title={destination.kind === 'move' ? 'Move selected items' : 'Duplicate selected items'}
+            busy={actions.busy}
+            close={closeDestination}
+            choose={chooseDestination}
+          />
+        ) : null}
+      </OverlayPresence>
     </>
   );
 }
@@ -1534,6 +1541,22 @@ function VaultFiles({
         />
       </div>
       <VaultExplorer
+        emptyContent={
+          <ExplorerEmptyState
+            filtering={!!filter.trim()}
+            disabled={disabled}
+            onClear={() => {
+              setFilter('');
+              setDirectoryOptions({ sort, filter: '' });
+              document.getElementById('explorer-filter')?.focus();
+            }}
+            onCreate={() => {
+              setCreateKind('note');
+              setCreateName('');
+              setCreateDirectory('');
+            }}
+          />
+        }
         pages={pages}
         indexing={vault.indexing}
         activePath={documentInfo.activeVaultPath}
@@ -1589,24 +1612,28 @@ function VaultFiles({
           beginMutation(destination.kind, destination.paths, path);
         }}
       />
-      {result
-        ? createPortal(
-            <ResultDialog result={result} close={() => setResult(null)} />,
-            document.body,
-          )
-        : null}
-      {trashOpen
-        ? createPortal(
-            <TrashDialog
-              actions={fileActions}
-              directories={directories}
-              busy={fileActions.busy}
-              close={() => setTrashOpen(false)}
-              onResult={reportResult}
-            />,
-            document.body,
-          )
-        : null}
+      <OverlayPresence>
+        {result
+          ? createPortal(
+              <ResultDialog result={result} close={() => setResult(null)} />,
+              document.body,
+            )
+          : null}
+      </OverlayPresence>
+      <OverlayPresence>
+        {trashOpen
+          ? createPortal(
+              <TrashDialog
+                actions={fileActions}
+                directories={directories}
+                busy={fileActions.busy}
+                close={() => setTrashOpen(false)}
+                onResult={reportResult}
+              />,
+              document.body,
+            )
+          : null}
+      </OverlayPresence>
     </div>
   );
 }
@@ -1686,7 +1713,7 @@ export default function ExplorerSidebar({
           documentInfo={documentInfo}
         />
       </div>
-      <Atmosphere />
+      <img className="sidebar-signature" src={crystalLogo} alt="" aria-hidden="true" />
     </aside>
   );
 }

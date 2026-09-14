@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ActionList } from './ActionCatalog';
 import type { UserAction } from './types';
+import { useOverlayPresence } from './OverlayPresence';
 
 export function ContextMenu({
   actions,
@@ -11,6 +12,7 @@ export function ContextMenu({
   onClose,
   returnFocus,
   triggerTogglesMenu = false,
+  align = 'start',
 }: {
   actions: UserAction[];
   position: { x: number; y: number };
@@ -20,13 +22,14 @@ export function ContextMenu({
   returnFocus?: HTMLElement | null;
   /** Let a menu button handle its own toggle instead of dismissing it on pointerdown. */
   triggerTogglesMenu?: boolean;
+  align?: 'start' | 'end';
 }) {
   const menu = useRef<HTMLDivElement>(null);
   const trigger = useRef(returnFocus ?? document.activeElement);
   const restore = useRef(true);
   const closing = useRef(false);
   const focusFrame = useRef<number | null>(null);
-
+  const presence = useOverlayPresence();
   function close(restoreFocus: boolean) {
     if (closing.current) {
       return;
@@ -58,8 +61,9 @@ export function ContextMenu({
         return;
       }
       const bounds = element.getBoundingClientRect();
-      const inset = 8;
-      const x = Math.max(inset, Math.min(position.x, window.innerWidth - bounds.width - inset));
+      const inset = 16;
+      const anchorX = align === 'end' ? position.x - bounds.width : position.x;
+      const x = Math.max(inset, Math.min(anchorX, window.innerWidth - bounds.width - inset));
       const y = Math.max(inset, Math.min(position.y, window.innerHeight - bounds.height - inset));
       element.style.setProperty('--interaction-menu-x', `${x}px`);
       element.style.setProperty('--interaction-menu-y', `${y}px`);
@@ -72,7 +76,7 @@ export function ContextMenu({
       observer.disconnect();
       window.removeEventListener('resize', clamp);
     };
-  }, [position.x, position.y]);
+  }, [position.x, position.y, align]);
 
   useEffect(() => {
     const element = menu.current;
@@ -138,10 +142,9 @@ export function ContextMenu({
     <div
       ref={menu}
       className="interaction-context-menu"
-      onContextMenu={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
+      data-overlay-presence={presence}
+      inert={presence === 'exiting' ? true : undefined}
+      aria-hidden={presence === 'exiting' ? true : undefined}
       onKeyDownCapture={(event) => {
         if (event.key === 'Escape') {
           event.preventDefault();
@@ -163,6 +166,6 @@ export function ContextMenu({
         <p className="interaction-context-menu-empty">No actions available here.</p>
       ) : null}
     </div>,
-    document.body,
+    returnFocus?.closest('dialog') ?? document.body,
   );
 }

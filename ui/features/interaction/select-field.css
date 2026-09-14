@@ -1,0 +1,25 @@
+.select-field {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+.select-field > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+.select-field > button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-field > button > .workspace-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transform: rotate(90deg);
+}

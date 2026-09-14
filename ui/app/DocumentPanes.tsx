@@ -9,6 +9,8 @@ import { getSaveStatus, native } from './workspaceView';
 import type { DocumentProps, WorkspaceProps } from './workspaceView';
 import type { Workspace } from '../features/workspace/workspaceTypes';
 import type { SessionTab } from '../features/workspace/session';
+import { isEmptyDraft } from '../features/workspace/session/useDocumentSession';
+import Atmosphere from './Atmosphere';
 
 const MarkdownEditor = lazy(() => import('../features/markdown/MarkdownEditor'));
 const MarkdownPreview = lazy(() => import('../features/markdown/MarkdownPreview'));
@@ -120,6 +122,7 @@ export function EditorPane({ workspace, navigation, documentInfo }: DocumentProp
     workspace.documents.activeIdRef.current === tab.id &&
     workspace.documents.tabsRef.current.find((item) => item.id === tab.id)?.editorKey ===
       tab.editorKey;
+  const welcome = workspace.documents.tabs.length === 1 && isEmptyDraft(tab);
 
   return (
     <section
@@ -136,7 +139,8 @@ export function EditorPane({ workspace, navigation, documentInfo }: DocumentProp
           </span>
         </div>
       ) : null}
-      <div className="editor-canvas">
+      <div className={`editor-canvas${welcome ? ' editor-welcome' : ''}`}>
+        {welcome && view !== 'read' ? <Atmosphere /> : null}
         <ViewerBoundary key={buffer.editorKey}>
           <Suspense
             fallback={

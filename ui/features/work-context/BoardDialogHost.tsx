@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import {
   NameDialog,
   TaskDialog,
@@ -7,6 +8,7 @@ import {
   ConflictDialog,
 } from './BoardDialogs';
 import BoardSourceDialog from './BoardSourceDialog';
+import { OverlayPresence } from '../interaction/OverlayPresence';
 import { attachItems, createSpace, moveItem, updateSpace } from './state';
 import type { BoardDialog, BoardWork } from './BoardModel';
 import type { WorkItem, WorkSpace, WorkState } from './types';
@@ -17,6 +19,7 @@ type DialogProps = {
   state: WorkState;
   space: WorkSpace | null;
   closeDialog: () => void;
+  onSpaceCreated: (id: string) => void;
   onConnections: () => void;
   changeSpace: (update: (space: WorkSpace) => WorkSpace) => void;
   openItem: (item: WorkItem) => void;
@@ -30,12 +33,13 @@ function SpaceDialog({
   work,
   closeDialog,
   changeSpace,
+  onSpaceCreated,
 }: DialogProps & {
   dialog: Extract<BoardDialog, { kind: 'space' }>;
 }) {
   return (
     <NameDialog
-      title={dialog.rename ? 'Rename space' : 'New project space'}
+      title={dialog.rename ? 'Rename workspace' : 'New workspace'}
       initial={dialog.rename ? (space?.name ?? '') : ''}
       onClose={closeDialog}
       onSave={(name) => {
@@ -48,6 +52,7 @@ function SpaceDialog({
             activeSpaceId: created.id,
             spaces: [...state.spaces, created],
           }));
+          onSpaceCreated(created.id);
         }
         closeDialog();
       }}
@@ -125,14 +130,11 @@ function EditSourceDialog({
 export default function BoardDialogHost(props: DialogProps) {
   const { dialog, state, space, work, closeDialog, changeSpace, openItem, selectItem, setNotice } =
     props;
-  if (!dialog) {
-    return null;
-  }
-  if (dialog.kind === 'space') {
-    return <SpaceDialog {...props} dialog={dialog} />;
-  }
-  if (dialog.kind === 'conflict') {
-    return (
+  let content: ReactElement | null = null;
+  if (dialog?.kind === 'space') {
+    content = <SpaceDialog {...props} dialog={dialog} />;
+  } else if (dialog?.kind === 'conflict') {
+    content = (
       <ConflictDialog
         state={state}
         readSaved={work.readSaved}
@@ -140,53 +142,61 @@ export default function BoardDialogHost(props: DialogProps) {
         onClose={closeDialog}
       />
     );
+  } else if (dialog && space) {
+    switch (dialog.kind) {
+      case 'task':
+        content = <NewTaskDialog {...props} dialog={dialog} space={space} />;
+        break;
+      case 'source':
+        content = <EditSourceDialog {...props} dialog={dialog} />;
+        break;
+      case 'columns':
+        content = (
+          <FlowDialog
+            space={space}
+            onClose={closeDialog}
+            onSave={(columns) => {
+              changeSpace((space) => ({ ...space, columns }));
+              closeDialog();
+            }}
+          />
+        );
+        break;
+      case 'follow':
+        content = (
+          <FollowDialog
+            connections={work.connections}
+            onConnections={() => {
+              closeDialog();
+              props.onConnections();
+            }}
+            follow={work.follow}
+            onClose={closeDialog}
+            onDone={(id, warning) => {
+              closeDialog();
+              selectItem(id);
+              if (warning) {
+                setNotice(warning);
+              }
+            }}
+          />
+        );
+        break;
+      case 'existing':
+        content = (
+          <ExistingDialog
+            state={state}
+            space={space}
+            onClose={closeDialog}
+            onAdd={(item) => {
+              work.change((state) => attachItems(state, space.id, [item]));
+              closeDialog();
+              openItem(item);
+            }}
+          />
+        );
+        break;
+    }
   }
-  if (!space) {
-    return null;
-  }
-  switch (dialog.kind) {
-    case 'task':
-      return <NewTaskDialog {...props} dialog={dialog} space={space} />;
-    case 'source':
-      return <EditSourceDialog {...props} dialog={dialog} />;
-    case 'columns':
-      return (
-        <FlowDialog
-          space={space}
-          onClose={closeDialog}
-          onSave={(columns) => {
-            changeSpace((space) => ({ ...space, columns }));
-            closeDialog();
-          }}
-        />
-      );
-    case 'follow':
-      return (
-        <FollowDialog
-          connections={work.connections}
-          follow={work.follow}
-          onClose={closeDialog}
-          onDone={(id, warning) => {
-            closeDialog();
-            selectItem(id);
-            if (warning) {
-              setNotice(warning);
-            }
-          }}
-        />
-      );
-    case 'existing':
-      return (
-        <ExistingDialog
-          state={state}
-          space={space}
-          onClose={closeDialog}
-          onAdd={(item) => {
-            work.change((state) => attachItems(state, space.id, [item]));
-            closeDialog();
-            openItem(item);
-          }}
-        />
-      );
-  }
+  return <OverlayPresence>{content}</OverlayPresence>;
 }
