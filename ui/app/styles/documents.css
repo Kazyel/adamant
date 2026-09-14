@@ -36,12 +36,9 @@
   margin: 0;
 }
 
-.pdf-toolbar select {
-  min-height: 30px;
-  margin: 0;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: inherit;
+.pdf-toolbar .select-field > button {
+  min-width: 84px;
+  background: var(--raised);
 }
 
 .pdf-scroll {

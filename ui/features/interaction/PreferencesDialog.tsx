@@ -1,4 +1,6 @@
+import Form from '../../shared/ui/Form';
 import { useId, useState } from 'react';
+import NumberField from '../../shared/ui/NumberField';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import type { EditorPreferences } from './types';
 import { Dialog } from './InteractionDialogs';
@@ -51,7 +53,7 @@ export function PreferencesDialog({
         }
       }}
     >
-      <form
+      <Form
         onSubmit={(event) => {
           event.preventDefault();
           if (!saving) {
@@ -89,10 +91,10 @@ export function PreferencesDialog({
               <p id={`${id}-font-help`}>Text size in the editor, from 8 to 48 px.</p>
             </div>
             <div className="interaction-setting-number">
-              <input
+              <NumberField
+                label="font size"
                 id={`${id}-font`}
                 aria-describedby={`${id}-font-help`}
-                type="number"
                 required
                 min={8}
                 max={48}
@@ -109,10 +111,10 @@ export function PreferencesDialog({
               <p id={`${id}-indent-help`}>Spaces per indentation level, from 1 to 8.</p>
             </div>
             <div className="interaction-setting-number">
-              <input
+              <NumberField
+                label="indent size"
                 id={`${id}-indent`}
                 aria-describedby={`${id}-indent-help`}
-                type="number"
                 required
                 min={1}
                 max={8}
@@ -172,7 +174,7 @@ export function PreferencesDialog({
             {saving ? 'Saving preferences…' : 'Save preferences'}
           </button>
         </div>
-      </form>
+      </Form>
     </Dialog>
   );
 }

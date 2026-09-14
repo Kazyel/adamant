@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:adamant:schema:graph:v1",
+  "title": "Adamant portable document graph",
+  "description": "Authoritative .adamant/graph.json. Native validation additionally checks UTF-8 byte limits, node-key uniqueness, edge-ID and unordered-pair uniqueness, existing edge endpoints, Vault identity, and a 32 MiB record limit.",
+  "type": "object",
+  "required": ["vaultId", "revision", "graph"],
+  "additionalProperties": false,
+  "properties": {
+    "vaultId": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "graph": {
+      "type": "object",
+      "required": ["version", "nodes", "edges"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "nodes": {
+          "type": "array",
+          "maxItems": 50000,
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "$ref": "#/$defs/edge"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192,
+      "description": "Stable graph-local node key. Native maximum is 8192 UTF-8 bytes; UUID and path prefixes are conventions, not required syntax."
+    },
+    "coordinate": {
+      "type": ["number", "null"],
+      "minimum": -10000000,
+      "maximum": 10000000
+    },
+    "node": {
+      "type": "object",
+      "required": ["key", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/key"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^(?!/)(?!.*(?:^|/)(?:\\.|\\.\\.)(?:/|$))(?!.*//)(?!.*\\u0000).+\\.(?:[mM][dD]|[pP][dD][fF]|[dD][oO][cC][xX])$",
+          "description": "Content-root-relative path with / separators, no empty, dot, parent, absolute or NUL components. Native maximum is 4096 UTF-8 bytes. Native path checks follow platform rules."
+        },
+        "id": {
+          "type": ["string", "null"],
+          "pattern": "^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9a-fA-F]{32}|\\{[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\}|urn:uuid:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+          "description": "Existing file UUID, never generated or inserted by the graph. Null or absent binds the file by path."
+        },
+        "x": {
+          "$ref": "#/$defs/coordinate"
+        },
+        "y": {
+          "$ref": "#/$defs/coordinate"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "x": {
+              "type": "null"
+            },
+            "y": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "required": ["x", "y"],
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "edge": {
+      "type": "object",
+      "required": ["id", "source", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Unique edge ID, at most 256 UTF-8 bytes. UUID strings are recommended but not required."
+        },
+        "source": {
+          "$ref": "#/$defs/key"
+        },
+        "target": {
+          "$ref": "#/$defs/key"
+        }
+      }
+    }
+  }
+}

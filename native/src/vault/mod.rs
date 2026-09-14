@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 pub(crate) mod annotations;
 mod capability;
 pub(crate) mod commands;
+pub(crate) mod graph;
 mod indexing;
 mod lifecycle;
 mod metadata;

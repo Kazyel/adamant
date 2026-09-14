@@ -11,7 +11,7 @@ export const indexLabels: Record<'partial' | 'cancelled', string> = {
 };
 
 export type View = 'edit' | 'read' | 'split';
-export type Section = 'workbench' | 'work' | 'connections';
+export type Section = 'workbench' | 'work' | 'connections' | 'graph';
 
 export interface DocumentInfo {
   note: NoteDocument | null;

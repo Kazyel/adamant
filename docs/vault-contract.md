@@ -195,7 +195,15 @@ The two mechanisms have different guarantees:
 - External moves trigger reconciliation and broken-link reporting, not speculative rewrites.
 - Backlinks are derived from forward references; there is no second authoritative backlink file.
 
-Explicit authored relationships live in Markdown metadata or document companion metadata, not only in SQLite. Missing targets remain visible as unresolved references.
+Structured `refs` live in Markdown metadata or document companion metadata. Interactive graph connections and node positions instead live in `.adamant/graph.json`, without changing the documents or their metadata. Both representations are portable authored content; neither depends on SQLite. Missing targets remain visible as unresolved references.
+
+### Interactive document graph
+
+The [document graph contract](graph-contract.md) and [graph schema](../schemas/graph.schema.json) define the versioned JSON record, file resolution, limits, and external-writer protocol. Graph reads include Markdown, PDF, and DOCX files without adopting them. Graph writes save only connections and coordinates in the owned `.adamant/` directory. Existing document annotations remain a separate `refs` workflow and are not imported into the graph.
+
+Existing unique file UUIDs resolve moves. Files without UUIDs bind by their content-root-relative paths; their graph paths are not currently rewritten during moves or renames. Missing nodes retain their connections and positions. The graph reports incomplete inventory rather than claiming full coverage.
+
+Graph saves use expected revisions and the owned marker lock. External writers must advance the revision and exclude concurrent writes; replacing JSON atomically is not a substitute for that coordination. The record and retained recovery versions are authoritative Vault content, not disposable index data.
 
 ## Documents and technical documentation
 

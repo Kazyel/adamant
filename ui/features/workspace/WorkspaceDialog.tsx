@@ -1,3 +1,4 @@
+import Form from '../../shared/ui/Form';
 import { useState } from 'react';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import CreateVaultDialog from './CreateVaultDialog';
@@ -28,7 +29,7 @@ function NotePathDialog({
       className="replace-dialog session-dialog"
       cancel={() => answer(null)}
     >
-      <form
+      <Form
         onSubmit={(event) => {
           event.preventDefault();
           if (path) {
@@ -61,7 +62,7 @@ function NotePathDialog({
             {submitLabel}
           </button>
         </div>
-      </form>
+      </Form>
     </DialogFrame>
   );
 }

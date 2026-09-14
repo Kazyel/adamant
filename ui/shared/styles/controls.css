@@ -1,0 +1,204 @@
+/* Native checkbox semantics, shared application appearance. */
+input[type='checkbox'] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--base);
+  vertical-align: middle;
+  cursor: pointer;
+}
+input[type='checkbox']::before {
+  content: '';
+  width: 8px;
+  height: 4px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-1px) rotate(-45deg) scale(0);
+}
+input[type='checkbox']:checked,
+input[type='checkbox']:indeterminate {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+input[type='checkbox']:checked::before {
+  transform: translateY(-1px) rotate(-45deg);
+}
+input[type='checkbox']:indeterminate::before {
+  height: 0;
+  border-left: 0;
+  transform: none;
+}
+input[type='checkbox']:hover:not(:disabled) {
+  border-color: var(--focus);
+}
+input[type='checkbox']:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--focus) 35%, transparent);
+  outline-offset: 3px;
+}
+input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.number-field {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+.number-field > input {
+  appearance: textfield;
+  width: 100%;
+  padding-right: 58px;
+}
+.number-field > input::-webkit-inner-spin-button,
+.number-field > input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.number-field-controls {
+  position: absolute;
+  inset: 4px 4px 4px auto;
+  display: flex;
+  gap: 2px;
+  width: 50px;
+}
+.number-field-controls > button {
+  display: grid;
+  place-content: center;
+  width: 24px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+}
+.number-field-controls > button:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--raised);
+}
+.number-field-controls .workspace-icon {
+  width: 11px;
+  height: 11px;
+}
+.search-field input::-webkit-search-cancel-button,
+.search-field input::-webkit-search-decoration {
+  appearance: none;
+}
+.search-field > .search-clear {
+  display: grid;
+  place-content: center;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.search-field > .search-clear:hover:not(:disabled) {
+  background: var(--raised);
+  color: var(--text);
+}
+.search-clear .workspace-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.field-validation {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  grid-column: 1 / -1;
+  flex-basis: 100%;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--error) 35%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--error) 7%, var(--surface));
+  color: var(--error);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.field-validation .workspace-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+input[aria-invalid='true'],
+textarea[aria-invalid='true'],
+.select-field > button[aria-invalid='true'] {
+  border-color: var(--error);
+}
+.app-tooltip {
+  position: fixed;
+  z-index: 10000;
+  visibility: hidden;
+  width: max-content;
+  max-width: 320px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--text);
+  box-shadow: 0 4px 16px #0003;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+}
+
+summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  cursor: pointer;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::marker {
+  content: '';
+}
+summary::after {
+  content: '';
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  margin-right: 4px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 120ms ease;
+}
+details[open] > summary::after {
+  transform: rotate(45deg);
+}
+summary:hover::after {
+  border-color: var(--text);
+}
+@media (prefers-reduced-motion: reduce) {
+  summary::after {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  input[type='checkbox'] {
+    appearance: auto;
+  }
+  input[type='checkbox']::before {
+    content: none;
+  }
+}

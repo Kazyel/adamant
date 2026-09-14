@@ -221,15 +221,13 @@ export function DetailCommentComposer({
 function DetailCommits({ commits }: Pick<RemoteDetail, 'commits'>) {
   return (
     <details>
-      <summary>
-        Commits ({commits.length})<WorkspaceIcon name="chevron" />
-      </summary>
+      <summary>Commits ({commits.length})</summary>
       <div className="work-detail-disclosure-content">
         {commits.length ? (
           <ol className="work-detail-commits">
             {commits.map((commit) => (
               <li key={commit.sha}>
-                <code title={commit.sha}>{commit.sha.slice(0, 12)}</code>
+                <code data-tooltip={commit.sha}>{commit.sha.slice(0, 12)}</code>
                 <span className="work-detail-prose">{commit.message}</span>
                 <span className="work-detail-muted">{commit.author}</span>
               </li>
@@ -249,9 +247,7 @@ function DetailChecks({
 }: Pick<RemoteDetail, 'checks'> & { openExternal: DetailOpenExternal }) {
   return (
     <details>
-      <summary>
-        Checks ({checks.length})<WorkspaceIcon name="chevron" />
-      </summary>
+      <summary>Checks ({checks.length})</summary>
       <div className="work-detail-disclosure-content">
         {checks.length ? (
           <ul className="work-detail-checks">
@@ -287,9 +283,7 @@ function diffLineKind(line: string) {
 function DetailFiles({ files }: Pick<RemoteDetail, 'files'>) {
   return (
     <details>
-      <summary>
-        Files changed ({files.length})<WorkspaceIcon name="chevron" />
-      </summary>
+      <summary>Files changed ({files.length})</summary>
       <div className="work-detail-disclosure-content">
         {files.length ? (
           files.map((file) => (
@@ -301,7 +295,6 @@ function DetailFiles({ files }: Pick<RemoteDetail, 'files'>) {
                     {file.status} · +{file.additions} −{file.deletions}
                   </small>
                 </span>
-                <WorkspaceIcon name="chevron" />
               </summary>
               <div className="work-detail-disclosure-content">
                 {file.patch ? (

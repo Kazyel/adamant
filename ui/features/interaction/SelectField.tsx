@@ -74,6 +74,9 @@ export default function SelectField(props: SelectHTMLAttributes<HTMLSelectElemen
         tabIndex={-1}
         aria-hidden="true"
         onInvalid={(event) => {
+          if (event.defaultPrevented) {
+            return;
+          }
           event.preventDefault();
           trigger.current?.focus();
         }}

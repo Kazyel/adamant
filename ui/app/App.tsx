@@ -1,5 +1,6 @@
+import type { GraphNode } from '../features/graph/graphTypes';
 import { ThemeContext } from '../shared/styles/ThemeContext';
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import Connections from '../features/connections/Connections';
 import WorkspaceDialog from '../features/workspace/WorkspaceDialog';
 import { sourceName } from '../features/workspace/buffer';
@@ -17,6 +18,40 @@ import RecoveryDialog from '../features/workspace/session/RecoveryDialog';
 import MutationRecovery from '../features/workspace/MutationRecovery';
 import WorkContext from '../features/work-context/WorkContext';
 import { OverlayPresence } from '../features/interaction/OverlayPresence';
+
+const GraphView = lazy(() => import('../features/graph/GraphView'));
+
+function GraphSection({
+  active,
+  workspace,
+  registerGuard,
+  onOpen,
+}: {
+  active: boolean;
+  workspace: Workspace;
+  registerGuard: (guard: (() => Promise<void>) | null) => void;
+  onOpen: (node: GraphNode) => void;
+}) {
+  const [visited, setVisited] = useState(false);
+  if (active && !visited) {
+    setVisited(true);
+  }
+  if (!active && !visited) {
+    return null;
+  }
+  return (
+    <div className="graph-section-host" hidden={!active}>
+      <Suspense fallback={<p className="viewer-message">Loading graph…</p>}>
+        <GraphView
+          key={`${workspace.vault?.root}:${workspace.vault?.id}`}
+          workspace={workspace}
+          onRegisterPersistenceGuard={registerGuard}
+          onOpen={onOpen}
+        />
+      </Suspense>
+    </div>
+  );
+}
 
 function getBufferPath({ vault, buffer }: Workspace) {
   if (buffer.source?.kind === 'standalone') {
@@ -61,12 +96,17 @@ function getDocumentInfo(workspace: Workspace, view: View): DocumentInfo {
 }
 
 export default function App() {
+  const graphPersistenceGuard = useRef<(() => Promise<void>) | null>(null);
+  const registerGraphGuard = useCallback((guard: (() => Promise<void>) | null) => {
+    graphPersistenceGuard.current = guard;
+  }, []);
   const workPersistenceGuard = useRef<(() => Promise<void>) | null>(null);
   const registerWorkGuard = useCallback((guard: (() => Promise<void>) | null) => {
     workPersistenceGuard.current = guard;
   }, []);
   const workspace = useWorkspace(async () => {
     await workPersistenceGuard.current?.();
+    await graphPersistenceGuard.current?.();
   });
   const theme = workspace.preferences.theme ?? 'dark';
   useLayoutEffect(() => {
@@ -160,7 +200,7 @@ export default function App() {
                       onClick={() => {
                         void workspace.inspectRecovery(draft);
                       }}
-                      title={draft.path || 'New document'}
+                      data-tooltip={draft.path || 'New document'}
                     >
                       Review {draft.path || 'New document'}
                     </button>
@@ -185,6 +225,15 @@ export default function App() {
                 onConnections={() => setSection('connections')}
               />
             </div>
+            <GraphSection
+              active={section === 'graph'}
+              workspace={workspace}
+              registerGuard={registerGraphGuard}
+              onOpen={(node) => {
+                setSection('workbench');
+                workspace.openPath(node.path, node.identity);
+              }}
+            />
             {section === 'connections' ? (
               <Connections native={native} onWorkspace={() => setSection('work')} />
             ) : null}

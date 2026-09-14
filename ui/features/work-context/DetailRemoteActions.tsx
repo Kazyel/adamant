@@ -1,4 +1,3 @@
-import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import SelectField from '../interaction/SelectField';
 import { useId, useState } from 'react';
 import { Dialog } from '../interaction/InteractionDialogs';
@@ -40,10 +39,7 @@ export function DetailEditFields({
   return (
     <section className="work-detail-section" aria-label="Edit provider fields">
       <details className="work-detail-edit">
-        <summary>
-          Edit in {item.remote?.provider === 'github' ? 'GitHub' : 'Jira'}
-          <WorkspaceIcon name="chevron" />
-        </summary>
+        <summary>Edit in {item.remote?.provider === 'github' ? 'GitHub' : 'Jira'}</summary>
         <p className="work-detail-muted">
           Save to {sendingAs}. These fields update the provider, not the local board. Only supported
           fields are offered.

@@ -798,15 +798,8 @@
 .work-detail-section summary > .workspace-icon {
   width: 14px;
   height: 14px;
-  margin-left: auto;
   flex-shrink: 0;
   color: var(--muted);
-  transition: transform 120ms ease;
-}
-
-.work-detail-section details[open] > summary > .workspace-icon,
-.work-detail-local-organization[open] > summary > .workspace-icon {
-  transform: rotate(90deg);
 }
 
 .work-detail-section summary:hover {

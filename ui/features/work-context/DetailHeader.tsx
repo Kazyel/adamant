@@ -143,7 +143,7 @@ export default function DetailHeader({
         <button
           type="button"
           className="icon-button"
-          title={expanded ? 'Collapse details' : 'Expand details'}
+          data-tooltip={expanded ? 'Collapse details' : 'Expand details'}
           aria-label={expanded ? 'Collapse details' : 'Expand details'}
           aria-expanded={expanded}
           aria-controls={bodyId}
@@ -154,7 +154,7 @@ export default function DetailHeader({
         <button
           type="button"
           className="icon-button"
-          title="Close item details"
+          data-tooltip="Close item details"
           aria-label="Close item details"
           disabled={pending}
           onClick={onClose}

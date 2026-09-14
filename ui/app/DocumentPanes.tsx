@@ -126,8 +126,8 @@ export function EditorPane({
     >
       {view === 'split' ? (
         <div className="pane-heading">
-          <span title={bufferName}>{bufferName}</span>
-          <span className={dirty ? 'unsaved-label' : ''} title={getSaveStatus(workspace)}>
+          <span data-tooltip={bufferName}>{bufferName}</span>
+          <span className={dirty ? 'unsaved-label' : ''} data-tooltip={getSaveStatus(workspace)}>
             {getSaveStatus(workspace)}
           </span>
         </div>
@@ -286,7 +286,7 @@ export function ReadingPane({ workspace, navigation, documentInfo }: DocumentPro
     >
       {view === 'split' ? (
         <div className="pane-heading">
-          <span title={activeName}>{activeName}</span>
+          <span data-tooltip={activeName}>{activeName}</span>
           <span>{readingDocument ? 'Original preview' : 'Reading view'}</span>
         </div>
       ) : null}

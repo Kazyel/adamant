@@ -1,3 +1,4 @@
+import SearchField from '../../shared/ui/SearchField';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
@@ -18,7 +19,7 @@ export function Breadcrumbs({
     <nav className="navigation-breadcrumbs" aria-label="Breadcrumbs">
       <button
         type="button"
-        title={vaultName}
+        data-tooltip={vaultName}
         onClick={() => onNavigate('')}
         aria-current={!parts.length ? 'page' : undefined}
       >
@@ -32,7 +33,7 @@ export function Breadcrumbs({
             <WorkspaceIcon name="chevron" />
             <button
               type="button"
-              title={target}
+              data-tooltip={target}
               aria-current={index === parts.length - 1 ? 'page' : undefined}
               onClick={() => onNavigate(target)}
             >
@@ -251,24 +252,22 @@ export function QuickOpen({
 
   return (
     <section className="navigation-panel" aria-label="Quick open">
-      <label className="input-field navigation-search-field">
-        <WorkspaceIcon name="search" />
-        <input
-          ref={input}
-          aria-label="Find a document"
-          value={query}
-          onChange={(event) => onQuery(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Find a document by name or path…"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-controls={listId}
-          aria-expanded={shown.length > 0}
-          aria-activedescendant={shown[selected] ? `${listId}-${selected}` : undefined}
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </label>
+      <SearchField
+        className="navigation-search-field"
+        ref={input}
+        aria-label="Find a document"
+        value={query}
+        onChange={(event) => onQuery(event.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Find a document by name or path…"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-controls={listId}
+        aria-expanded={shown.length > 0}
+        aria-activedescendant={shown[selected] ? `${listId}-${selected}` : undefined}
+        autoComplete="off"
+        spellCheck={false}
+      />
       <div className="navigation-result-summary">
         <span>{searching ? 'Matching documents' : 'Recent documents'}</span>
         <span>
@@ -292,7 +291,7 @@ export function QuickOpen({
             aria-selected={index === selected}
             disabled={missing?.has(path)}
             key={path}
-            title={path}
+            data-tooltip={path}
             onMouseEnter={() => setSelection({ query, path })}
             onClick={() => onOpen(path)}
           >
@@ -355,21 +354,19 @@ export function SearchResults({
       className="navigation-panel"
       aria-label={mode === 'content' ? 'Search document content' : 'Search document names'}
     >
-      <label className="input-field navigation-search-field">
-        <WorkspaceIcon name="search" />
-        <input
-          aria-label={mode === 'content' ? 'Search Markdown content' : 'Search names and paths'}
-          value={query}
-          onChange={(event) => onQuery(event.target.value)}
-          placeholder={
-            mode === 'content'
-              ? 'Search inside Markdown documents…'
-              : 'Search document names and paths…'
-          }
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </label>
+      <SearchField
+        className="navigation-search-field"
+        aria-label={mode === 'content' ? 'Search Markdown content' : 'Search names and paths'}
+        value={query}
+        onChange={(event) => onQuery(event.target.value)}
+        placeholder={
+          mode === 'content'
+            ? 'Search inside Markdown documents…'
+            : 'Search document names and paths…'
+        }
+        autoComplete="off"
+        spellCheck={false}
+      />
       <div className="navigation-search-modes" role="group" aria-label="Search mode">
         <button type="button" aria-pressed={mode === 'path'} onClick={() => onMode('path')}>
           Names and paths
@@ -395,7 +392,7 @@ export function SearchResults({
             <button
               className="navigation-result"
               type="button"
-              title={hit.path}
+              data-tooltip={hit.path}
               onClick={() => onOpen(hit)}
             >
               <WorkspaceIcon name="document" />
@@ -453,7 +450,7 @@ export function Favorites({
                 className="navigation-result"
                 type="button"
                 disabled={unavailable}
-                title={path}
+                data-tooltip={path}
                 aria-label={
                   unavailable ? `${path} is unavailable; re-add or reopen it` : `Open ${path}`
                 }
@@ -466,7 +463,7 @@ export function Favorites({
               <button
                 className="icon-button navigation-favorite-remove"
                 type="button"
-                title="Remove from favorites"
+                data-tooltip="Remove from favorites"
                 aria-label={`Remove ${path} from favorites`}
                 onClick={() => onRemove(path)}
               >

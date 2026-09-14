@@ -1,3 +1,5 @@
+import SearchField from '../../shared/ui/SearchField';
+import Form from '../../shared/ui/Form';
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { Dialog } from '../interaction/InteractionDialogs';
 import { invoke } from '@tauri-apps/api/core';
@@ -29,7 +31,7 @@ export function AnnotationToolbar({
             className="annotation-tool"
             disabled={disabled}
             onClick={() => controller.show('create')}
-            title="Create a note alongside this document"
+            data-tooltip="Create a note alongside this document"
           >
             <WorkspaceIcon name="new" />
             <span>New note</span>
@@ -40,7 +42,7 @@ export function AnnotationToolbar({
             disabled={disabled}
             onClick={() => controller.show('link')}
             aria-label="Link existing note"
-            title="Link existing note"
+            data-tooltip="Link existing note"
           >
             <WorkspaceIcon name="link" />
           </button>
@@ -57,7 +59,7 @@ export function AnnotationToolbar({
             ? controller.close()
             : controller.show('notes')
         }
-        title={markdown ? 'Source documents' : 'Show annotations'}
+        data-tooltip={markdown ? 'Source documents' : 'Show annotations'}
       >
         <WorkspaceIcon name={markdown ? 'document' : 'edit'} />
         <span>{markdown ? 'Sources' : 'Notes'}</span>
@@ -91,7 +93,7 @@ function MaterialList({
               className="annotation-target"
               disabled={disabled || !link.path}
               onClick={() => onOpen(link)}
-              title={link.path ?? link.problem ?? 'Note unavailable'}
+              data-tooltip={link.path ?? link.problem ?? 'Note unavailable'}
             >
               <WorkspaceIcon name={link.path ? 'document' : 'warning'} />
               <span>
@@ -107,7 +109,7 @@ function MaterialList({
                 className="icon-button annotation-unlink"
                 disabled={disabled}
                 onClick={() => onUnlink(link.id)}
-                title="Unlink note; keep the file"
+                data-tooltip="Unlink note; keep the file"
                 aria-label={`Unlink ${filename ?? 'unavailable note'}`}
               >
                 <WorkspaceIcon name="close" />
@@ -142,7 +144,7 @@ function NewAnnotation({
     }
   }, [disabled]);
   return (
-    <form
+    <Form
       className="annotation-create"
       onSubmit={(event) => {
         event.preventDefault();
@@ -175,7 +177,7 @@ function NewAnnotation({
         <WorkspaceIcon name="edit" />
         Create note
       </button>
-    </form>
+    </Form>
   );
 }
 
@@ -438,17 +440,14 @@ function AnnotationBody({
   return (
     <div className="annotation-body">
       {mode !== 'create' ? (
-        <label className="input-field navigation-search-field annotation-search">
-          <WorkspaceIcon name="search" />
-          <input
-            type="search"
-            aria-label={markdown ? 'Find source documents' : 'Find notes'}
-            value={query}
-            disabled={pending}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={mode === 'link' ? 'Find a note in your Vault…' : 'Search notes…'}
-          />
-        </label>
+        <SearchField
+          className="navigation-search-field annotation-search"
+          aria-label={markdown ? 'Find source documents' : 'Find notes'}
+          value={query}
+          disabled={pending}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={mode === 'link' ? 'Find a note in your Vault…' : 'Search notes…'}
+        />
       ) : null}
       {error ? (
         <div className="annotation-error" role="alert">

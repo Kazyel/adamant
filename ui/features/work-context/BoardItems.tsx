@@ -45,7 +45,7 @@ function BoardCard({
     <li>
       <div
         className={`work-card${selected?.id === item.id ? ' is-selected' : ''}`}
-        title={item.remote ? `Cached snapshot. ${fetchedAt}` : undefined}
+        data-tooltip={item.remote ? `Cached snapshot. ${fetchedAt}` : undefined}
         draggable
         onDragStart={(event) => onDragStart(event, item)}
         onDragEnd={onDragEnd}
@@ -186,7 +186,7 @@ function BoardListRow({
   return (
     <tr key={item.id} className={selected?.id === item.id ? 'is-selected' : ''}>
       <td className="work-list-identity">
-        <span className="work-list-kind-icon" title={kindLabels[item.kind]}>
+        <span className="work-list-kind-icon" data-tooltip={kindLabels[item.kind]}>
           <WorkspaceIcon name={item.remote ? 'link' : 'task'} />
         </span>
         <div className="work-list-title-block">
@@ -201,7 +201,9 @@ function BoardListRow({
           </button>
           <div className="work-list-reference">
             <span>{kindLabels[item.kind]}</span>
-            {item.remote ? <span title="Cached remote snapshot">{itemReference(item)}</span> : null}
+            {item.remote ? (
+              <span data-tooltip="Cached remote snapshot">{itemReference(item)}</span>
+            ) : null}
             {item.remoteState ? (
               <span className="work-list-remote-state">{item.remoteState}</span>
             ) : null}

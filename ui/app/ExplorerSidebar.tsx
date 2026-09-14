@@ -1,3 +1,5 @@
+import SearchField from '../shared/ui/SearchField';
+import Form from '../shared/ui/Form';
 import ExplorerEmptyState from '../features/workspace/ExplorerEmptyState';
 import {
   useCallback,
@@ -241,7 +243,7 @@ function CreateEntry({
     };
   }, []);
   return (
-    <form
+    <Form
       className="explorer-create"
       onSubmit={(event) => {
         event.preventDefault();
@@ -252,7 +254,7 @@ function CreateEntry({
     >
       <div className="explorer-create-caption">
         <label htmlFor="explorer-new-name">{kind === 'note' ? 'New Note' : 'New folder'}</label>
-        <span title={directory || 'Vault root'}>{directory || 'Vault root'}</span>
+        <span data-tooltip={directory || 'Vault root'}>{directory || 'Vault root'}</span>
       </div>
       <div className="explorer-create-field">
         <input
@@ -274,7 +276,7 @@ function CreateEntry({
         <button
           className="icon-button"
           type="submit"
-          title="Create"
+          data-tooltip="Create"
           aria-label="Create"
           disabled={disabled || !value.trim()}
         >
@@ -283,7 +285,7 @@ function CreateEntry({
         <button
           className="icon-button"
           type="button"
-          title="Cancel"
+          data-tooltip="Cancel"
           aria-label="Cancel"
           disabled={disabled}
           onClick={cancel}
@@ -291,7 +293,7 @@ function CreateEntry({
           <WorkspaceIcon name="close" />
         </button>
       </div>
-    </form>
+    </Form>
   );
 }
 
@@ -494,7 +496,7 @@ function DestinationDialog({
   const [value, setValue] = useState(initial);
   return (
     <DialogFrame title={title} className="explorer-dialog" pending={busy} cancel={close}>
-      <form
+      <Form
         className="explorer-destination-form"
         onSubmit={(event) => {
           event.preventDefault();
@@ -547,7 +549,7 @@ function DestinationDialog({
             Continue
           </button>
         </div>
-      </form>
+      </Form>
     </DialogFrame>
   );
 }
@@ -1459,12 +1461,12 @@ function VaultFiles({
   return (
     <div className="vault-files">
       <div className="explorer-heading vault-heading">
-        <h2 title={vault.root}>{vault.name}</h2>
+        <h2 data-tooltip={vault.root}>{vault.name}</h2>
         <div className="explorer-tools">
           <button
             className="icon-button"
             type="button"
-            title="New Note"
+            data-tooltip="New Note"
             aria-label="New Note"
             disabled={disabled}
             onClick={() => {
@@ -1478,7 +1480,7 @@ function VaultFiles({
           <button
             className="icon-button"
             type="button"
-            title="Import files"
+            data-tooltip="Import files"
             aria-label="Import files"
             disabled={disabled}
             onClick={() => void importFromPicker()}
@@ -1488,7 +1490,7 @@ function VaultFiles({
           <button
             className="icon-button"
             type="button"
-            title="File actions"
+            data-tooltip="File actions"
             aria-label="File actions"
             aria-haspopup="menu"
             aria-expanded={!!menu}
@@ -1518,20 +1520,18 @@ function VaultFiles({
       ) : null}
       <IndexDetails workspace={workspace} detailsRef={detailsRef} />
       <div className="explorer-controls">
-        <label className="input-field explorer-filter" htmlFor="explorer-filter">
-          <WorkspaceIcon name="search" />
-          <span className="visually-hidden">Filter files</span>
-          <input
-            id="explorer-filter"
-            value={filter}
-            placeholder="Find files…"
-            onChange={(event) => {
-              const value = event.target.value;
-              setFilter(value);
-              setDirectoryOptions({ sort, filter: value });
-            }}
-          />
-        </label>
+        <SearchField
+          aria-label="Filter files"
+          className="explorer-filter"
+          id="explorer-filter"
+          value={filter}
+          placeholder="Find files…"
+          onChange={(event) => {
+            const value = event.target.value;
+            setFilter(value);
+            setDirectoryOptions({ sort, filter: value });
+          }}
+        />
         <ExplorerSort
           value={sort}
           onChange={(value) => {
@@ -1654,7 +1654,7 @@ function StandaloneFiles({ workspace, navigation, documentInfo }: DocumentProps)
           className="explorer-file"
           type="button"
           aria-pressed={section === 'workbench' && !readingDocument}
-          title={bufferPath ?? 'Unsaved Markdown buffer'}
+          data-tooltip={bufferPath ?? 'Unsaved Markdown buffer'}
           onClick={showBuffer}
         >
           <WorkspaceIcon name="document" />
@@ -1667,7 +1667,7 @@ function StandaloneFiles({ workspace, navigation, documentInfo }: DocumentProps)
           className="explorer-file"
           type="button"
           aria-pressed={section === 'workbench' && !!readingDocument}
-          title={standaloneOriginal.path}
+          data-tooltip={standaloneOriginal.path}
           onClick={() => {
             workspace.setShowOriginal(true);
             setView('read');

@@ -25,7 +25,7 @@ function DocumentToolbar({
 
   return (
     <div className="document-toolbar">
-      <div className="breadcrumb" title={activePath ?? 'In-memory Markdown buffer'}>
+      <div className="breadcrumb" data-tooltip={activePath ?? 'In-memory Markdown buffer'}>
         {workspace.vault && documentInfo.activeVaultPath ? (
           <Breadcrumbs
             path={documentInfo.activeVaultPath}
@@ -50,7 +50,7 @@ function DocumentToolbar({
               <button
                 className="icon-button"
                 type="button"
-                title="Edit Markdown"
+                data-tooltip="Edit Markdown"
                 aria-label="Edit Markdown"
                 aria-pressed={view === 'edit'}
                 onClick={() => {
@@ -63,7 +63,7 @@ function DocumentToolbar({
               <button
                 className="icon-button"
                 type="button"
-                title="Reading view"
+                data-tooltip="Reading view"
                 aria-label="Reading view"
                 aria-pressed={view === 'read'}
                 onClick={() => setView('read')}
@@ -73,7 +73,7 @@ function DocumentToolbar({
               <button
                 className="icon-button"
                 type="button"
-                title="Split editor and preview"
+                data-tooltip="Split editor and preview"
                 aria-label="Split editor and preview"
                 aria-pressed={view === 'split'}
                 onClick={() => setView('split')}
@@ -91,7 +91,7 @@ function DocumentToolbar({
               <button
                 className="icon-button"
                 type="button"
-                title={
+                data-tooltip={
                   buffer.conflict
                     ? 'Resolve the disk conflict before saving'
                     : 'Save Markdown (Ctrl+S / ⌘S)'
@@ -106,7 +106,7 @@ function DocumentToolbar({
               <button
                 className="icon-button"
                 type="button"
-                title="Save a recovery copy without changing either source"
+                data-tooltip="Save a recovery copy without changing either source"
                 aria-label="Save recovery copy"
                 disabled={disabled}
                 onClick={workspace.saveCopy}
@@ -118,7 +118,7 @@ function DocumentToolbar({
           <button
             className="icon-button"
             type="button"
-            title={
+            data-tooltip={
               activePath
                 ? `Open original externally: ${activeName}`
                 : 'No original file for this buffer'

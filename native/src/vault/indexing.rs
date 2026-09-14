@@ -11,6 +11,7 @@ use super::capability::{kind, relative};
 use super::{NoteDocument, Vault, VaultEntry, VaultError, VaultIssue, VaultResult, VaultSnapshot};
 
 mod annotations;
+mod graph;
 mod search;
 mod work;
 pub(super) use search::BodyIndex;

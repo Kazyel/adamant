@@ -1,3 +1,4 @@
+import Form from '../../shared/ui/Form';
 import SelectField from '../interaction/SelectField';
 import { useState } from 'react';
 import DialogFrame from '../workspace/DialogFrame';
@@ -155,7 +156,7 @@ export default function BoardSourceDialog({
       cancel={onClose}
       className="work-dialog"
     >
-      <form
+      <Form
         onSubmit={(event) => {
           event.preventDefault();
           submit();
@@ -199,7 +200,7 @@ export default function BoardSourceDialog({
             Save source
           </button>
         </div>
-      </form>
+      </Form>
     </DialogFrame>
   );
 }

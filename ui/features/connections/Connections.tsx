@@ -1,3 +1,4 @@
+import Form from '../../shared/ui/Form';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -67,7 +68,7 @@ function IdentityCheck({
   }
 
   return (
-    <form className="connection-form" onSubmit={(event) => void check(event)} autoComplete="off">
+    <Form className="connection-form" onSubmit={(event) => void check(event)} autoComplete="off">
       <fieldset disabled={!native || result.status === 'loading'}>
         <legend className="visually-hidden">{title} credentials</legend>
         {jira ? (
@@ -124,7 +125,7 @@ function IdentityCheck({
           ) : null}
         </p>
       ) : null}
-    </form>
+    </Form>
   );
 }
 
@@ -200,7 +201,6 @@ function ServiceConnection({
           <span>
             {accounts.length ? 'Add account or replace token' : `Connect ${service.title}`}
           </span>
-          <WorkspaceIcon name="chevron" />
         </summary>
         <div className="connection-setup-content">
           <div className="connection-guide">

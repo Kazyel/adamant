@@ -26,6 +26,8 @@
     "allow-vault-close",
     "allow-vault-read-note",
     "allow-vault-create-note",
+    "allow-vault-graph",
+    "allow-vault-save-graph",
     "allow-vault-annotations",
     "allow-vault-change-annotation",
     "allow-vault-save-note",

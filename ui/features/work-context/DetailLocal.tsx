@@ -1,3 +1,4 @@
+import Form from '../../shared/ui/Form';
 import DateField from '../interaction/DateField';
 import SelectField from '../interaction/SelectField';
 import { useState } from 'react';
@@ -141,7 +142,7 @@ function DetailChecklist({ item, updateItem }: LocalProps) {
           {item.remote ? 'No checklist items.' : 'Break this task into small steps.'}
         </p>
       )}
-      <form
+      <Form
         className="work-detail-row"
         onSubmit={(event) => {
           event.preventDefault();
@@ -164,7 +165,7 @@ function DetailChecklist({ item, updateItem }: LocalProps) {
           onChange={(event) => setNewCheck(event.target.value)}
         />
         <button disabled={!newCheck.trim() || item.checklist.length >= 200}>Add</button>
-      </form>
+      </Form>
     </>
   );
 }
@@ -237,7 +238,7 @@ function DetailLinks({
         ))}
       </ul>
       <LinkComposer local={!item.remote}>
-        <form
+        <Form
           className="work-detail-link-form"
           onSubmit={(event) => {
             event.preventDefault();
@@ -302,7 +303,7 @@ function DetailLinks({
           >
             Add link
           </button>
-        </form>
+        </Form>
       </LinkComposer>
     </>
   );
@@ -353,10 +354,7 @@ export function DetailOrganization(props: OrganizationProps & { expanded?: boole
   if (props.item.remote && !props.expanded) {
     return (
       <details className="work-detail-section work-detail-local-organization">
-        <summary>
-          Local organization
-          <WorkspaceIcon name="chevron" />
-        </summary>
+        <summary>Local organization</summary>
         <DetailOrganizationFields {...props} />
       </details>
     );

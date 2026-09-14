@@ -78,7 +78,7 @@ function AppMenu({ actions }: { actions: UserAction[] }) {
         ref={trigger}
         className="icon-button app-menu-trigger"
         type="button"
-        title="Adamant menu"
+        data-tooltip="Adamant menu"
         aria-label="Adamant menu"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -112,7 +112,7 @@ export default function WorkspaceRibbon({
       <button
         className="icon-button"
         type="button"
-        title={sidebarLabel}
+        data-tooltip={sidebarLabel}
         aria-label={sidebarLabel}
         aria-expanded={sidebarOpen}
         aria-controls="explorer"
@@ -124,7 +124,7 @@ export default function WorkspaceRibbon({
         <button
           className="icon-button"
           type="button"
-          title="Document workbench"
+          data-tooltip="Document workbench"
           aria-label="Document workbench"
           aria-pressed={section === 'workbench'}
           onClick={() => setSection('workbench')}
@@ -134,19 +134,29 @@ export default function WorkspaceRibbon({
         <button
           className="icon-button"
           type="button"
-          title="Project workspace"
+          data-tooltip="Project workspace"
           aria-label="Project workspace"
           aria-pressed={section === 'work'}
           onClick={() => setSection('work')}
         >
           <WorkspaceIcon name="board" />
         </button>
+        <button
+          type="button"
+          className="icon-button"
+          data-tooltip="File graph"
+          aria-label="File graph"
+          aria-pressed={section === 'graph'}
+          onClick={() => setSection('graph')}
+        >
+          <WorkspaceIcon name="graph" />
+        </button>
       </div>
       <AppMenu actions={actions} />
       <button
         className="icon-button"
         type="button"
-        title="Open Trash"
+        data-tooltip="Open Trash"
         aria-label="Open Trash"
         disabled={!native || !workspace.vault || !!workspace.busy || workspace.fileActions.busy}
         onClick={() => {
@@ -163,7 +173,7 @@ export default function WorkspaceRibbon({
       <button
         className="icon-button"
         type="button"
-        title="Connections"
+        data-tooltip="Connections"
         aria-label="Connections"
         aria-pressed={section === 'connections'}
         onClick={() => setSection('connections')}

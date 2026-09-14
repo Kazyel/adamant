@@ -315,6 +315,12 @@ function viewActions(workspace: Workspace, navigation: Navigation): UserAction[]
 function panelActions(navigation: Navigation, openPanel: (panel: Panel) => void): UserAction[] {
   return [
     {
+      id: 'graph-open',
+      label: 'File graph',
+      icon: 'graph',
+      run: () => navigation.setSection('graph'),
+    },
+    {
       id: 'explorer-toggle',
       label: 'Toggle explorer',
       icon: 'sidebar',
