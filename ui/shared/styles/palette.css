@@ -1,0 +1,76 @@
+/* Shared by the app and the isolated Markdown preview. */
+:root {
+  color-scheme: dark;
+  --selection-text: #fff;
+  --shell-glow: rgb(189 205 231 / 5%);
+  --shadow-workspace: 0 8px 28px rgb(0 0 0 / 24%), inset 0 1px 0 var(--edge-soft);
+  --success: #91d7aa;
+  --success-bg: #23352a;
+  --success-border: #355842;
+  --merged: #ceb2ee;
+  --merged-bg: #32283d;
+  --merged-border: #59436b;
+  --diff-added: #a4ddb5;
+  --diff-added-bg: #24362b;
+  --diff-removed: #efb0ab;
+  --diff-removed-bg: #3d2929;
+  --provider-blue: #a8c7fa;
+  --provider-blue-bg: #253044;
+  --base: #0c0d0f;
+  --reading: #141619;
+  --surface: #1b1e22;
+  --raised: #252a31;
+  --text: #e7eaf0;
+  --secondary-text: #c1c8d2;
+  --muted: #aab3c0;
+  --border: #363d47;
+  --control-border: #697585;
+  --accent: #e2e7ef;
+  --focus: #b9cbea;
+  --selection: #343e4c;
+  --edge-light: rgb(226 235 248 / 11%);
+  --edge-soft: rgb(226 235 248 / 6%);
+  --shadow-panel: 0 2px 5px rgb(0 0 0 / 18%), inset 0 1px 0 var(--edge-soft);
+  --shadow-raised:
+    0 18px 48px rgb(0 0 0 / 45%), 0 3px 8px rgb(0 0 0 / 25%), inset 0 1px 0 var(--edge-light);
+  --amber: hsl(37.5 53.932584% 67.834353%);
+  --error: hsl(2.857143 68.852459% 77.953882%);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --success: #27613e;
+  --success-bg: #e0efe5;
+  --success-border: #a9cbb5;
+  --merged: #6b438a;
+  --merged-bg: #eee5f6;
+  --merged-border: #cbb5df;
+  --diff-added: #27613e;
+  --diff-added-bg: #e0efe5;
+  --diff-removed: #9e3434;
+  --diff-removed-bg: #f6e3e3;
+  --provider-blue: #315e94;
+  --provider-blue-bg: #dfe9f6;
+  --base: #e4e9f0;
+  --reading: #f8fafd;
+  --surface: #eef2f7;
+  --raised: #e1e7ef;
+  --text: #242c38;
+  --secondary-text: #414d5e;
+  --muted: #586577;
+  --border: #c6cfdc;
+  --control-border: #8a98ab;
+  --accent: #303e51;
+  --focus: #365f96;
+  --selection: #ccdaed;
+  --selection-text: #202c3c;
+  --edge-light: rgb(255 255 255 / 80%);
+  --edge-soft: rgb(43 61 85 / 9%);
+  --shadow-panel: 0 2px 5px rgb(39 55 78 / 6%), inset 0 1px 0 var(--edge-light);
+  --shadow-raised:
+    0 18px 48px rgb(39 55 78 / 15%), 0 3px 8px rgb(39 55 78 / 8%), inset 0 1px 0 var(--edge-light);
+  --shadow-workspace: 0 8px 28px rgb(39 55 78 / 8%), inset 0 1px 0 var(--edge-light);
+  --shell-glow: rgb(255 255 255 / 55%);
+  --amber: #83520f;
+  --error: #b13535;
+}

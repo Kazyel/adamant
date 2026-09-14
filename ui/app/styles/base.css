@@ -1,28 +1,14 @@
+@import '../../shared/styles/palette.css';
+
 :root {
   font-family: 'Adamant Sans', sans-serif;
   color: var(--text);
   background: var(--base);
-  color-scheme: dark;
   font-synthesis: style;
   font-size: 14px;
-  --base: #151515;
-  --surface: #202020;
-  --reading: #1c1c1c;
-  --raised: #2b2b2b;
-  --text: #e8e8e8;
-  --muted: #a3a3a3;
-  --secondary-text: #b8b8b8;
-  --border: #343434;
-  --accent: #dedede;
-  --selection: #414141;
-  --edge-light: rgb(255 255 255 / 13%);
-  --edge-soft: rgb(255 255 255 / 5.5%);
-  --shadow-raised: 0 16px 44px rgb(0 0 0 / 30%), inset 0 1px 0 var(--edge-light);
   --overlay-enter-duration: 140ms;
   --overlay-exit-duration: 110ms;
   --overlay-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --amber: hsl(37.5 53.932584% 67.834353%);
-  --error: hsl(2.857143 68.852459% 77.953882%);
   --mono: 'Adamant Mono', monospace;
   --heading-font: 'Adamant Heading', 'Adamant Sans', sans-serif;
 }
@@ -99,7 +85,7 @@ button.danger:hover:not(:disabled) {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -111,7 +97,7 @@ button.danger:hover:not(:disabled) {
 ) {
   min-width: 0;
   min-height: 32px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: 6px;
   padding: 6px 8px;
   color: var(--text);
@@ -188,7 +174,7 @@ h1 {
 
 ::selection {
   background: var(--selection);
-  color: #fff;
+  color: var(--selection-text);
 }
 
 .workspace-icon {

@@ -10,7 +10,8 @@
   /* Static sub-channel dither softens 8-bit steps without covering content. */
   background:
     url('../../../assets/surface-dither.png') repeat,
-    linear-gradient(165deg, var(--surface), var(--base));
+    radial-gradient(ellipse at 28% 0%, var(--shell-glow), transparent 65%),
+    var(--base);
 }
 
 .icon-ribbon {
@@ -70,6 +71,7 @@ main {
   overflow: hidden;
   background: var(--reading);
   border: 1px solid var(--border);
+  box-shadow: var(--shadow-workspace);
 }
 
 .workspace-surface,
@@ -94,6 +96,7 @@ main {
   gap: 4px;
   padding: 2px 4px;
   background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--edge-soft);
 }
 
 .workspace-tab-list {

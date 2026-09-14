@@ -97,6 +97,78 @@ function HubCreateButton({
   );
 }
 
+function GitHubRefresh({
+  space,
+  work,
+  online,
+  busy,
+  onSources,
+}: {
+  space: WorkSpace;
+  work: BoardWork;
+  online: boolean;
+  busy: boolean;
+  onSources: () => void;
+}) {
+  const sources = space.sources.filter((source) => source.provider === 'github');
+  if (!sources.length) {
+    return null;
+  }
+  const connected = sources.filter((source) =>
+    work.connections.some((connection) => connection.id === source.connectionId),
+  );
+  const statuses = sources.map(
+    (source) => work.sourceStatuses[JSON.stringify([work.vaultKey, space.id, source])],
+  );
+  const loading = statuses.some((status) => status?.loading);
+  const needsAttention =
+    connected.length < sources.length ||
+    statuses.some((status) => status?.error || status?.warning);
+  const updated = statuses.every((status) => status?.fetchedAt);
+  let title = 'Refresh GitHub sources in this workspace';
+  if (!connected.length) {
+    title = 'Reconnect your GitHub account in Connections';
+  }
+  if (!online) {
+    title = 'Connect to the internet to refresh GitHub';
+  }
+  let feedback = updated ? 'GitHub sources refreshed' : '';
+  if (needsAttention) {
+    feedback = 'GitHub sources need attention';
+  }
+  if (loading) {
+    feedback = 'Refreshing GitHub…';
+  }
+  return (
+    <div className="work-github-refresh" data-loading={loading}>
+      <button
+        className="icon-button"
+        aria-label="Refresh GitHub"
+        disabled={busy || !online || loading || !connected.length}
+        title={loading ? feedback : title}
+        onClick={() => {
+          void Promise.all(connected.map((source) => work.refreshSource(source)));
+        }}
+      >
+        <WorkspaceIcon name="refresh" />
+      </button>
+      {needsAttention && !loading ? (
+        <button
+          className="icon-button work-github-refresh-warning"
+          aria-label="GitHub sources need attention"
+          title="GitHub sources need attention. Open Manage sources"
+          onClick={onSources}
+        >
+          <WorkspaceIcon name="warning" />
+        </button>
+      ) : null}
+      <span className="visually-hidden" role="status">
+        {feedback}
+      </span>
+    </div>
+  );
+}
+
 export function BoardHeader({
   vaultName,
   space,
@@ -146,6 +218,15 @@ export function BoardHeader({
             onCreate={() => showDialog({ kind: 'space' })}
           />
           <BoardSaveStatus work={work} />
+          {space ? (
+            <GitHubRefresh
+              space={space}
+              work={work}
+              online={online}
+              busy={busy}
+              onSources={onSources}
+            />
+          ) : null}
           <MenuButton
             label={space ? 'Workspace actions' : 'Workspace help'}
             disabled={busy}

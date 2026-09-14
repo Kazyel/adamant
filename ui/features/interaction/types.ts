@@ -14,6 +14,7 @@ export type UserAction = {
 };
 
 export type EditorPreferences = {
+  theme?: 'dark' | 'light';
   fontSize: number;
   wordWrap: boolean;
   indentSize: number;
@@ -21,8 +22,26 @@ export type EditorPreferences = {
 };
 
 export const defaultEditorPreferences: EditorPreferences = {
+  theme: 'dark',
   fontSize: 17,
   wordWrap: true,
   indentSize: 2,
   defaultView: 'edit',
 };
+
+export function validEditorPreferences(value: unknown): value is EditorPreferences {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const data = value as Record<string, unknown>;
+  return (
+    (data.theme === undefined || data.theme === 'dark' || data.theme === 'light') &&
+    typeof data.fontSize === 'number' &&
+    data.fontSize >= 10 &&
+    data.fontSize <= 32 &&
+    typeof data.wordWrap === 'boolean' &&
+    Number.isInteger(data.indentSize) &&
+    [2, 4, 8].includes(data.indentSize as number) &&
+    ['edit', 'read', 'split'].includes(data.defaultView as string)
+  );
+}

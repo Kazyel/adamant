@@ -67,6 +67,10 @@ export function ContextMenu({
       const y = Math.max(inset, Math.min(position.y, window.innerHeight - bounds.height - inset));
       element.style.setProperty('--interaction-menu-x', `${x}px`);
       element.style.setProperty('--interaction-menu-y', `${y}px`);
+      element.style.setProperty(
+        '--interaction-menu-offset-y',
+        y + bounds.height / 2 < position.y ? '4px' : '-4px',
+      );
     }
     clamp();
     const observer = new ResizeObserver(clamp);

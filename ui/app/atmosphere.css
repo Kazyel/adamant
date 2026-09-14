@@ -19,13 +19,15 @@
 }
 
 .atmosphere {
+  --crystal-material: brightness(1.8) saturate(0.8);
+  --crystal-image: brightness(1.05) saturate(0.7);
   position: absolute;
   z-index: 1;
   top: 28px;
   left: 0;
   width: clamp(76px, 16%, 112px);
   height: 132px;
-  opacity: 0.36;
+  opacity: 0.8;
   pointer-events: none;
 }
 
@@ -41,6 +43,7 @@
 .atmosphere__canvas {
   z-index: 2;
   opacity: 0;
+  filter: var(--crystal-material);
 }
 
 .atmosphere__canvas[data-ready='true'] {
@@ -51,6 +54,7 @@
   z-index: 1;
   object-fit: contain;
   padding: 16px;
+  filter: var(--crystal-image);
 }
 
 .atmosphere__canvas[data-ready='true'] + .atmosphere__fallback {

@@ -45,6 +45,43 @@
   gap: 12px;
 }
 
+.work-github-refresh {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.work-github-refresh > .icon-button {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 6px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.work-github-refresh > .icon-button:hover:not(:disabled) {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.work-github-refresh[data-loading='true'] > button:first-child .workspace-icon {
+  animation: work-github-refresh-spin 1s linear infinite;
+}
+
+@keyframes work-github-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .work-github-refresh[data-loading='true'] > button:first-child .workspace-icon {
+    animation: none;
+  }
+}
+
 .work-heading-mark {
   display: grid;
   width: 34px;
@@ -262,13 +299,13 @@
 
 .work-filter-drawer[data-overlay-presence='entering'] {
   opacity: 0;
-  transform: translateY(4px);
+  transform: translateY(-4px);
 }
 
 .work-filter-drawer[data-overlay-presence='exiting'] {
   opacity: 0;
   pointer-events: none;
-  transform: translateY(4px);
+  transform: translateY(-4px);
   transition-duration: var(--overlay-exit-duration, 110ms);
 }
 
@@ -328,20 +365,6 @@
 .work-filters > button {
   grid-column: 1 / -1;
   justify-self: start;
-}
-
-@keyframes work-filter-in {
-  from {
-    transform: translateY(4px);
-    opacity: 0;
-  }
-}
-
-@keyframes work-filter-out {
-  to {
-    transform: translateY(4px);
-    opacity: 0;
-  }
 }
 
 .work-sources-panel {
@@ -615,7 +638,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .work-filter-drawer {
+  .work-filter-drawer[data-overlay-presence] {
     transition: none;
     transform: none;
   }
@@ -708,6 +731,7 @@
 }
 
 .work-card {
+  box-shadow: var(--shadow-panel);
   position: relative;
   isolation: isolate;
   margin-bottom: 12px;
@@ -1492,6 +1516,7 @@
   align-items: stretch;
 }
 .work-hub-card {
+  box-shadow: var(--shadow-panel);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1647,6 +1672,7 @@
   margin-top: 12px;
 }
 .work-hub-preview {
+  box-shadow: var(--shadow-panel);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;

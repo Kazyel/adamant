@@ -189,18 +189,18 @@
 
 .interaction-context-menu[data-overlay-presence='entering'] {
   opacity: 0;
-  transform: translateY(4px);
+  transform: translateY(var(--interaction-menu-offset-y, -4px));
 }
 
 .interaction-context-menu[data-overlay-presence='exiting'] {
   opacity: 0;
   pointer-events: none;
-  transform: translateY(4px);
+  transform: translateY(var(--interaction-menu-offset-y, -4px));
   transition-duration: var(--overlay-exit-duration);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .interaction-context-menu {
+  .interaction-context-menu[data-overlay-presence] {
     transition: none;
     transform: none;
   }
@@ -472,4 +472,36 @@
   .interaction-shortcuts dd {
     text-align: left;
   }
+}
+
+.interaction-theme-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.interaction-theme-choice {
+  flex-direction: column;
+  align-items: stretch;
+}
+.interaction-theme-swatch {
+  display: block;
+  height: 64px;
+  padding: 9px 9px 9px 24px;
+  border-radius: 4px;
+  background: #0c0d0f;
+  border: 1px solid var(--border);
+}
+.interaction-theme-swatch > span {
+  display: block;
+  height: 100%;
+  background: #141619;
+  border: 1px solid #363d47;
+  border-radius: 3px;
+}
+.interaction-theme-swatch[data-theme='light'] {
+  background: #e4e9f0;
+}
+.interaction-theme-swatch[data-theme='light'] > span {
+  background: #f8fafd;
+  border-color: #c6cfdc;
 }

@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
+import { ThemeContext } from '../shared/styles/ThemeContext';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import Connections from '../features/connections/Connections';
 import WorkspaceDialog from '../features/workspace/WorkspaceDialog';
 import { sourceName } from '../features/workspace/buffer';
@@ -67,6 +68,10 @@ export default function App() {
   const workspace = useWorkspace(async () => {
     await workPersistenceGuard.current?.();
   });
+  const theme = workspace.preferences.theme ?? 'dark';
+  useLayoutEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
   const [section, setSection] = useState<Section>('workbench');
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 760);
   const activeTab = workspace.documents.activeTab;
@@ -112,106 +117,112 @@ export default function App() {
   const actionUI = useWorkspaceActions(workspace, navigation);
 
   return (
-    <div className="app-shell" data-sidebar-open={sidebarOpen}>
-      <a className="skip-link" href="#main">
-        Skip to workspace
-      </a>
-      <WorkspaceRibbon workspace={workspace} navigation={navigation} actions={actionUI.actions} />
-      <ExplorerSidebar
-        workspace={workspace}
-        navigation={navigation}
-        documentInfo={documentInfo}
-        detailsRef={indexDetails}
-        fileActions={workspace.fileActions}
-      />
-      <main id="main" tabIndex={-1}>
-        <WorkspaceTabs workspace={workspace} navigation={navigation} documentInfo={documentInfo} />
-        <div className="workspace-surface">
-          <WorkspaceNotices workspace={workspace} />
-          <MutationRecovery
-            actions={workspace.fileActions}
-            reveal={(path) => {
-              setSidebarOpen(true);
-              setSection('workbench');
-              workspace.openPath(path);
-            }}
-          />
-          {workspace.recoveries.length ? (
-            <details className="workspace-notice draft-notice">
-              <summary>
-                <span>Retained drafts: {workspace.recoveries.length}</span>
-                <small>Source files unchanged</small>
-              </summary>
-              <div className="draft-notice-list">
-                {workspace.recoveries.map((draft) => (
-                  <button
-                    key={draft.id}
-                    type="button"
-                    onClick={() => {
-                      void workspace.inspectRecovery(draft);
-                    }}
-                    title={draft.path || 'New document'}
-                  >
-                    Review {draft.path || 'New document'}
-                  </button>
-                ))}
-              </div>
-            </details>
-          ) : null}
-          <DocumentWorkbench
+    <ThemeContext value={theme}>
+      <div className="app-shell" data-sidebar-open={sidebarOpen}>
+        <a className="skip-link" href="#main">
+          Skip to workspace
+        </a>
+        <WorkspaceRibbon workspace={workspace} navigation={navigation} actions={actionUI.actions} />
+        <ExplorerSidebar
+          workspace={workspace}
+          navigation={navigation}
+          documentInfo={documentInfo}
+          detailsRef={indexDetails}
+          fileActions={workspace.fileActions}
+        />
+        <main id="main" tabIndex={-1}>
+          <WorkspaceTabs
             workspace={workspace}
             navigation={navigation}
             documentInfo={documentInfo}
           />
-          <div className="work-context-host" hidden={section !== 'work'}>
-            <WorkContext
-              vault={workspace.vault}
-              active={section === 'work'}
-              onRegisterPersistenceGuard={registerWorkGuard}
-              onOpenNote={(target) => {
+          <div className="workspace-surface">
+            <WorkspaceNotices workspace={workspace} />
+            <MutationRecovery
+              actions={workspace.fileActions}
+              reveal={(path) => {
+                setSidebarOpen(true);
                 setSection('workbench');
-                workspace.openPath(target);
+                workspace.openPath(path);
               }}
-              onConnections={() => setSection('connections')}
             />
-          </div>
-          {section === 'connections' ? (
-            <Connections native={native} onWorkspace={() => setSection('work')} />
-          ) : null}
-          {section === 'workbench' ? (
-            <StatusBar
+            {workspace.recoveries.length ? (
+              <details className="workspace-notice draft-notice">
+                <summary>
+                  <span>Retained drafts: {workspace.recoveries.length}</span>
+                  <small>Source files unchanged</small>
+                </summary>
+                <div className="draft-notice-list">
+                  {workspace.recoveries.map((draft) => (
+                    <button
+                      key={draft.id}
+                      type="button"
+                      onClick={() => {
+                        void workspace.inspectRecovery(draft);
+                      }}
+                      title={draft.path || 'New document'}
+                    >
+                      Review {draft.path || 'New document'}
+                    </button>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+            <DocumentWorkbench
               workspace={workspace}
               navigation={navigation}
               documentInfo={documentInfo}
-              revealIndexDetails={revealIndexDetails}
+            />
+            <div className="work-context-host" hidden={section !== 'work'}>
+              <WorkContext
+                vault={workspace.vault}
+                active={section === 'work'}
+                onRegisterPersistenceGuard={registerWorkGuard}
+                onOpenNote={(target) => {
+                  setSection('workbench');
+                  workspace.openPath(target);
+                }}
+                onConnections={() => setSection('connections')}
+              />
+            </div>
+            {section === 'connections' ? (
+              <Connections native={native} onWorkspace={() => setSection('work')} />
+            ) : null}
+            {section === 'workbench' ? (
+              <StatusBar
+                workspace={workspace}
+                navigation={navigation}
+                documentInfo={documentInfo}
+                revealIndexDetails={revealIndexDetails}
+              />
+            ) : null}
+          </div>
+        </main>
+        <OverlayPresence>
+          {workspace.prompt ? (
+            <WorkspaceDialog
+              key={workspace.prompt.kind}
+              prompt={workspace.prompt}
+              answer={workspace.answer}
             />
           ) : null}
-        </div>
-      </main>
-      <OverlayPresence>
-        {workspace.prompt ? (
-          <WorkspaceDialog
-            key={workspace.prompt.kind}
-            prompt={workspace.prompt}
-            answer={workspace.answer}
-          />
-        ) : null}
-      </OverlayPresence>
-      {actionUI.overlays}
-      <OverlayPresence>
-        {workspace.recovery ? (
-          <RecoveryDialog
-            draft={workspace.recovery.draft}
-            sourceText={workspace.recovery.source?.text ?? null}
-            sourceChanged={workspace.recovery.sourceChanged}
-            onRecover={workspace.recoverDraft}
-            onDiscard={() => {
-              void workspace.discardRecovery(workspace.recovery!.draft.id).catch(workspace.fail);
-            }}
-            onCancel={workspace.cancelRecovery}
-          />
-        ) : null}
-      </OverlayPresence>
-    </div>
+        </OverlayPresence>
+        {actionUI.overlays}
+        <OverlayPresence>
+          {workspace.recovery ? (
+            <RecoveryDialog
+              draft={workspace.recovery.draft}
+              sourceText={workspace.recovery.source?.text ?? null}
+              sourceChanged={workspace.recovery.sourceChanged}
+              onRecover={workspace.recoverDraft}
+              onDiscard={() => {
+                void workspace.discardRecovery(workspace.recovery!.draft.id).catch(workspace.fail);
+              }}
+              onCancel={workspace.cancelRecovery}
+            />
+          ) : null}
+        </OverlayPresence>
+      </div>
+    </ThemeContext>
   );
 }

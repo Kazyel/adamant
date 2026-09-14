@@ -42,7 +42,7 @@ export function PreferencesDialog({
   return (
     <Dialog
       title="Preferences"
-      description="Set up your Markdown editor and how Notes open."
+      description="Choose your appearance, Markdown editor settings, and how Notes open."
       className="interaction-preferences-dialog"
       open
       onClose={() => {
@@ -61,6 +61,26 @@ export function PreferencesDialog({
         className="interaction-preferences"
         aria-busy={saving}
       >
+        <fieldset className="interaction-preference-section" disabled={saving}>
+          <legend>Appearance</legend>
+          <div className="interaction-theme-choices">
+            {(['dark', 'light'] as const).map((theme) => (
+              <label key={theme} className="interaction-view-choice interaction-theme-choice">
+                <input
+                  className="visually-hidden"
+                  type="radio"
+                  name={`${id}-theme`}
+                  checked={(draft.theme ?? 'dark') === theme}
+                  onChange={() => update('theme', theme)}
+                />
+                <span className="interaction-theme-swatch" data-theme={theme} aria-hidden="true">
+                  <span />
+                </span>
+                <span>{theme === 'dark' ? 'Dark graphite' : 'Cool white'}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <fieldset className="interaction-preference-section" disabled={saving}>
           <legend>Markdown editor</legend>
           <div className="interaction-setting-row">
