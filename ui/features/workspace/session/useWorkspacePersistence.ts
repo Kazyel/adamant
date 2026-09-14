@@ -6,7 +6,7 @@ import { errorMessage } from '../../../shared/errors.ts';
 import type { NavigationController } from '../../navigation/useNavigation';
 import type { NoteDocument, VaultSnapshot } from '../types';
 import type { SelectedDocument } from '../../documents/types';
-import type { EditorPreferences } from '../../interaction/types';
+import { validEditorPreferences, type EditorPreferences } from '../../interaction/types.ts';
 import {
   draftDelete,
   draftsLoad,
@@ -34,22 +34,6 @@ export interface RecoverySelection {
   source: NoteDocument | null;
   sourceChanged: boolean;
   sourceIdentity: string | null;
-}
-
-function validPreferences(value: unknown): value is EditorPreferences {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const data = value as Record<string, unknown>;
-  return (
-    typeof data.fontSize === 'number' &&
-    data.fontSize >= 10 &&
-    data.fontSize <= 32 &&
-    typeof data.wordWrap === 'boolean' &&
-    Number.isInteger(data.indentSize) &&
-    [2, 4, 8].includes(data.indentSize as number) &&
-    ['edit', 'read', 'split'].includes(data.defaultView as string)
-  );
 }
 
 function recoverableSource({
@@ -399,7 +383,7 @@ export function useWorkspacePersistence({
   }
 
   async function savePreferences(next: EditorPreferences) {
-    if (!validPreferences(next)) {
+    if (!validEditorPreferences(next)) {
       throw new Error('Choose supported editor preferences.');
     }
     if (isTauri()) {
@@ -532,7 +516,7 @@ export function useWorkspacePersistence({
         if (disposed || value === null) {
           return;
         }
-        if (!validPreferences(value)) {
+        if (!validEditorPreferences(value)) {
           throw new Error(
             'Saved preferences are invalid. Open Preferences to replace them explicitly.',
           );

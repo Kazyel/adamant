@@ -129,7 +129,12 @@ export default function DetailHeader({
             </span>
           ) : null}
         </div>
-        <h2 id={headingId} ref={heading} tabIndex={-1}>
+        <h2
+          id={headingId}
+          ref={heading}
+          tabIndex={-1}
+          className={item.remote ? undefined : 'visually-hidden'}
+        >
           {item.title}
         </h2>
         {item.remote ? <p className="work-detail-target">{target}</p> : null}

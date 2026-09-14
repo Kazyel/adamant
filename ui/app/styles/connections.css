@@ -67,6 +67,7 @@
   gap: 16px;
 }
 .connection-service {
+  box-shadow: var(--shadow-panel);
   min-width: 0;
   border-radius: 12px;
   background: var(--surface);
@@ -92,8 +93,8 @@
   height: 29px;
 }
 .connection-service-jira .connection-brand {
-  color: #a8c7fa;
-  background: #253044;
+  color: var(--provider-blue);
+  background: var(--provider-blue-bg);
 }
 .connection-service-heading h2 {
   margin: 0 0 7px;

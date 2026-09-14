@@ -28,6 +28,8 @@ Your files live in a **Vault**, a portable folder you control. Accounts are opti
 
 ### Write and read in one place
 
+Choose **Dark graphite** or **Cool white** in **Preferences → Appearance**, then save preferences. Both themes separate the writing surface, cards, and overlays with restrained shadows and edge lighting. The editor and Markdown preview follow the selected palette; original PDF and DOCX pages retain their document colors. The welcome crystal stays silver in both themes, including its static fallback. The desktop app remembers the choice. Existing preferences default to dark.
+
 - Edit Markdown with undo history, search, reading preview, and split view.
 - Open PDF and DOCX documents alongside your notes. PDF supports navigation, zoom, and text selection; DOCX rendering is approximate.
 - Browse, filter, import, and organize files in a Vault, with Trash and recovery workflows.
@@ -38,6 +40,8 @@ Markdown saves explicitly with **Ctrl+S / ⌘S**. External changes, unsaved edit
 ### Give each project its own workspace
 
 Create a workspace for a release, research project, or personal plan. Use a board or list, customize its columns, and add local tasks with checklists, priorities, due dates, and links to your notes.
+
+Local task drawers put the editable title first, followed by priority, due date, description, and checklist progress. Notes and links stay below the task; expand **Add a note or link** when you need to attach a reference.
 
 The workspace hub shows the item total for each Kanban column alongside its sources, with search by project name or source. Open a card for its detail drawer. Share an item across workspaces while keeping its column position independent in each one.
 
@@ -106,6 +110,8 @@ This is a local executable, not an AppImage or portable installer. The release a
 4. To bring in remote items, connect an account under **Connections**, then open **Workspace actions → Manage sources** inside your workspace.
 
 **Add → Follow a work URL** follows an individual GitHub issue, pull request, or Jira issue. Repository and project sources support optional GitHub search qualifiers or Jira JQL.
+
+Use the **Refresh GitHub** icon beside the workspace actions menu to fetch the latest items from its GitHub sources without opening **Manage sources**. The icon rotates while fetching; a warning icon opens sources that need attention.
 
 ## Development
 

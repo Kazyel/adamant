@@ -215,6 +215,7 @@ export default function ItemDetail({
     <dialog
       ref={panel}
       className={`work-item-detail${expanded ? ' is-expanded' : ''}`}
+      data-local-task={!item.remote}
       data-overlay-presence={presence}
       inert={presence === 'exiting' ? true : undefined}
       aria-hidden={presence === 'exiting' ? true : undefined}

@@ -44,9 +44,13 @@ const fragmentSource = `
 
   void main() {
     vec4 logo = texture2D(u_logo, v_uv);
-    vec3 silver = mix(vec3(0.68, 0.72, 0.78), logo.rgb, logo.a);
-    vec3 facet = silver * mix(0.55, 1.0, v_light) + 0.08 * v_glint;
-    vec3 wire = vec3(mix(0.55, 0.85, v_depth));
+    // Use the engraving's luminance as relief in a cool graphite material.
+    float engraving = mix(0.6, dot(logo.rgb, vec3(0.2126, 0.7152, 0.0722)), logo.a);
+    vec3 graphite = vec3(0.145, 0.165, 0.192);
+    vec3 edge = vec3(0.412, 0.459, 0.522);
+    vec3 facet = mix(graphite, edge, engraving) * mix(0.55, 1.0, v_light)
+      + vec3(0.757, 0.784, 0.824) * 0.07 * v_glint;
+    vec3 wire = edge * mix(0.55, 0.9, v_depth);
     gl_FragColor = vec4(mix(facet, wire, u_wire), 1.0);
   }
 `;

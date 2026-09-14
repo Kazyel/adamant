@@ -1,5 +1,7 @@
+import { ThemeContext } from '../styles/ThemeContext';
 import DOMPurify from 'dompurify';
-import { useEffectEvent, useLayoutEffect, useMemo, useRef } from 'react';
+import { useContext, useEffectEvent, useLayoutEffect, useMemo, useRef } from 'react';
+import palette from '../styles/palette.css?raw';
 import { fontFaces } from '../styles/typography';
 
 const previewPolicy =
@@ -140,8 +142,8 @@ export function previewDocument(
   const colorScheme = docx ? 'light' : 'dark';
   const surface = docx
     ? 'color:#223044;background:#fff;font-family:system-ui,sans-serif'
-    : 'color:#ededed;background:#1c1c1c;font-family:"Adamant Sans",sans-serif';
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${previewPolicy}"><meta name="color-scheme" content="${colorScheme}"><style>${docx ? '' : fontFaces}html{color-scheme:${colorScheme}}body{margin:0;${surface}}${styles}</style></head><body>${holder.innerHTML}</body></html>`;
+    : 'color:var(--text);background:var(--reading);font-family:"Adamant Sans",sans-serif';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${previewPolicy}"><meta name="color-scheme" content="${colorScheme}"><style>${docx ? '' : fontFaces + palette}html{color-scheme:${colorScheme}}body{margin:0;${surface}}${styles}</style></head><body>${holder.innerHTML}</body></html>`;
 }
 
 // This literal runs only in the opaque Markdown frame; it has no parent-scope dependencies.
@@ -235,6 +237,7 @@ export default function PreviewFrame({
   anchor?: string;
   onAnchorApplied?: () => void;
 }) {
+  const theme = useContext(ThemeContext);
   const frame = useRef<HTMLIFrameElement>(null);
   const readyToken = useRef<string | null>(null);
   const sequence = useRef(0);
@@ -248,13 +251,16 @@ export default function PreviewFrame({
     // Only the trusted policy and final body boundary of previewDocument are replaced.
     const policy = previewPolicy.replace("script-src 'none'", `script-src 'nonce-${token}'`);
     const source = content
+      .replace('<html lang="en">', `<html lang="en" data-theme="${theme}">`)
+      .replace('html{color-scheme:dark}', `html{color-scheme:${theme}}`)
+      .replace('name="color-scheme" content="dark"', `name="color-scheme" content="${theme}"`)
       .replace(previewPolicy, policy)
       .replace(
         '</body></html>',
         `<script nonce="${token}">${markdownBridge}</script></body></html>`,
       );
     return { token, source };
-  }, [content, interactive]);
+  }, [content, interactive, theme]);
   const requestAnchor = useEffectEvent(() => {
     const target = frame.current?.contentWindow;
     if (!target || readyToken.current !== preview.token) {
