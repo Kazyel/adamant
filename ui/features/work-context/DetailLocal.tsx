@@ -1,4 +1,7 @@
+import DateField from '../interaction/DateField';
+import SelectField from '../interaction/SelectField';
 import { useState } from 'react';
+import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import type { Priority, WorkItem } from './types';
 import { priorities } from './state';
 import { externalUrl, portableNote } from './DetailShared';
@@ -220,13 +223,13 @@ function DetailLinks({
       >
         <label className="work-detail-field">
           Link type
-          <select
+          <SelectField
             value={linkKind}
             onChange={(event) => setLinkKind(event.target.value as 'note' | 'external')}
           >
             <option value="note">Portable Vault note</option>
             <option value="external">External item</option>
-          </select>
+          </SelectField>
         </label>
         <label className="work-detail-field">
           Label
@@ -270,7 +273,7 @@ function DetailOrganizationFields(props: OrganizationProps) {
       <div className="work-detail-columns">
         <label className="work-detail-field">
           {item.remote ? 'Local priority' : 'Priority'}
-          <select
+          <SelectField
             value={item.priority}
             onChange={(event) =>
               updateItem((current) => ({ ...current, priority: event.target.value as Priority }))
@@ -281,16 +284,13 @@ function DetailOrganizationFields(props: OrganizationProps) {
                 {priority[0].toUpperCase() + priority.slice(1)}
               </option>
             ))}
-          </select>
+          </SelectField>
         </label>
         <label className="work-detail-field">
           Due date
-          <input
-            type="date"
+          <DateField
             value={item.dueDate}
-            onChange={(event) =>
-              updateItem((current) => ({ ...current, dueDate: event.target.value }))
-            }
+            onChange={(value) => updateItem((current) => ({ ...current, dueDate: value }))}
           />
         </label>
       </div>
@@ -300,18 +300,26 @@ function DetailOrganizationFields(props: OrganizationProps) {
   );
 }
 
-export function DetailOrganization(props: OrganizationProps) {
-  if (props.item.remote) {
+export function DetailOrganization(props: OrganizationProps & { expanded?: boolean }) {
+  if (props.item.remote && !props.expanded) {
     return (
       <details className="work-detail-section work-detail-local-organization">
-        <summary>Local organization</summary>
+        <summary>
+          Local organization
+          <WorkspaceIcon name="chevron" />
+        </summary>
         <DetailOrganizationFields {...props} />
       </details>
     );
   }
   return (
     <section className="work-detail-section" aria-label="Organization">
-      <h3>Organization</h3>
+      <h3>{props.item.remote ? 'Local work' : 'Organization'}</h3>
+      {props.item.remote ? (
+        <p className="work-detail-muted">
+          Priority, dates, checklist and links belong to this workspace. They do not change GitHub.
+        </p>
+      ) : null}
       <DetailOrganizationFields {...props} />
     </section>
   );

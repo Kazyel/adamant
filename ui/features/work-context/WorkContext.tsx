@@ -4,23 +4,22 @@ import { ContextMenu } from '../interaction/ContextMenu';
 import { OverlayPresence } from '../interaction/OverlayPresence';
 import type { UserAction } from '../interaction/types';
 import type { VaultSnapshot } from '../workspace/types';
-import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import ItemDetail from './ItemDetail';
 import useWorkContext from './useWorkContext';
 import { moveItem, updateSpace, visibleItems } from './state';
-import type { WorkItem, WorkSpace, WorkState, WorkView } from './types';
+import type { WorkItem, WorkSpace, WorkView } from './types';
 import type { BoardDialog, BoardWork } from './BoardModel';
 import {
   BoardHeader,
   BoardOnboarding,
   BoardSources,
   BoardToolbar,
-  WorkspaceDrawer,
   WorkspaceGuide,
 } from './BoardControls';
 import type { BoardTab } from './BoardControls';
 import { BoardColumns, BoardList } from './BoardItems';
 import BoardDialogHost from './BoardDialogHost';
+import WorkspaceHub from './WorkspaceHub';
 import './work-context.css';
 
 type Selection = { vaultId: string; spaceId: string; itemId: string };
@@ -83,45 +82,25 @@ function useOnline() {
   return online;
 }
 
-function BoardAvailability({
+function WorkspaceEntry({
   work,
-  state,
-  space,
-  showDialog,
+  onOpen,
+  onCreate,
 }: {
   work: BoardWork;
-  state: WorkState | null;
-  space: WorkSpace | null;
-  showDialog: (dialog: BoardDialog) => void;
+  onOpen: (id: string) => void;
+  onCreate: () => void;
 }) {
-  if (!state) {
-    return (
-      <div className="work-empty" role="status">
-        {work.status === 'loading'
-          ? 'Loading project spaces from your Vault…'
-          : 'The workspace is unavailable. Retry loading above; existing Vault data will not be replaced.'}
-      </div>
-    );
+  if (work.state) {
+    return <WorkspaceHub state={work.state} onOpen={onOpen} onCreate={onCreate} />;
   }
-  if (!space) {
-    return (
-      <div className="work-empty work-space-empty">
-        <span className="work-empty-icon" aria-hidden="true">
-          <WorkspaceIcon name="folder" />
-        </span>
-        <h2>A space for each project</h2>
-        <p>
-          Bring local tasks, GitHub issues, pull requests and Jira work into one adjustable flow.
-          Your board stays independent of remote statuses.
-        </p>
-        <button className="primary" onClick={() => showDialog({ kind: 'space' })}>
-          <WorkspaceIcon name="plus" />
-          Create your first space
-        </button>
-      </div>
-    );
-  }
-  return null;
+  return (
+    <div className="work-empty" role="status">
+      {work.status === 'loading'
+        ? 'Loading workspaces from your Vault…'
+        : 'Workspaces are unavailable. Retry loading above; existing Vault data will not be replaced.'}
+    </div>
+  );
 }
 
 export default function WorkContext({
@@ -138,6 +117,7 @@ export default function WorkContext({
   onRegisterPersistenceGuard?: (guard: (() => Promise<void>) | null) => void;
 }) {
   const work = useWorkContext(vault, active);
+  const [openedVault, setOpenedVault] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [busy, setBusy] = useState(false);
   const remoteBusy = useRef(false);
@@ -157,7 +137,18 @@ export default function WorkContext({
     onRegisterPersistenceGuard(guard);
     return () => onRegisterPersistenceGuard(null);
   }, [flush, onRegisterPersistenceGuard]);
-  const space = work.state?.spaces.find((entry) => entry.id === work.state?.activeSpaceId) ?? null;
+  const space =
+    openedVault === work.vaultKey
+      ? (work.state?.spaces.find((entry) => entry.id === work.state?.activeSpaceId) ?? null)
+      : null;
+  function openSpace(id: string) {
+    if (!work.vaultKey || remoteBusy.current) {
+      return;
+    }
+    setSelection(null);
+    setOpenedVault(work.vaultKey);
+    work.change((current) => ({ ...current, activeSpaceId: id }));
+  }
   if (!work.native) {
     return (
       <section className="work-context work-unavailable">
@@ -179,6 +170,13 @@ export default function WorkContext({
     <BoardWorkspace
       key={JSON.stringify([work.vaultKey, space?.id, active])}
       work={work}
+      onOpenSpace={openSpace}
+      onHub={() => {
+        if (!remoteBusy.current) {
+          setSelection(null);
+          setOpenedVault(null);
+        }
+      }}
       vault={vault}
       space={space}
       active={active}
@@ -231,7 +229,11 @@ function BoardWorkspace({
   onBusyChange,
   onOpenNote,
   onConnections,
+  onOpenSpace,
+  onHub,
 }: {
+  onOpenSpace: (id: string) => void;
+  onHub: () => void;
   work: BoardWork;
   vault: VaultSnapshot;
   space: WorkSpace | null;
@@ -250,7 +252,6 @@ function BoardWorkspace({
   const [announcement, setAnnouncement] = useState('');
   const [activeTab, setActiveTab] = useState<BoardTab>(() => space?.view.mode ?? 'board');
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [menu, setMenu] = useState<{
     actions: UserAction[];
@@ -261,6 +262,11 @@ function BoardWorkspace({
   const drag = useRef<Selection | null>(null);
   const detailTrigger = useRef<HTMLElement | null>(null);
   const content = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (active && space?.id) {
+      content.current?.focus({ preventScroll: true });
+    }
+  }, [active, space?.id]);
   const state = work.state;
   const { itemMap, items, columnByItem, visibleByColumn } = useBoardItems(work, space);
   function showDialog(value: BoardDialog) {
@@ -285,10 +291,6 @@ function BoardWorkspace({
     }
     changeView({ mode: tab });
   };
-  function showSetupDialog(value: BoardDialog) {
-    setWorkspaceOpen(false);
-    requestAnimationFrame(() => showDialog(value));
-  }
   function openItem(item: WorkItem, trigger?: HTMLElement) {
     if (!space || isRemoteBusy()) {
       return;
@@ -450,13 +452,15 @@ function BoardWorkspace({
         onDismiss={() => setNotice(null)}
         showDialog={showDialog}
         openGuide={() => setGuideOpen(true)}
-        openWorkspace={() => setWorkspaceOpen(true)}
+        onHub={onHub}
+        busy={busy}
+        onSources={() => changeTab('sources')}
+        onConnections={onConnections}
       />
       {state && space ? (
         <>
           <BoardToolbar
             space={space}
-            work={work}
             activeTab={activeTab}
             filtersOpen={filtersOpen}
             changeView={changeView}
@@ -482,18 +486,14 @@ function BoardWorkspace({
               tabIndex={-1}
             >
               <div className="work-items-pane">
-                {!space.members.length ? (
-                  <BoardOnboarding
-                    canFollow={Boolean(work.connections.length)}
-                    showDialog={showDialog}
-                  />
+                {!space.members.length ? <BoardOnboarding showDialog={showDialog} /> : null}
+                {items.length !== space.members.length ? (
+                  <div className="work-items-caption">
+                    <span>
+                      {items.length} of {space.members.length} items
+                    </span>
+                  </div>
                 ) : null}
-                <div className="work-items-caption">
-                  <span>
-                    {items.length} of {space.members.length} items
-                  </span>
-                  <span>Columns are local. Alt + arrows moves a focused card.</span>
-                </div>
                 <BoardItemView
                   space={space}
                   items={items}
@@ -536,49 +536,29 @@ function BoardWorkspace({
               </OverlayPresence>
             </div>
           )}
-          <BoardDialogHost
-            dialog={active ? dialog : null}
-            work={work}
-            state={state}
-            space={space}
-            closeDialog={closeDialog}
-            onConnections={onConnections}
-            changeSpace={changeSpace}
-            openItem={openItem}
-            selectItem={selectItem}
-            setNotice={setNotice}
-          />
         </>
       ) : (
-        <BoardAvailability work={work} state={state} space={space} showDialog={showDialog} />
+        <WorkspaceEntry
+          work={work}
+          onOpen={onOpenSpace}
+          onCreate={() => showDialog({ kind: 'space' })}
+        />
       )}
-      <OverlayPresence>
-        {state && workspaceOpen && active ? (
-          <WorkspaceDrawer
-            state={state}
-            space={space}
-            busy={busy}
-            onSelect={(id) => {
-              setFiltersOpen(false);
-              clearSelection();
-              closeDialog();
-              work.change((current) => ({ ...current, activeSpaceId: id }));
-            }}
-            showDialog={showSetupDialog}
-            onConnections={() => {
-              setWorkspaceOpen(false);
-              onConnections();
-            }}
-            onShowSources={() => {
-              setWorkspaceOpen(false);
-              setFiltersOpen(false);
-              setActiveTab('sources');
-              clearSelection();
-            }}
-            onClose={() => setWorkspaceOpen(false)}
-          />
-        ) : null}
-      </OverlayPresence>
+      {state ? (
+        <BoardDialogHost
+          dialog={active ? dialog : null}
+          work={work}
+          state={state}
+          space={space}
+          closeDialog={closeDialog}
+          onConnections={onConnections}
+          changeSpace={changeSpace}
+          openItem={openItem}
+          selectItem={selectItem}
+          setNotice={setNotice}
+          onSpaceCreated={onOpenSpace}
+        />
+      ) : null}
       <WorkspaceGuideOverlay active={active} open={guideOpen} onClose={() => setGuideOpen(false)} />
       <OverlayPresence>
         {menu && active ? (

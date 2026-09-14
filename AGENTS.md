@@ -23,6 +23,12 @@ Adamant é um aplicativo desktop local-first para notas, documentos e contexto d
 
 Reutilize componentes, tokens e fluxos existentes. Os detalhes dos cards dos Kanbans devem abrir em drawers. Preserve navegação por teclado, retorno do foco, rolagem e respeito a movimento reduzido.
 
+Mantenha o código de cada feature próximo de seus consumidores. `ui/app/` compõe as features. `ui/shared/` contém apenas código reutilizado entre features e não depende delas. Em reorganizações, não introduza arquivos barrel, caminhos de compatibilidade ou novos nomes de IPC.
+
+Mantenha o estado e suas mutações juntos. O coordenador do workspace controla a sessão e a ordem das operações. Paginação, transições de buffers e prompts mantêm seus estados específicos. No núcleo nativo, estenda o mesmo `Vault` com implementações focadas, sem adicionar wrappers de serviço. Carregue o CSS centralmente, com as regras responsivas por último.
+
+Mantenha os testes Markdown junto ao código testado, onde `bun run test:ts` os descobre. Os testes do Vault em Rust permanecem dentro do módulo Vault. Separe declarações e grupos lógicos com linhas em branco.
+
 ## Preserve os dados e as fronteiras do produto
 
 - Trate os arquivos do Vault como fonte de verdade. O índice é derivado.
@@ -63,6 +69,8 @@ bun run app:update
 ```
 
 Essa atualização faz parte da entrega e já está autorizada pelo proprietário do repositório. Execute-a sem pedir nova confirmação, salvo instrução contrária do usuário.
+
+Os hooks e o CI não executam `app:update`. Cabe ao agente executar a atualização após validar cada feature.
 
 O comando compila o código local atual em release e instala o executável e o ícone em `${XDG_DATA_HOME:-$HOME/.local/share}/adamant/app/`. O atalho fica em `applications/io.adamant.desktop.desktop` dentro do mesmo diretório de dados. Não use `sudo` nem substitua esse fluxo por cópias manuais.
 

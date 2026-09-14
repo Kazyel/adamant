@@ -1,4 +1,5 @@
 export type IconName =
+  | 'calendar'
   | 'document'
   | 'board'
   | 'folder'
@@ -43,6 +44,7 @@ export type IconName =
   | 'task';
 
 const paths: Record<IconName, string> = {
+  calendar: 'M4 5h16v16H4V5Zm0 5h16M8 3v4m8-4v4M8 14h2m4 0h2M8 17h2',
   document: 'M13 3H5v18h14V9l-6-6Zm0 0v6h6M8 13h8M8 17h6',
   board: 'M3 4h18v16H3V4Zm6 0v16m6-16v16M5 8h2m4 0h2m4 0h2M5 12h2m6 0h-2',
   folder: 'M3 7V5h6l2 2h10v13H3V7Zm0 4h18',

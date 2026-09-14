@@ -1,3 +1,5 @@
+import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
+import SelectField from '../interaction/SelectField';
 import { useId, useState } from 'react';
 import { Dialog } from '../interaction/InteractionDialogs';
 import type { Connection, RemoteAction, RemoteDetail, WorkItem } from './types';
@@ -37,75 +39,80 @@ export function DetailEditFields({
   const [edit, setEdit] = useState<Pick<RemoteAction, 'assignee' | 'labels' | 'priority'>>({});
   return (
     <section className="work-detail-section" aria-label="Edit provider fields">
-      <h3>Edit in {item.remote?.provider === 'github' ? 'GitHub' : 'Jira'}</h3>
-      <p className="work-detail-muted">
-        Save to {sendingAs}. These fields update the provider, not the local board. Only supported
-        fields are offered.
-      </p>
-      <fieldset disabled={!actionsReady} className="work-detail-fieldset">
-        {detail.editableFields.includes('assignee') ? (
-          <label className="work-detail-field">
-            {item.remote?.provider === 'jira'
-              ? 'Assignee account ID (empty to unassign)'
-              : 'Assignee login (empty to unassign)'}
-            <input
-              value={edit.assignee ?? item.assignee}
-              maxLength={500}
-              onChange={(event) =>
-                setEdit((current) => ({ ...current, assignee: event.target.value }))
-              }
-            />
-          </label>
-        ) : null}
-        {detail.editableFields.includes('labels') ? (
-          <label className="work-detail-field">
-            Labels (comma-separated)
-            <input
-              value={(edit.labels ?? item.labels).join(',')}
-              maxLength={10000}
-              onChange={(event) =>
-                setEdit((current) => ({ ...current, labels: event.target.value.split(',') }))
-              }
-            />
-          </label>
-        ) : null}
-        {detail.editableFields.includes('priority') ? (
-          <label className="work-detail-field">
-            Provider priority
-            <select
-              value={edit.priority ?? ''}
-              onChange={(event) =>
-                setEdit((current) => ({ ...current, priority: event.target.value }))
-              }
-            >
-              <option value="">Keep current priority</option>
-              {detail.priorities.map((priority) => (
-                <option key={priority.id} value={priority.id}>
-                  {priority.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        <button
-          type="button"
-          disabled={!Object.keys(edit).length}
-          onClick={() => {
-            void execute({
-              kind: 'edit',
-              ...edit,
-              labels: edit.labels?.map((label) => label.trim()).filter(Boolean),
-              priority: edit.priority || undefined,
-            }).then((sent) => {
-              if (sent) {
-                setEdit({});
-              }
-            });
-          }}
-        >
-          Save provider fields
-        </button>
-      </fieldset>
+      <details className="work-detail-edit">
+        <summary>
+          Edit in {item.remote?.provider === 'github' ? 'GitHub' : 'Jira'}
+          <WorkspaceIcon name="chevron" />
+        </summary>
+        <p className="work-detail-muted">
+          Save to {sendingAs}. These fields update the provider, not the local board. Only supported
+          fields are offered.
+        </p>
+        <fieldset disabled={!actionsReady} className="work-detail-fieldset">
+          {detail.editableFields.includes('assignee') ? (
+            <label className="work-detail-field">
+              {item.remote?.provider === 'jira'
+                ? 'Assignee account ID (empty to unassign)'
+                : 'Assignee login (empty to unassign)'}
+              <input
+                value={edit.assignee ?? item.assignee}
+                maxLength={500}
+                onChange={(event) =>
+                  setEdit((current) => ({ ...current, assignee: event.target.value }))
+                }
+              />
+            </label>
+          ) : null}
+          {detail.editableFields.includes('labels') ? (
+            <label className="work-detail-field">
+              Labels (comma-separated)
+              <input
+                value={(edit.labels ?? item.labels).join(',')}
+                maxLength={10000}
+                onChange={(event) =>
+                  setEdit((current) => ({ ...current, labels: event.target.value.split(',') }))
+                }
+              />
+            </label>
+          ) : null}
+          {detail.editableFields.includes('priority') ? (
+            <label className="work-detail-field">
+              Provider priority
+              <SelectField
+                value={edit.priority ?? ''}
+                onChange={(event) =>
+                  setEdit((current) => ({ ...current, priority: event.target.value }))
+                }
+              >
+                <option value="">Keep current priority</option>
+                {detail.priorities.map((priority) => (
+                  <option key={priority.id} value={priority.id}>
+                    {priority.name}
+                  </option>
+                ))}
+              </SelectField>
+            </label>
+          ) : null}
+          <button
+            type="button"
+            disabled={!Object.keys(edit).length}
+            onClick={() => {
+              void execute({
+                kind: 'edit',
+                ...edit,
+                labels: edit.labels?.map((label) => label.trim()).filter(Boolean),
+                priority: edit.priority || undefined,
+              }).then((sent) => {
+                if (sent) {
+                  setEdit({});
+                }
+              });
+            }}
+          >
+            Save provider fields
+          </button>
+        </fieldset>
+      </details>
     </section>
   );
 }
@@ -148,7 +155,7 @@ export function DetailReview({
       </label>
       <label className="work-detail-field">
         Review decision
-        <select
+        <SelectField
           value={reviewEvent}
           disabled={pending}
           onChange={(event) =>
@@ -158,7 +165,7 @@ export function DetailReview({
           <option value="COMMENT">Comment only</option>
           <option value="APPROVE">Approve</option>
           <option value="REQUEST_CHANGES">Request changes</option>
-        </select>
+        </SelectField>
       </label>
       <p className="work-detail-muted">
         Local draft · never sent automatically. Send as {sendingAs}. Approval and changes requested
@@ -203,7 +210,7 @@ function DetailTransition({
   return (
     <div className="work-detail-field">
       <label htmlFor={id}>Jira transition</label>
-      <select
+      <SelectField
         id={id}
         value={transitionId}
         onChange={(event) => setTransitionId(event.target.value)}
@@ -214,7 +221,7 @@ function DetailTransition({
             {transition.name}
           </option>
         ))}
-      </select>
+      </SelectField>
       <button
         type="button"
         disabled={!transitionId}
@@ -241,7 +248,7 @@ function DetailMerge({
   return (
     <div className="work-detail-field">
       <label htmlFor={id}>Merge method</label>
-      <select
+      <SelectField
         id={id}
         value={mergeMethod}
         onChange={(event) =>
@@ -251,7 +258,7 @@ function DetailMerge({
         <option value="merge">Merge commit</option>
         <option value="squash">Squash</option>
         <option value="rebase">Rebase</option>
-      </select>
+      </SelectField>
       <p className="work-detail-muted">
         GitHub rechecks permissions, branch rules and the exact head commit. No bypass is requested.
       </p>
@@ -292,7 +299,7 @@ export function DetailProviderActions({
   }
   return (
     <section className="work-detail-section" aria-label="Provider state actions">
-      <h3>Provider actions</h3>
+      <h3>{item.remote?.provider === 'github' ? 'GitHub actions' : 'Provider actions'}</h3>
       <fieldset disabled={!actionsReady} className="work-detail-fieldset">
         <div className="work-detail-row">
           {supports('close') ? (
@@ -340,8 +347,11 @@ export function DetailActionFeedback({
   receipt,
   actionError,
 }: Pick<DetailRemoteState, 'pending' | 'receipt' | 'actionError'>) {
+  if (!pending && !receipt && !actionError) {
+    return null;
+  }
   return (
-    <>
+    <div className="work-detail-feedback">
       {pending ? (
         <p role="status" className="work-detail-notice">
           Sending one provider request. Do not retry while it is pending.
@@ -357,7 +367,7 @@ export function DetailActionFeedback({
           {actionError}
         </p>
       ) : null}
-    </>
+    </div>
   );
 }
 

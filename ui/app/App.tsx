@@ -175,8 +175,10 @@ export default function App() {
               onConnections={() => setSection('connections')}
             />
           </div>
-          {section === 'connections' ? <Connections native={native} /> : null}
-          {section !== 'work' ? (
+          {section === 'connections' ? (
+            <Connections native={native} onWorkspace={() => setSection('work')} />
+          ) : null}
+          {section === 'workbench' ? (
             <StatusBar
               workspace={workspace}
               navigation={navigation}

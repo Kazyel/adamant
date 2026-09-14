@@ -43,6 +43,7 @@ const theme = EditorView.theme(
     '.cm-line': { padding: '0 20px' },
     '.cm-placeholder': { color: 'var(--muted)', whiteSpace: 'pre-wrap' },
     '.cm-placeholder::first-line': {
+      fontFamily: 'var(--heading-font)',
       color: 'var(--text)',
       fontSize: 'clamp(28px, 3vw, 40px)',
       fontWeight: '600',

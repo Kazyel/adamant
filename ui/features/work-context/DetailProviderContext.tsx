@@ -1,3 +1,5 @@
+import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
+import SelectField from '../interaction/SelectField';
 import type { Connection, RemoteDetail, WorkItem } from './types';
 import type { DetailExecute, DetailOpenExternal, DetailSaveDraft } from './DetailShared';
 import { timestamp } from './DetailShared';
@@ -5,11 +7,17 @@ import type { DetailRemoteState } from './DetailRemoteState';
 
 type ConnectionProps = {
   item: WorkItem;
-  accounts: Connection[];
   connectionId: string;
-  onSelect: (connectionId: string) => void;
   openExternal: DetailOpenExternal;
   remoteState: DetailRemoteState;
+};
+
+type AccountProps = {
+  item: WorkItem;
+  accounts: Connection[];
+  connectionId: string;
+  pending: boolean;
+  onSelect: (connectionId: string) => void;
 };
 
 function DetailReadStatus({
@@ -48,36 +56,62 @@ function DetailReadStatus({
   );
 }
 
-export function DetailProviderConnection({
+export function DetailProviderToolbar({
   item,
-  accounts,
   connectionId,
-  onSelect,
   openExternal,
   remoteState,
 }: ConnectionProps) {
-  const { pending, loading, stale, refresh } = remoteState;
+  const { loading, pending, stale, refresh } = remoteState;
   const remote = item.remote;
   if (!remote) {
     return null;
   }
   return (
-    <section className="work-detail-section" aria-label="Provider connection">
-      <div className="work-detail-row">
-        <span className="work-detail-state">{item.remoteState ?? 'State unavailable'}</span>
-        {item.url ? (
-          <button type="button" onClick={() => void openExternal(item.url!)}>
-            Open in {remote.provider === 'github' ? 'GitHub' : 'Jira'}
+    <section className="work-detail-toolbar" aria-label="Provider controls">
+      <div className="work-detail-toolbar-main">
+        <span className="work-detail-muted">
+          {stale ? 'Cached content' : 'Up to date'} · {timestamp(item.fetchedAt)}
+        </span>
+        <div className="work-detail-toolbar-actions">
+          {item.url ? (
+            <button type="button" onClick={() => void openExternal(item.url!)}>
+              <WorkspaceIcon name="external" /> Open in{' '}
+              {remote.provider === 'github' ? 'GitHub' : 'Jira'}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            disabled={!connectionId || loading || pending}
+            onClick={() => void refresh()}
+          >
+            <WorkspaceIcon name="refresh" /> {loading ? 'Refreshing…' : 'Refresh'}
           </button>
-        ) : null}
+        </div>
       </div>
-      <p className="work-detail-muted">
-        Remote state is separate from this space’s column. Moving a card never changes the provider.
-      </p>
+      <DetailReadStatus {...remoteState} />
+    </section>
+  );
+}
+
+export function DetailProviderAccount({
+  item,
+  accounts,
+  connectionId,
+  pending,
+  onSelect,
+}: AccountProps) {
+  const remote = item.remote;
+  if (!remote) {
+    return null;
+  }
+  return (
+    <section className="work-detail-section" aria-label="Provider account">
+      <h3>{remote.provider === 'github' ? 'GitHub account' : 'Jira account'}</h3>
       {accounts.length ? (
         <label className="work-detail-field">
-          Account
-          <select
+          Send provider changes as
+          <SelectField
             value={connectionId}
             disabled={pending}
             onChange={(event) => onSelect(event.target.value)}
@@ -87,28 +121,14 @@ export function DetailProviderConnection({
                 {connection.account} · {connection.host}
               </option>
             ))}
-          </select>
+          </SelectField>
         </label>
       ) : (
-        <p role="status">
+        <p role="status" className="work-detail-muted">
           No connected account for {remote.host}. Cached content and local organization remain
           available. Connect an account in Connections to refresh or send.
         </p>
       )}
-      <div className="work-detail-row">
-        <p className="work-detail-muted">
-          {stale ? 'Cached · ' : 'Refreshed · '}
-          {timestamp(item.fetchedAt)}
-        </p>
-        <button
-          type="button"
-          disabled={!connectionId || loading || pending}
-          onClick={() => void refresh()}
-        >
-          {loading ? 'Refreshing…' : 'Refresh details'}
-        </button>
-      </div>
-      <DetailReadStatus {...remoteState} />
     </section>
   );
 }
@@ -122,27 +142,17 @@ export function DetailDescription({ item }: { item: WorkItem }) {
         <dt>Assignee</dt>
         <dd>{item.assignee || 'Unassigned'}</dd>
         <dt>Labels</dt>
-        <dd>{item.labels.join(', ') || 'None'}</dd>
+        <dd className="work-detail-labels">
+          {item.labels.length
+            ? item.labels.map((label) => <span key={label}>{label}</span>)
+            : 'None'}
+        </dd>
       </dl>
     </section>
   );
 }
 
-export function DetailDiscussion({
-  detail,
-  comment,
-  sendingAs,
-  canComment,
-  saveDraft,
-  execute,
-}: {
-  detail: RemoteDetail | null;
-  comment: string;
-  sendingAs: string;
-  canComment: boolean;
-  saveDraft: DetailSaveDraft;
-  execute: DetailExecute;
-}) {
+export function DetailDiscussion({ detail }: { detail: RemoteDetail | null }) {
   return (
     <section className="work-detail-section" aria-label="Discussion">
       <h3>Discussion{detail ? ` (${detail.comments.length})` : ''}</h3>
@@ -159,30 +169,51 @@ export function DetailDiscussion({
         <article className="work-detail-comment" key={entry.id}>
           <header>
             <strong>{entry.author || 'Unknown author'}</strong>
-            <time>{timestamp(entry.updatedAt)}</time>
+            <time dateTime={entry.updatedAt}>{timestamp(entry.updatedAt)}</time>
           </header>
           <div className="work-detail-prose">{entry.body}</div>
         </article>
       ))}
-      <label className="work-detail-field">
-        Comment draft
-        <textarea
-          value={comment}
-          maxLength={60000}
-          rows={5}
-          onChange={(event) => saveDraft('comment', event.target.value)}
-        />
-      </label>
-      <p className="work-detail-muted">
-        Local draft · never sent automatically. Send as {sendingAs}.
-      </p>
-      <button
-        type="button"
-        disabled={!canComment || !comment.trim()}
-        onClick={() => void execute({ kind: 'comment', body: comment })}
-      >
-        Send comment
-      </button>
+    </section>
+  );
+}
+
+export function DetailCommentComposer({
+  comment,
+  sendingAs,
+  canComment,
+  saveDraft,
+  execute,
+}: {
+  comment: string;
+  sendingAs: string;
+  canComment: boolean;
+  saveDraft: DetailSaveDraft;
+  execute: DetailExecute;
+}) {
+  return (
+    <section className="work-detail-section" aria-label="Write a comment">
+      <div className="work-detail-composer">
+        <label className="work-detail-field">
+          Add a comment
+          <textarea
+            value={comment}
+            maxLength={60000}
+            rows={5}
+            placeholder="Write a comment…"
+            onChange={(event) => saveDraft('comment', event.target.value)}
+          />
+        </label>
+        <p className="work-detail-muted">Draft saved locally. Send as {sendingAs}.</p>
+        <button
+          type="button"
+          className="primary"
+          disabled={!canComment || !comment.trim()}
+          onClick={() => void execute({ kind: 'comment', body: comment })}
+        >
+          Send comment
+        </button>
+      </div>
     </section>
   );
 }
@@ -190,20 +221,24 @@ export function DetailDiscussion({
 function DetailCommits({ commits }: Pick<RemoteDetail, 'commits'>) {
   return (
     <details>
-      <summary>Commits ({commits.length})</summary>
-      {commits.length ? (
-        <ol className="work-detail-commits">
-          {commits.map((commit) => (
-            <li key={commit.sha}>
-              <code title={commit.sha}>{commit.sha.slice(0, 12)}</code>
-              <span className="work-detail-prose">{commit.message}</span>
-              <span className="work-detail-muted">{commit.author}</span>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="work-detail-muted">No commits available in this snapshot.</p>
-      )}
+      <summary>
+        Commits ({commits.length})<WorkspaceIcon name="chevron" />
+      </summary>
+      <div className="work-detail-disclosure-content">
+        {commits.length ? (
+          <ol className="work-detail-commits">
+            {commits.map((commit) => (
+              <li key={commit.sha}>
+                <code title={commit.sha}>{commit.sha.slice(0, 12)}</code>
+                <span className="work-detail-prose">{commit.message}</span>
+                <span className="work-detail-muted">{commit.author}</span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="work-detail-muted">No commits available in this snapshot.</p>
+        )}
+      </div>
     </details>
   );
 }
@@ -214,63 +249,91 @@ function DetailChecks({
 }: Pick<RemoteDetail, 'checks'> & { openExternal: DetailOpenExternal }) {
   return (
     <details>
-      <summary>Checks ({checks.length})</summary>
-      {checks.length ? (
-        <ul className="work-detail-checks">
-          {checks.map((check, index) => (
-            <li key={`${check.name}-${index}`}>
-              <span>{check.name}</span>
-              <strong>{check.status}</strong>
-              {check.url ? (
-                <button type="button" onClick={() => void openExternal(check.url!)}>
-                  Open check
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="work-detail-muted">
-          No checks available. This is not evidence that checks passed.
-        </p>
-      )}
+      <summary>
+        Checks ({checks.length})<WorkspaceIcon name="chevron" />
+      </summary>
+      <div className="work-detail-disclosure-content">
+        {checks.length ? (
+          <ul className="work-detail-checks">
+            {checks.map((check, index) => (
+              <li key={`${check.name}-${index}`}>
+                <span>{check.name}</span>
+                <strong data-status={check.status}>{check.status.replaceAll('_', ' ')}</strong>
+                {check.url ? (
+                  <button type="button" onClick={() => void openExternal(check.url!)}>
+                    Open check
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="work-detail-muted">
+            No checks available. This is not evidence that checks passed.
+          </p>
+        )}
+      </div>
     </details>
   );
+}
+
+function diffLineKind(line: string) {
+  if (line.startsWith('+')) {
+    return 'added';
+  }
+  return line.startsWith('-') ? 'removed' : 'context';
 }
 
 function DetailFiles({ files }: Pick<RemoteDetail, 'files'>) {
   return (
     <details>
-      <summary>Files changed ({files.length})</summary>
-      {files.length ? (
-        files.map((file) => (
-          <details className="work-detail-file" key={file.path}>
-            <summary>
-              <span>{file.path}</span>
-              <small>
-                {file.status} · +{file.additions} −{file.deletions}
-              </small>
-            </summary>
-            {file.patch ? (
-              <textarea
-                className="work-detail-diff"
-                readOnly
-                wrap="off"
-                rows={18}
-                aria-label={`Diff for ${file.path}`}
-                value={file.patch}
-              />
-            ) : (
-              <p className="work-detail-muted">
-                Diff unavailable (binary, truncated, or not supplied). Open the pull request for the
-                full file.
-              </p>
-            )}
-          </details>
-        ))
-      ) : (
-        <p className="work-detail-muted">No files available in this snapshot.</p>
-      )}
+      <summary>
+        Files changed ({files.length})<WorkspaceIcon name="chevron" />
+      </summary>
+      <div className="work-detail-disclosure-content">
+        {files.length ? (
+          files.map((file) => (
+            <details className="work-detail-file" key={file.path}>
+              <summary>
+                <span>
+                  {file.path}
+                  <small>
+                    {file.status} · +{file.additions} −{file.deletions}
+                  </small>
+                </span>
+                <WorkspaceIcon name="chevron" />
+              </summary>
+              <div className="work-detail-disclosure-content">
+                {file.patch ? (
+                  // Keyboard users need focus to scroll the diff horizontally.
+                  <pre
+                    className="work-detail-diff"
+                    role="region"
+                    tabIndex={0}
+                    aria-label={`Diff for ${file.path}`}
+                  >
+                    <code>
+                      {file.patch.split('\n').map((line, index) => (
+                        <span key={index} data-line={diffLineKind(line)}>
+                          {line}
+                          {'\n'}
+                        </span>
+                      ))}
+                    </code>
+                  </pre>
+                ) : (
+                  <p className="work-detail-muted">
+                    Diff unavailable (binary, truncated, or not supplied). Open the pull request for
+                    the full file.
+                  </p>
+                )}
+              </div>
+            </details>
+          ))
+        ) : (
+          <p className="work-detail-muted">No files available in this snapshot.</p>
+        )}
+      </div>
     </details>
   );
 }
@@ -284,10 +347,15 @@ export function DetailPullRequestContext({
 }) {
   return (
     <section className="work-detail-section" aria-label="Pull request context">
-      <h3>Pull request context</h3>
-      <DetailCommits commits={detail?.commits ?? []} />
-      <DetailChecks checks={detail?.checks ?? []} openExternal={openExternal} />
-      <DetailFiles files={detail?.files ?? []} />
+      <h3>Code and checks</h3>
+      {!detail ? (
+        <p className="work-detail-muted">
+          Refresh with a connected account to load commits, checks and changed files.
+        </p>
+      ) : null}
+      {detail ? <DetailCommits commits={detail.commits} /> : null}
+      {detail ? <DetailChecks checks={detail.checks} openExternal={openExternal} /> : null}
+      {detail ? <DetailFiles files={detail.files} /> : null}
     </section>
   );
 }

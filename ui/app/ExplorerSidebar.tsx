@@ -1,3 +1,4 @@
+import ExplorerEmptyState from '../features/workspace/ExplorerEmptyState';
 import {
   useCallback,
   useEffect,
@@ -31,7 +32,7 @@ import type { Workspace } from '../features/workspace/workspaceTypes';
 import { indexLabels, native } from './workspaceView';
 import WorkspaceIcon from '../shared/ui/WorkspaceIcon';
 import LoadingIndicator from '../shared/ui/LoadingIndicator';
-import Atmosphere from './Atmosphere';
+import crystalLogo from '../../assets/adamant.png';
 
 type MenuState = {
   x: number;
@@ -1540,6 +1541,22 @@ function VaultFiles({
         />
       </div>
       <VaultExplorer
+        emptyContent={
+          <ExplorerEmptyState
+            filtering={!!filter.trim()}
+            disabled={disabled}
+            onClear={() => {
+              setFilter('');
+              setDirectoryOptions({ sort, filter: '' });
+              document.getElementById('explorer-filter')?.focus();
+            }}
+            onCreate={() => {
+              setCreateKind('note');
+              setCreateName('');
+              setCreateDirectory('');
+            }}
+          />
+        }
         pages={pages}
         indexing={vault.indexing}
         activePath={documentInfo.activeVaultPath}
@@ -1696,7 +1713,7 @@ export default function ExplorerSidebar({
           documentInfo={documentInfo}
         />
       </div>
-      <Atmosphere />
+      <img className="sidebar-signature" src={crystalLogo} alt="" aria-hidden="true" />
     </aside>
   );
 }

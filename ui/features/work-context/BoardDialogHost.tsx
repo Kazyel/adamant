@@ -19,6 +19,7 @@ type DialogProps = {
   state: WorkState;
   space: WorkSpace | null;
   closeDialog: () => void;
+  onSpaceCreated: (id: string) => void;
   onConnections: () => void;
   changeSpace: (update: (space: WorkSpace) => WorkSpace) => void;
   openItem: (item: WorkItem) => void;
@@ -32,12 +33,13 @@ function SpaceDialog({
   work,
   closeDialog,
   changeSpace,
+  onSpaceCreated,
 }: DialogProps & {
   dialog: Extract<BoardDialog, { kind: 'space' }>;
 }) {
   return (
     <NameDialog
-      title={dialog.rename ? 'Rename space' : 'New project space'}
+      title={dialog.rename ? 'Rename workspace' : 'New workspace'}
       initial={dialog.rename ? (space?.name ?? '') : ''}
       onClose={closeDialog}
       onSave={(name) => {
@@ -50,6 +52,7 @@ function SpaceDialog({
             activeSpaceId: created.id,
             spaces: [...state.spaces, created],
           }));
+          onSpaceCreated(created.id);
         }
         closeDialog();
       }}
@@ -163,6 +166,10 @@ export default function BoardDialogHost(props: DialogProps) {
         content = (
           <FollowDialog
             connections={work.connections}
+            onConnections={() => {
+              closeDialog();
+              props.onConnections();
+            }}
             follow={work.follow}
             onClose={closeDialog}
             onDone={(id, warning) => {

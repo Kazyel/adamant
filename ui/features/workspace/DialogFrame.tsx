@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
+import useBackdropDismiss from '../interaction/useBackdropDismiss';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import { useOverlayPresence } from '../interaction/OverlayPresence';
 export default function DialogFrame({
   title,
   creating = false,
+  dismissOnBackdrop = false,
   pending = false,
   className = 'replace-dialog',
   cancel,
@@ -12,6 +14,7 @@ export default function DialogFrame({
 }: {
   title: string;
   creating?: boolean;
+  dismissOnBackdrop?: boolean;
   pending?: boolean;
   className?: string;
   cancel: () => void;
@@ -20,6 +23,7 @@ export default function DialogFrame({
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const presence = useOverlayPresence();
+  useBackdropDismiss(dialog, cancel, dismissOnBackdrop && !pending && presence === 'present');
 
   useEffect(() => {
     const element = dialog.current!;

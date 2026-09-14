@@ -765,9 +765,40 @@ p.explorer-warning {
   font-size: 11px;
 }
 .explorer-empty-state {
-  margin: 12px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 20px 6px;
   color: var(--muted);
   font-size: 12px;
+}
+.explorer-empty-state > .workspace-icon {
+  width: 24px;
+  height: 24px;
+  margin-bottom: 4px;
+}
+.explorer-empty-state strong {
+  font-family: var(--heading-font);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--secondary-text);
+}
+.explorer-empty-state p {
+  margin: 0;
+  line-height: 1.6;
+}
+.explorer-empty-state button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  min-height: 32px;
+  margin: 2px 0 0;
+}
+.explorer-folder-empty {
+  font-size: 12px;
+  color: var(--muted);
 }
 .explorer-dialog .dialog-actions {
   margin-top: 16px;
