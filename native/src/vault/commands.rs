@@ -14,6 +14,7 @@ use session::{
     ActiveVault, Session, activate_vault, close_vault, restore_vault, with_vault, with_write,
 };
 
+pub(crate) mod annotations;
 mod background;
 pub(crate) mod imports;
 mod remembered;

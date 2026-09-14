@@ -205,6 +205,10 @@ Reading an original does not require a `<filename>.meta.yaml` companion. Its abs
 
 Moving a Document through Adamant moves its companion metadata as well. Moving only the original externally may require explicit reassociation; filenames alone are not sufficient evidence to guess identity.
 
+Document annotations use `refs` entries with `kind: note` and the Note UUID in the companion. The first explicit association creates a companion if none exists. Creating an annotation creates an ordinary Markdown Note; linking an existing Note requires valid metadata and an unambiguous identity. The Note's source-document list is derived from these references, without writing a second association into the Note. Unlinking preserves both files. Links cover the whole document, without page or selection anchors.
+
+Annotation changes check the original's identity and the companion's revision. They preserve unrelated metadata fields and source spelling, rejecting YAML layouts that cannot be safely edited. Missing and duplicate targets remain unresolved. Reads report incomplete inventory coverage and return at most 100 matching links and 50 candidate Notes, with explicit truncation flags and filtering by path or linked UUID. Linking an existing Note requires a ready inventory; generated-UUID annotation creation and revision-checked unlinking remain available with incomplete indexing. Source-document resolution rejects known duplicate Note identities. Topics and captured documentation pages are not offered as annotation Notes. If creating a Note succeeds but linking fails, the error identifies the retained Note for explicit relinking. No automatic retry deletes or recreates it.
+
 Saved technical documentation contains:
 
 - Readable Markdown content.

@@ -233,31 +233,7 @@
 
 .work-command-search {
   flex: 1 1 220px;
-  min-width: 0;
   max-width: 420px;
-  gap: 7px;
-  padding-left: 9px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--muted);
-  background: var(--base);
-}
-
-.work-command-search:focus-within {
-  border-color: var(--secondary-text);
-}
-
-.work-command-search input {
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  outline: none;
-}
-
-.work-command-search .workspace-icon {
-  flex: 0 0 14px;
-  width: 14px;
-  height: 14px;
 }
 
 .work-toolbar-actions {
@@ -1491,21 +1467,9 @@
   font-size: 12px;
 }
 .work-hub-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   width: min(340px, 60%);
-  border-radius: 8px;
-  background: var(--surface);
-  padding: 4px 10px;
-  color: var(--muted);
 }
-.work-hub-search input {
-  width: 100%;
-  background: transparent;
-  border: 0;
-  font-size: 12px;
-}
+
 .work-hub-search input::-webkit-search-cancel-button {
   display: none;
 }

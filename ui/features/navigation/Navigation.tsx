@@ -251,7 +251,7 @@ export function QuickOpen({
 
   return (
     <section className="navigation-panel" aria-label="Quick open">
-      <label className="navigation-search-field">
+      <label className="input-field navigation-search-field">
         <WorkspaceIcon name="search" />
         <input
           ref={input}
@@ -355,7 +355,7 @@ export function SearchResults({
       className="navigation-panel"
       aria-label={mode === 'content' ? 'Search document content' : 'Search document names'}
     >
-      <label className="navigation-search-field">
+      <label className="input-field navigation-search-field">
         <WorkspaceIcon name="search" />
         <input
           aria-label={mode === 'content' ? 'Search Markdown content' : 'Search names and paths'}

@@ -4,6 +4,8 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { errorMessage } from '../../shared/errors';
 import type { SelectedDocument } from '../documents/types';
+import type { AnnotationChange, AnnotationRequest } from '../documents/annotationTypes';
+import { adoptAnnotationIdentity } from './annotationNavigation';
 import { conflictError, sourceName } from './buffer';
 import type { NoteDocument, VaultSnapshot } from './types';
 import useDirectoryPages from './useDirectoryPages';
@@ -1147,6 +1149,31 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
     documents: { ...documents, activate: activateTab, close: closeTab, reopenClosed: reopenTab },
     finder,
     fileActions,
+    changeAnnotation: (request: AnnotationRequest) =>
+      runOperation('background', async () => {
+        try {
+          const change = await invoke<AnnotationChange>('vault_change_annotation', { request });
+          // Explicit first association adopts the original; retain its open viewer and position.
+          for (const tab of documents.tabsRef.current) {
+            if (
+              tab.document?.vaultPath === request.path &&
+              tabIdentity(tab) === request.expectedIdentity
+            ) {
+              documents.updateTab(tab.id, {
+                identity: change.identity,
+                document: { ...tab.document, identity: change.identity },
+              });
+            }
+          }
+          finder.setState((state) =>
+            adoptAnnotationIdentity(state, request.path, request.expectedIdentity, change.identity),
+          );
+          return change;
+        } finally {
+          refreshPages();
+          actions.current.refreshSnapshot();
+        }
+      }),
     preferences,
     savePreferences,
     recoveries,

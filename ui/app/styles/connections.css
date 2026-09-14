@@ -213,9 +213,6 @@
 }
 .connection-form input {
   width: 100%;
-  min-height: 40px;
-  padding: 10px 12px;
-  font-size: 13px;
   margin-bottom: 8px;
 }
 .connection-form button {

@@ -26,6 +26,10 @@ export function DocumentNotices({
   const { buffer, busy } = workspace;
   const disabled = !native || !!busy;
 
+  if (workspace.documents.activeTab?.kind !== 'markdown') {
+    return null;
+  }
+
   return (
     <>
       {note?.metadataError ? (
@@ -122,12 +126,14 @@ export function StatusBar({
         sidebarOpen={navigation.sidebarOpen}
         revealIndexDetails={revealIndexDetails}
       />
-      <span
-        className={dirty || buffer.conflict ? 'buffer-status unsaved-label' : 'buffer-status'}
-        role="status"
-      >
-        {getSaveStatus(workspace)}
-      </span>
+      {workspace.documents.activeTab?.kind === 'markdown' ? (
+        <span
+          className={dirty || buffer.conflict ? 'buffer-status unsaved-label' : 'buffer-status'}
+          role="status"
+        >
+          {getSaveStatus(workspace)}
+        </span>
+      ) : null}
       <span className="status-format">{format}</span>
     </footer>
   );

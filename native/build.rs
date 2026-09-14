@@ -23,6 +23,8 @@ fn main() {
             "vault_close",
             "vault_read_note",
             "vault_create_note",
+            "vault_annotations",
+            "vault_change_annotation",
             "vault_save_note",
             "vault_save_copy",
             "vault_adopt_note",

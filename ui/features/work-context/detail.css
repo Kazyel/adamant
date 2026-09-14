@@ -89,11 +89,6 @@
   border-bottom: 1px solid var(--border);
 }
 
-.work-item-detail[data-local-task='true'] .work-detail-checklist input:not([type='checkbox']) {
-  border-color: transparent;
-  background: transparent;
-}
-
 .work-item-detail[data-local-task='true']
   .work-detail-checklist
   li[data-done='true']
@@ -311,11 +306,6 @@
   min-width: 0;
   min-height: 100px;
   resize: vertical;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px;
-  color: var(--text);
-  background: var(--base);
   line-height: 1.6;
 }
 

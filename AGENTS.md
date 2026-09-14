@@ -21,7 +21,7 @@ Adamant é um aplicativo desktop local-first para notas, documentos e contexto d
 - `schemas/`: schemas dos formatos do projeto.
 - `scripts/app-update.mjs`: build e instalação local do aplicativo desktop.
 
-Reutilize componentes, tokens e fluxos existentes. Os detalhes dos cards dos Kanbans devem abrir em drawers. Preserve navegação por teclado, retorno do foco, rolagem e respeito a movimento reduzido.
+Reutilize componentes, tokens e fluxos existentes. Inputs de texto e textareas usam a base global de `ui/shared/styles/inputs.css`. Para campos com ícone, reutilize `.input-field`; mantenha nas features apenas regras de layout e evite recriar bordas, fundos ou foco. Os detalhes dos cards dos Kanbans devem abrir em drawers. Preserve navegação por teclado, retorno do foco, rolagem e respeito a movimento reduzido.
 
 Mantenha o código de cada feature próximo de seus consumidores. `ui/app/` compõe as features. `ui/shared/` contém apenas código reutilizado entre features e não depende delas. Em reorganizações, não introduza arquivos barrel, caminhos de compatibilidade ou novos nomes de IPC.
 

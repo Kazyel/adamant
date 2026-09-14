@@ -368,7 +368,7 @@ export function BoardToolbar({
         </button>
       </div>
       {activeTab !== 'sources' ? (
-        <label className="work-command-search">
+        <label className="input-field work-command-search">
           <WorkspaceIcon name="search" />
           <span className="visually-hidden">Filter work items</span>
           <input

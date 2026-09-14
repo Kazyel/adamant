@@ -426,9 +426,6 @@
 .explorer-create-field input {
   min-width: 0;
   width: 100%;
-  height: 30px;
-  padding: 5px 7px;
-  font-size: 12px;
 }
 
 .explorer-create-field .icon-button {
@@ -457,7 +454,6 @@
 .explorer-inline-edit input {
   min-width: 0;
   flex: 1;
-  padding: 5px 6px;
 }
 .dialog-frame.explorer-dialog {
   width: min(560px, calc(100vw - 32px));
@@ -811,58 +807,7 @@ p.explorer-warning {
 }
 
 .explorer-filter {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-width: 0;
   flex: 1;
-}
-
-.explorer-filter > .workspace-icon {
-  position: absolute;
-  left: 12px;
-  width: 14px;
-  height: 14px;
-  color: var(--muted);
-  pointer-events: none;
-  transition: color 120ms ease-out;
-}
-
-.explorer-filter input {
-  min-width: 0;
-  width: 100%;
-  height: 36px;
-  padding: 8px 12px 8px 34px;
-  border: 1px solid var(--edge-soft);
-  border-radius: 8px;
-  background: var(--surface);
-  font-size: 12px;
-  line-height: 18px;
-  transition:
-    border-color 120ms ease-out,
-    background-color 120ms ease-out;
-}
-
-.explorer-filter input:hover {
-  border-color: var(--border);
-}
-
-.explorer-filter input:focus-visible {
-  border-color: var(--focus);
-  outline: 2px solid color-mix(in srgb, var(--focus) 25%, transparent);
-  outline-offset: 2px;
-  background: var(--reading);
-}
-
-.explorer-filter:focus-within > .workspace-icon {
-  color: var(--focus);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .explorer-filter input,
-  .explorer-filter > .workspace-icon {
-    transition: none;
-  }
 }
 
 .explorer-sort.icon-button {

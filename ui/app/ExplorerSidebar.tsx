@@ -1518,7 +1518,7 @@ function VaultFiles({
       ) : null}
       <IndexDetails workspace={workspace} detailsRef={detailsRef} />
       <div className="explorer-controls">
-        <label className="explorer-filter" htmlFor="explorer-filter">
+        <label className="input-field explorer-filter" htmlFor="explorer-filter">
           <WorkspaceIcon name="search" />
           <span className="visually-hidden">Filter files</span>
           <input
