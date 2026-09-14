@@ -378,12 +378,15 @@
   gap: 8px;
 }
 
+.interaction-setting-number .number-field {
+  width: 112px;
+}
+
 .interaction-setting-number input {
-  width: 64px;
   text-align: right;
 }
 
-.interaction-setting-number span {
+.interaction-setting-number > span {
   width: 40px;
   color: var(--muted);
   font-size: 12px;
@@ -436,7 +439,7 @@
     gap: 8px;
   }
 
-  .interaction-setting-number span {
+  .interaction-setting-number > span {
     display: none;
   }
 

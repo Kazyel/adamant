@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Status: approved roadmap and revised technology baseline. M0 was approved by the owner on September 6, 2026; M1/M1.1 have scoped Linux evidence. The expanded M2 project workspace is implemented, with live provider authorization/write acceptance still unverified. M3 has document viewing and annotation links implemented; documentation capture remains planned. M4–M7 remain planned; other operating systems and installers remain unverified.
+Status: approved roadmap and revised technology baseline. M0 was approved by the owner on September 6, 2026; M1/M1.1 have scoped Linux evidence. The expanded M2 project workspace is implemented, with live provider authorization/write acceptance still unverified. M3 has document viewing and annotation links implemented; documentation capture remains planned. M4 includes the interactive document graph; its other workflows and M5–M7 remain planned; other operating systems and installers remain unverified.
 
 ## Delivery strategy
 
@@ -155,6 +155,8 @@ Annotation verification, September 14, 2026: nine native tests cover creation, s
 
 ### M4 — Knowledge Navigation
 
+Status: partially implemented. The interactive 2D document graph stores connections and node coordinates in portable `.adamant/graph.json` without editing Markdown, PDF, DOCX, or companion metadata. Existing unique UUIDs resolve moves; files without UUIDs retain explicit path bindings. The [graph contract](graph-contract.md) defines storage and limits. The remaining work below is planned.
+
 **Workflow:** find a Topic, navigate its materials, record understanding, and leave a resumption point.
 
 Work:
@@ -275,4 +277,4 @@ September 12, 2026:
 - `bun run app:update` built the production frontend/native executable and installed it under an isolated temporary `XDG_DATA_HOME`, leaving the user's installed application untouched. Vite reported chunks larger than 500 kB. The installed Linux window opened the test Vault; native input verification stopped when the desktop portal denied the input session and the WebKit accessibility subtree was unreadable. This is launch evidence, not an end-to-end native task/restart acceptance claim.
 - No existing credentials were read and no live comments, field changes, transitions, reviews, or merges were sent. Real-account refresh/write acceptance, physical drag gestures, and installed-app task/draft recovery across restart remain unverified.
 
-Next: complete live-provider acceptance with explicitly authorized test items, and assess other operating systems, installers, and unsupported filesystem behavior. M3 documentation capture and M4–M7 workflows remain planned.
+Next: complete live-provider acceptance with explicitly authorized test items, and assess other operating systems, installers, and unsupported filesystem behavior. M3 documentation capture, the remaining M4 workflows, and M5–M7 remain planned.

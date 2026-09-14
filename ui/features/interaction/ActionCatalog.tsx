@@ -1,3 +1,4 @@
+import SearchField from '../../shared/ui/SearchField';
 import { Fragment, useId, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
@@ -135,7 +136,7 @@ export function ActionList({
             tabIndex={index === 0 ? 0 : -1}
             aria-disabled={!!action.disabled}
             aria-describedby={action.disabled ? `${descriptionId}-${action.id}` : undefined}
-            title={action.disabled}
+            data-tooltip={action.disabled}
             onFocus={() => setActive(action.id)}
             onMouseEnter={() => setActive(action.id)}
             onClick={() => {
@@ -190,35 +191,33 @@ export function CommandPalette({
 
   return (
     <Dialog title="Command palette" open onClose={onClose} className="interaction-command-palette">
-      <div className="input-field interaction-command-search">
-        <WorkspaceIcon name="search" />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search commands"
-          aria-label="Search commands"
-          aria-describedby={countId}
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-              const items = list.current?.querySelectorAll<HTMLButtonElement>(
-                '[role="menuitem"], [role="menuitemradio"]',
-              );
-              const index = event.key === 'ArrowUp' ? (items?.length ?? 1) - 1 : 0;
-              items?.[index]?.focus();
-              items?.[index]?.scrollIntoView({ block: 'nearest' });
-              event.preventDefault();
+      <SearchField
+        className="interaction-command-search"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Search commands"
+        aria-label="Search commands"
+        aria-describedby={countId}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            const items = list.current?.querySelectorAll<HTMLButtonElement>(
+              '[role="menuitem"], [role="menuitemradio"]',
+            );
+            const index = event.key === 'ArrowUp' ? (items?.length ?? 1) - 1 : 0;
+            items?.[index]?.focus();
+            items?.[index]?.scrollIntoView({ block: 'nearest' });
+            event.preventDefault();
+          }
+          if (event.key === 'Enter') {
+            const action = visible.find((item) => !item.disabled);
+            if (action) {
+              onClose();
+              void action.run();
             }
-            if (event.key === 'Enter') {
-              const action = visible.find((item) => !item.disabled);
-              if (action) {
-                onClose();
-                void action.run();
-              }
-              event.preventDefault();
-            }
-          }}
-        />
-      </div>
+            event.preventDefault();
+          }
+        }}
+      />
       <p id={countId} className="interaction-result-count" role="status">
         {visible.length} command{visible.length === 1 ? '' : 's'}
       </p>

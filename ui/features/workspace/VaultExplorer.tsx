@@ -278,7 +278,7 @@ function Entry({ entry, ...props }: Props & { entry: VaultEntry }) {
         <button
           className="explorer-directory"
           type="button"
-          title={entry.path}
+          data-tooltip={entry.path}
           data-directory={entry.path}
           data-path={entry.path}
           role="treeitem"
@@ -303,7 +303,7 @@ function Entry({ entry, ...props }: Props & { entry: VaultEntry }) {
     <button
       className="explorer-file"
       type="button"
-      title={entry.metadataError ? `${entry.path}\n${entry.metadataError}` : entry.path}
+      data-tooltip={entry.metadataError ? `${entry.path}\n${entry.metadataError}` : entry.path}
       data-path={entry.path}
       disabled={disabled}
       role="treeitem"

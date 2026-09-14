@@ -5,6 +5,7 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import pdfViewerStyles from 'pdfjs-dist/web/pdf_viewer.css?inline';
 import { errorMessage } from '../../shared/errors';
 import LoadingIndicator from '../../shared/ui/LoadingIndicator';
+import SelectField from '../interaction/SelectField';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -212,7 +213,8 @@ export default memo(function PdfViewer({
         </button>
         <label>
           Zoom{' '}
-          <select
+          <SelectField
+            aria-label="PDF zoom"
             value={zoom}
             onChange={(event) => onPositionChange({ page, zoom: Number(event.target.value) })}
           >
@@ -222,7 +224,7 @@ export default memo(function PdfViewer({
             <option value={1.25}>125%</option>
             <option value={1.5}>150%</option>
             <option value={2}>200%</option>
-          </select>
+          </SelectField>
         </label>
       </div>
       <div className="pdf-scroll" role="region" tabIndex={0} aria-label="PDF page; scroll to read">

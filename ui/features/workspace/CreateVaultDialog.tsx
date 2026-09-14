@@ -1,3 +1,4 @@
+import Form from '../../shared/ui/Form';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from '../../shared/errors';
@@ -197,7 +198,7 @@ export default function CreateVaultDialog({
           cancel={cancel}
         />
       ) : (
-        <form
+        <Form
           onSubmit={(event) => {
             event.preventDefault();
             void create();
@@ -259,7 +260,7 @@ export default function CreateVaultDialog({
               {pending === 'create' ? 'Creating…' : 'Create Vault'}
             </button>
           </div>
-        </form>
+        </Form>
       )}
     </DialogFrame>
   );

@@ -114,7 +114,7 @@ export function StatusBar({
       {!native ? (
         <span
           className="runtime-notice"
-          title="Launch the Tauri desktop application to open local documents, save Notes, check accounts, and use the OS credential store."
+          data-tooltip="Launch the Tauri desktop application to open local documents, save Notes, check accounts, and use the OS credential store."
         >
           <WorkspaceIcon name="warning" />
           Browser preview: desktop features unavailable

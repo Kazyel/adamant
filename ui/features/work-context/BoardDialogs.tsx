@@ -1,3 +1,5 @@
+import SearchField from '../../shared/ui/SearchField';
+import Form from '../../shared/ui/Form';
 import DateField from '../interaction/DateField';
 import SelectField from '../interaction/SelectField';
 import { useEffect, useRef, useState } from 'react';
@@ -25,7 +27,7 @@ export function NameDialog({
   const [name, setName] = useState(initial);
   return (
     <DialogFrame title={title} cancel={onClose} className="work-dialog">
-      <form
+      <Form
         onSubmit={(event) => {
           event.preventDefault();
           if (name.trim()) {
@@ -50,7 +52,7 @@ export function NameDialog({
             Save workspace
           </button>
         </div>
-      </form>
+      </Form>
     </DialogFrame>
   );
 }
@@ -64,7 +66,7 @@ export function TaskDialog({
 }) {
   return (
     <DialogFrame title="New local task" cancel={onClose} className="work-dialog">
-      <form
+      <Form
         onSubmit={(event) => {
           event.preventDefault();
           const data = new FormData(event.currentTarget);
@@ -113,7 +115,7 @@ export function TaskDialog({
           </button>
           <button className="primary">Create task</button>
         </div>
-      </form>
+      </Form>
     </DialogFrame>
   );
 }
@@ -129,7 +131,7 @@ export function FlowDialog({
   const [columns, setColumns] = useState(space.columns);
   return (
     <DialogFrame title="Configure columns" cancel={onClose} className="work-dialog">
-      <form
+      <Form
         onSubmit={(event) => {
           event.preventDefault();
           if (columns.every((column) => column.name.trim())) {
@@ -206,7 +208,7 @@ export function FlowDialog({
             Save flow
           </button>
         </div>
-      </form>
+      </Form>
     </DialogFrame>
   );
 }
@@ -271,7 +273,7 @@ export function FollowDialog({
       pending={pending}
       className="work-dialog"
     >
-      <form
+      <Form
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
@@ -331,7 +333,7 @@ export function FollowDialog({
             {pending ? 'Loading item…' : 'Follow item'}
           </button>
         </div>
-      </form>
+      </Form>
     </DialogFrame>
   );
 }
@@ -355,9 +357,14 @@ export function ExistingDialog({
   );
   return (
     <DialogFrame title="Add an existing item" cancel={onClose} className="work-dialog">
-      <label className="work-field">
+      <label className="work-field" htmlFor="existing-item-search">
         Find an item in this Vault
-        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <SearchField
+          id="existing-item-search"
+          aria-label="Find an item in this Vault"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
       </label>
       <p>The same item can have a different column in each space.</p>
       <ul className="work-existing-list">

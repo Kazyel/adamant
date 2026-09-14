@@ -1,3 +1,4 @@
+import Form from '../../shared/ui/Form';
 import { useState } from 'react';
 import { errorMessage } from '../../shared/errors';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
@@ -110,7 +111,7 @@ function RecoveryReview({
       <section className="session-dialog-section" aria-label="Export retained versions">
         <h3>Preserve a copy for review</h3>
         <p>Export the complete manifest and retained versions without replacing current files.</p>
-        <form
+        <Form
           onSubmit={(event) => {
             event.preventDefault();
             void execute(async () => {
@@ -143,7 +144,7 @@ function RecoveryReview({
               Export retained versions
             </button>
           </div>
-        </form>
+        </Form>
         {record.exportedTo ? (
           <div className="recovery-verified-export">
             <div>

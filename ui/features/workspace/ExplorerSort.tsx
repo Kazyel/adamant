@@ -54,7 +54,7 @@ export default function ExplorerSort({
         id="explorer-sort"
         className="icon-button explorer-sort"
         type="button"
-        title={`Sort files: ${labels[value]}`}
+        data-tooltip={`Sort files: ${labels[value]}`}
         aria-label={`Sort files: ${labels[value]}`}
         aria-haspopup="menu"
         aria-expanded={menu !== null}

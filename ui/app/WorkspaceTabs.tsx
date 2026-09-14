@@ -25,7 +25,7 @@ function WindowControls({ workspace }: WorkspaceProps) {
       <button
         className="icon-button"
         type="button"
-        title="Minimize window"
+        data-tooltip="Minimize window"
         aria-label="Minimize window"
         disabled={!native}
         onClick={() => void controlWindow('minimize')}
@@ -35,7 +35,7 @@ function WindowControls({ workspace }: WorkspaceProps) {
       <button
         className="icon-button"
         type="button"
-        title="Maximize or restore window"
+        data-tooltip="Maximize or restore window"
         aria-label="Maximize or restore window"
         disabled={!native}
         onClick={() => void controlWindow('toggleMaximize')}
@@ -45,7 +45,7 @@ function WindowControls({ workspace }: WorkspaceProps) {
       <button
         className="icon-button window-close"
         type="button"
-        title="Close window"
+        data-tooltip="Close window"
         aria-label="Close window"
         disabled={!native}
         onClick={workspace.closeWindow}
@@ -208,7 +208,7 @@ export default function WorkspaceTabs({ workspace, navigation }: DocumentProps) 
                   aria-label={`${accessibleLabel}${tab.dirty ? ', unsaved changes' : ''}${loadLabel}${tab.conflict ? ', disk conflict' : ''}`}
                   aria-busy={loadState === 'loading'}
                   data-attention={attention}
-                  title={path}
+                  data-tooltip={path}
                   onClick={(event) => {
                     event.currentTarget.parentElement?.scrollIntoView({
                       block: 'nearest',
@@ -228,7 +228,7 @@ export default function WorkspaceTabs({ workspace, navigation }: DocumentProps) 
                     className="workspace-tab-close icon-button"
                     type="button"
                     aria-label={`Close ${accessibleLabel}`}
-                    title={`Close ${accessibleLabel}${tab.dirty ? ' (unsaved changes)' : ''}`}
+                    data-tooltip={`Close ${accessibleLabel}${tab.dirty ? ' (unsaved changes)' : ''}`}
                     onClick={() => close?.(tab.id)}
                   >
                     <WorkspaceIcon name="close" />
@@ -242,7 +242,7 @@ export default function WorkspaceTabs({ workspace, navigation }: DocumentProps) 
           <button
             className="workspace-tab-reopen icon-button"
             type="button"
-            title="Reopen last closed tab"
+            data-tooltip="Reopen last closed tab"
             aria-label="Reopen last closed tab"
             onClick={() => reopenClosed?.()}
           >

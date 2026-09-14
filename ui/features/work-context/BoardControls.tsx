@@ -1,3 +1,4 @@
+import SearchField from '../../shared/ui/SearchField';
 import ProviderIcon from './ProviderIcon';
 import SelectField from '../interaction/SelectField';
 import { useEffect, useRef } from 'react';
@@ -89,7 +90,7 @@ function HubCreateButton({
     <button
       className="work-heading-create primary"
       disabled={busy || limitReached}
-      title={limitReached ? 'Workspace limit reached' : undefined}
+      data-tooltip={limitReached ? 'Workspace limit reached' : undefined}
       onClick={onCreate}
     >
       <WorkspaceIcon name="plus" /> Create workspace
@@ -145,7 +146,7 @@ function GitHubRefresh({
         className="icon-button"
         aria-label="Refresh GitHub"
         disabled={busy || !online || loading || !connected.length}
-        title={loading ? feedback : title}
+        data-tooltip={loading ? feedback : title}
         onClick={() => {
           void Promise.all(connected.map((source) => work.refreshSource(source)));
         }}
@@ -156,7 +157,7 @@ function GitHubRefresh({
         <button
           className="icon-button work-github-refresh-warning"
           aria-label="GitHub sources need attention"
-          title="GitHub sources need attention. Open Manage sources"
+          data-tooltip="GitHub sources need attention. Open Manage sources"
           onClick={onSources}
         >
           <WorkspaceIcon name="warning" />
@@ -343,7 +344,7 @@ export function BoardToolbar({
         <button
           id="work-board-tab"
           role="tab"
-          title="Board view"
+          data-tooltip="Board view"
           aria-label="Board view"
           aria-controls="work-items-panel"
           aria-selected={activeTab === 'board'}
@@ -356,7 +357,7 @@ export function BoardToolbar({
         <button
           id="work-list-tab"
           role="tab"
-          title="List view"
+          data-tooltip="List view"
           aria-label="List view"
           aria-controls="work-items-panel"
           aria-selected={activeTab === 'list'}
@@ -368,17 +369,15 @@ export function BoardToolbar({
         </button>
       </div>
       {activeTab !== 'sources' ? (
-        <label className="input-field work-command-search">
-          <WorkspaceIcon name="search" />
-          <span className="visually-hidden">Filter work items</span>
-          <input
-            type="search"
-            placeholder="Search work…"
-            value={space.view.query}
-            onChange={(event) => changeView({ query: event.target.value })}
-            maxLength={4096}
-          />
-        </label>
+        <SearchField
+          aria-label="Filter work items"
+          className="work-command-search"
+
+          placeholder="Search work…"
+          value={space.view.query}
+          onChange={(event) => changeView({ query: event.target.value })}
+          maxLength={4096}
+        />
       ) : null}
       {activeTab !== 'sources' ? (
         <div className="work-filter-control">
@@ -386,7 +385,7 @@ export function BoardToolbar({
             ref={filterTrigger}
             className="work-filter-button"
             type="button"
-            title={filterCount ? `${filterCount} active filters` : 'Filter work items'}
+            data-tooltip={filterCount ? `${filterCount} active filters` : 'Filter work items'}
             aria-label={filterCount ? `Filters, ${filterCount} active` : 'Filters'}
             aria-expanded={filtersOpen}
             aria-haspopup="dialog"

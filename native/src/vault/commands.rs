@@ -16,6 +16,7 @@ use session::{
 
 pub(crate) mod annotations;
 mod background;
+pub(crate) mod graph;
 pub(crate) mod imports;
 mod remembered;
 mod session;

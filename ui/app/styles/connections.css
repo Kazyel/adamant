@@ -156,13 +156,6 @@
 .connection-setup > summary:focus-visible {
   outline-offset: -3px;
 }
-.connection-setup > summary > .workspace-icon:last-child {
-  margin-left: auto;
-  transition: transform 140ms ease;
-}
-.connection-setup[open] > summary > .workspace-icon:last-child {
-  transform: rotate(90deg);
-}
 .connection-setup-content {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);

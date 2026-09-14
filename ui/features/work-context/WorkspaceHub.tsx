@@ -1,3 +1,4 @@
+import SearchField from '../../shared/ui/SearchField';
 import { useEffect, useRef, useState } from 'react';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import ProviderIcon from './ProviderIcon';
@@ -155,26 +156,15 @@ export default function WorkspaceHub({
                 {search ? `${spaces.length} of ${state.spaces.length}` : state.spaces.length}{' '}
                 {state.spaces.length === 1 ? 'workspace' : 'workspaces'}
               </span>
-              <div className="input-field work-hub-search">
-                <WorkspaceIcon name="search" />
-                <input
-                  ref={searchInput}
-                  type="search"
-                  aria-label="Find a workspace by name or source"
-                  placeholder="Find a workspace or source…"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                />
-                {query ? (
-                  <button
-                    className="icon-button"
-                    aria-label="Clear workspace search"
-                    onClick={clearSearch}
-                  >
-                    <WorkspaceIcon name="close" />
-                  </button>
-                ) : null}
-              </div>
+              <SearchField
+                className="work-hub-search"
+                ref={searchInput}
+
+                aria-label="Find a workspace by name or source"
+                placeholder="Find a workspace or source…"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
             </div>
             {state.spaces.length >= 128 ? (
               <p className="work-hub-limit">This Vault has reached the limit of 128 workspaces.</p>

@@ -161,7 +161,7 @@ export function ContextMenu({
       }}
     >
       {title ? (
-        <p className="interaction-context-menu-title" title={title}>
+        <p className="interaction-context-menu-title" data-tooltip={title}>
           {title}
         </p>
       ) : null}

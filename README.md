@@ -28,7 +28,7 @@ Your files live in a **Vault**, a portable folder you control. Accounts are opti
 
 ### Write and read in one place
 
-Choose **Dark graphite** or **Cool white** in **Preferences → Appearance**, then save preferences. Both themes separate the writing surface, cards, and overlays with restrained shadows and edge lighting. The editor and Markdown preview follow the selected palette; original PDF and DOCX pages retain their document colors. The welcome crystal stays silver in both themes, including its static fallback. The desktop app remembers the choice. Existing preferences default to dark. Text fields and searches share the sidebar’s input styling across dialogs, connections, tasks, preferences, and editor search, including keyboard focus and reduced-motion support.
+Choose **Dark graphite** or **Cool white** in **Preferences → Appearance**, then save preferences. Both themes separate the writing surface, cards, and overlays with restrained shadows and edge lighting. The editor and Markdown preview follow the selected palette; original PDF and DOCX pages retain their document colors. The welcome crystal stays silver in both themes, including its static fallback. The desktop app remembers the choice. Existing preferences default to dark. Text fields and searches share the sidebar’s input styling across dialogs, connections, tasks, preferences, and editor search, including keyboard focus and reduced-motion support. Checkboxes, numeric steppers, search clear buttons, disclosure arrows, and tooltips use shared controls in both themes. Invalid forms show an inline message and focus the first invalid field.
 
 - Edit Markdown with undo history, search, reading preview, and split view.
 - Open PDF and DOCX documents alongside your notes. PDF supports navigation, zoom, and text selection. DOCX previews separate pages using document breaks and available page height, including long paragraphs and tables. Layout remains approximate; oversized objects and merged table rows may extend a page. Markdown editing and saving controls appear only for Markdown.
@@ -40,6 +40,20 @@ Markdown saves explicitly with **Ctrl+S / ⌘S**. External changes, unsaved edit
 In a Vault PDF or DOCX, use **New note**, **Link existing note**, and **Notes** in the document toolbar. Creating and linking notes use separate dialogs. **Notes** opens a drawer containing only linked notes, with the same search field as the sidebar. Select a note to open it in the main editor; saving uses the disk icon or Ctrl+S / ⌘S. On narrow windows the drawer appears below the document. A Note can belong to several documents. Use **Sources** in a Note to return to its originals. Unlinking removes the association and keeps the Note.
 
 Annotation links use stable identities in the document's companion metadata and travel with the Vault. Missing or duplicate targets remain visible as unresolved references. Linking existing Notes requires a ready inventory; creating annotations and unlinking remain available with incomplete indexing. Changes reject stale metadata. These annotations apply to the whole document; page highlights and anchored selections are not included.
+
+### Connect files in an interactive graph
+
+Open **Graph** in the ribbon to see the Vault's Markdown, PDF and DOCX files. Click a node to select it and highlight its connections. Click it again to clear selection without changing the camera position or zoom; Shift+click opens its file. Use the right-panel button in the graph header to show or hide the file sidebar. The sidebar floats over the right edge of the canvas, so opening it never moves or resizes the graph. Drag nodes to arrange them, drag the background to pan, and scroll or use the zoom controls to explore the map. **Fit graph** shows the whole graph.
+
+Select a node or a file in the sidebar to show its details beside the node. The compact floating panel shows the file type, folder and total connection count, with actions to open or connect the file; close it with its × button or Escape. The right sidebar contains only search, type filters, and the file list. The sidebar and node details animate into view, respecting reduced-motion preferences. Drag the **+** handle above its node onto another file, or choose **Connect file** and select the target in the graph or searchable file list. The canvas supports arrow keys for panning, Escape to clear selection, and Enter for opening the selected file.
+
+Search by filename or path to highlight matching nodes on the canvas. Toggle **Markdown**, **PDF**, and **DOCX** to filter both the canvas and file list; search and filters live in the right sidebar, leaving the canvas below a compact header. **Clear filters** restores all files.
+
+Use **Undo graph change** and **Redo graph change** for node movements and connections created in this session. Ctrl+Z / ⌘Z and Ctrl+Shift+Z / ⌘Shift+Z work while the graph has focus; typing in search keeps its own text undo. History keeps up to 100 changes while the graph is open and resets when the graph is refreshed or reloaded. Undo and redo save automatically, including after an earlier change has already been saved.
+
+Connections and positions save automatically in `.adamant/graph.json`. This does not insert references into Markdown or modify PDF/DOCX originals or their companions. Existing annotation links remain in **Notes / Sources** and are separate from graph connections. Failed saves keep the current graph in the session and block closing or switching Vaults until resolved.
+
+The JSON is indented, versioned, and has stable node and connection keys. See the [graph contract](docs/graph-contract.md), [schema](schemas/graph.schema.json), and [editing instructions for agents](docs/edit-graph.md). Existing file UUIDs let nodes follow renames; files without UUIDs use paths, which must be corrected in the JSON after a move. Missing files remain visible with their connections.
 
 ### Give each project its own workspace
 
@@ -182,6 +196,7 @@ Adamant uses **React, TypeScript, and Vite inside Tauri 2**, with a Rust native 
 | `ui/features/work-context/` | Project workspaces, boards, local tasks, and provider item details |
 | `ui/features/connections/`  | Account setup and verification UI                                  |
 | `ui/features/markdown/`     | Editor, source preservation, reading preview, and related tests    |
+| `ui/features/graph/`        | Interactive file connections, layout, and graph persistence        |
 | `ui/features/documents/`    | PDF and DOCX viewers                                               |
 | `ui/features/navigation/`   | Search and navigation UI                                           |
 | `ui/features/interaction/`  | Menus, dialogs, selectors, calendars, and overlay behavior         |
@@ -210,7 +225,7 @@ Read the [Vault contract](docs/vault-contract.md) before changing persistence, f
 | M1 / M1.1 | Vaults, Markdown, saving, recovery, and file workflows                     | Implemented                                   |
 | M2        | Project workspaces, GitHub and Jira context, and explicit provider actions | Implemented; verification remains scoped      |
 | M3        | Document library and documentation capture                                 | Annotation links implemented; capture planned |
-| M4        | Knowledge navigation and relationships                                     | Planned                                       |
+| M4        | Knowledge navigation and relationships                                     | Graph implemented; broader navigation planned |
 | M5        | Local calendar and iCalendar support                                       | Planned                                       |
 | M6        | Today view for priorities and activities                                   | Planned                                       |
 | M7        | Portable desktop release                                                   | Planned                                       |
