@@ -47,15 +47,24 @@
   min-height: 0;
   padding: 22px;
   overflow: auto;
+  overflow-anchor: none;
   background: var(--reading);
 }
 
-.pdf-page {
+.pdf-page-extent {
   position: relative;
-  background: #fff;
-  color-scheme: light;
+  overflow: hidden;
   margin-inline: auto;
   box-shadow: 0 3px 16px hsl(0 0% 7.84% / 30%);
+}
+
+.pdf-page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  background: #fff;
+  color-scheme: light;
   --scale-round-x: 1px;
   --scale-round-y: 1px;
 }
