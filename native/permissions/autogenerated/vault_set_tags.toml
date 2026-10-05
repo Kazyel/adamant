@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-set-tags"
+description = "Enables the vault_set_tags command without any pre-configured scope."
+commands.allow = ["vault_set_tags"]
+
+[[permission]]
+identifier = "deny-vault-set-tags"
+description = "Denies the vault_set_tags command without any pre-configured scope."
+commands.deny = ["vault_set_tags"]

@@ -134,6 +134,10 @@ struct JournalChange {
     original: Vec<u8>,
     updated: Vec<u8>,
     applied: bool,
+    #[serde(default)]
+    item: Option<String>,
+    #[serde(default)]
+    survivor: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -814,6 +818,7 @@ impl Vault {
             self.validate_duplicate(roots)?;
         }
         let mut referrer_revisions = Vec::new();
+        let mut deletion_changes = Vec::new();
         if matches!(request.kind, MutationKind::Rename | MutationKind::Move) {
             let mut notes = Vec::new();
             collect_all_markdown_bounded(self, &mut notes)?;
@@ -832,12 +837,24 @@ impl Vault {
                 })
                 .collect();
         }
+        if request.kind == MutationKind::Trash {
+            (deletion_changes, referrer_revisions) = self.deletion_reference_changes(roots)?;
+        }
         let mut affected_paths = roots.clone();
-        affected_paths.extend(
-            referrer_revisions
-                .iter()
-                .map(|revision| revision.path.clone()),
-        );
+        if request.kind == MutationKind::Trash {
+            for change in &deletion_changes {
+                affected_paths.push(change.path.clone());
+                if is_companion_name(&change.path) {
+                    affected_paths.push(change.path.trim_end_matches(".meta.yaml").to_owned());
+                }
+            }
+        } else {
+            affected_paths.extend(
+                referrer_revisions
+                    .iter()
+                    .map(|revision| revision.path.clone()),
+            );
+        }
         affected_paths.sort();
         affected_paths.dedup();
         let plan = MutationPlan {
@@ -935,10 +952,14 @@ impl Vault {
         }
         if matches!(
             pending.request.kind,
-            MutationKind::Move | MutationKind::Rename
+            MutationKind::Move | MutationKind::Rename | MutationKind::Trash
         ) {
             let mut notes = Vec::new();
-            collect_all_markdown_bounded(self, &mut notes)?;
+            if pending.request.kind == MutationKind::Trash {
+                collect_all_metadata_bounded(self, &mut notes)?;
+            } else {
+                collect_all_markdown_bounded(self, &mut notes)?;
+            }
             let expected = pending
                 .plan
                 .referrer_revisions
@@ -952,7 +973,7 @@ impl Vault {
                 })
             {
                 return Err(VaultError::conflict(
-                    "Reference scope changed since preparation; prepare again before moving.",
+                    "Reference scope changed since preparation; prepare the operation again.",
                     None,
                 ));
             }
@@ -1103,6 +1124,27 @@ impl Vault {
                     }
                 }
             }
+            if pending.request.kind == MutationKind::Trash {
+                let (changes, revisions) =
+                    self.deletion_reference_changes(&pending.request.paths)?;
+                let expected = pending
+                    .plan
+                    .referrer_revisions
+                    .iter()
+                    .map(|entry| (&entry.path, &entry.revision))
+                    .collect::<HashMap<_, _>>();
+                if revisions.len() != expected.len()
+                    || revisions
+                        .iter()
+                        .any(|entry| expected.get(&entry.path).copied() != Some(&entry.revision))
+                {
+                    return Err(VaultError::conflict(
+                        "Deletion references changed while staging; no source was removed.",
+                        None,
+                    ));
+                }
+                journal.changes = changes;
+            }
             for (source, revision) in pending.request.paths.iter().zip(&pending.revisions) {
                 if logical_revision(&self.dir, source)? != *revision {
                     return Err(VaultError::conflict(
@@ -1141,10 +1183,84 @@ impl Vault {
                     original: text.into_bytes(),
                     updated: updated.into_bytes(),
                     applied: false,
+                    item: None,
+                    survivor: false,
                 });
             }
         }
         Ok(changes)
+    }
+
+    fn deletion_reference_changes(
+        &self,
+        roots: &[String],
+    ) -> VaultResult<(Vec<JournalChange>, Vec<RevisionEntry>)> {
+        let mut files = Vec::new();
+        collect_all_metadata_bounded(self, &mut files)?;
+        let revisions = files
+            .iter()
+            .map(|(path, text)| RevisionEntry {
+                path: path.clone(),
+                revision: super::hash(text.as_bytes()),
+            })
+            .collect();
+        let mut identities = HashMap::<String, Vec<String>>::new();
+        for (path, text) in &files {
+            let parsed = if is_companion_name(path) {
+                metadata::companion_metadata(text)
+            } else {
+                metadata::note_metadata(text)
+            };
+            if let Some(id) = parsed.id {
+                identities.entry(id).or_default().push(path.clone());
+            }
+        }
+        let mut changes = Vec::new();
+        let mut retained_bytes = 0usize;
+        for (index, root) in roots.iter().enumerate() {
+            let deleted = &roots[..=index];
+            let deleted_ids = identities
+                .iter()
+                .filter(|(_, paths)| paths.iter().all(|path| deletion_contains(deleted, path)))
+                .map(|(id, _)| id.clone())
+                .collect::<HashSet<_>>();
+            for (path, text) in &mut files {
+                if deletion_contains(deleted, path) {
+                    continue;
+                }
+                let note = !is_companion_name(path);
+                let unlinked = if note {
+                    super::deletion_links::unlink_markdown(text, path, deleted)?
+                } else {
+                    text.clone()
+                };
+                let updated = metadata::unlink_references(&unlinked, note, &deleted_ids)?;
+                if updated != *text {
+                    retained_bytes = retained_bytes
+                        .checked_add(text.len())
+                        .and_then(|size| size.checked_add(updated.len()))
+                        .ok_or_else(|| {
+                            VaultError::invalid("Deletion recovery staging is too large.")
+                        })?;
+                    if retained_bytes > 256 * 1024 * 1024 {
+                        return Err(VaultError::invalid(
+                            "Deletion reference recovery exceeds 256 MiB; choose a smaller scope.",
+                        ));
+                    }
+                    changes.push(JournalChange {
+                        path: path.clone(),
+                        expected_revision: super::hash(text.as_bytes()),
+                        original: text.as_bytes().to_vec(),
+                        updated: updated.as_bytes().to_vec(),
+                        applied: false,
+                        item: Some(root.clone()),
+                        survivor: deletion_contains(roots, path),
+                    });
+                    *text = updated;
+                }
+            }
+        }
+        Ok((changes, revisions))
     }
     fn resume_journal_item(
         &self,
@@ -1208,10 +1324,22 @@ impl Vault {
             affected_paths: recovery_versions(journal),
             recovery_id: None,
         };
-        for item in &journal.request.paths {
-            if let Err(error) =
-                self.resume_journal_item(admin, &transaction, journal, item, &mut result)
-            {
+        let mut attempted = 0;
+        for item in journal.request.paths.clone() {
+            attempted += 1;
+            let moved = self
+                .apply_surviving_selected_cleanup(
+                    &transaction,
+                    journals,
+                    journal,
+                    &result,
+                    Some(&item),
+                )
+                .and_then(|()| self.validate_trash_referrers(&transaction, journal, &item))
+                .and_then(|()| {
+                    self.resume_journal_item(admin, &transaction, journal, &item, &mut result)
+                });
+            if let Err(error) = moved {
                 result.outcomes.push(MutationOutcome {
                     path: item.clone(),
                     status: "failed".into(),
@@ -1221,13 +1349,45 @@ impl Vault {
                 result.recovery_id = Some(journal.id.clone());
                 break;
             }
+            if let Err(error) = self.apply_trash_referrers(&transaction, journals, journal, &item) {
+                result.outcomes.push(MutationOutcome {
+                    path: journal.id.clone(),
+                    status: "failed".into(),
+                    destination: None,
+                    message: Some(format!(
+                        "Reference cleanup for {item} needs recovery: {}",
+                        error.message
+                    )),
+                });
+                result.recovery_id = Some(journal.id.clone());
+                break;
+            }
         }
-        for path in journal.request.paths.iter().skip(result.outcomes.len()) {
+        for path in journal.request.paths.iter().skip(attempted) {
             result.outcomes.push(MutationOutcome {
                 path: path.clone(),
                 status: "unstarted".into(),
                 destination: None,
                 message: None,
+            });
+        }
+        if result.recovery_id.is_some()
+            && let Err(error) = self.apply_surviving_selected_cleanup(
+                &transaction,
+                journals,
+                journal,
+                &result,
+                None,
+            )
+        {
+            result.outcomes.push(MutationOutcome {
+                path: journal.id.clone(),
+                status: "failed".into(),
+                destination: None,
+                message: Some(format!(
+                    "Surviving references need recovery: {}",
+                    error.message
+                )),
             });
         }
         journal.completed = result.mappings.clone();
@@ -1243,6 +1403,9 @@ impl Vault {
         }
         if result.recovery_id.is_none() {
             for (index, change) in journal.changes.iter().enumerate() {
+                if change.item.is_some() {
+                    continue;
+                }
                 if let Err(error) = self.apply_change(&transaction, &journal.id, index, change) {
                     result.recovery_id = Some(journal.id.clone());
                     result.outcomes.push(MutationOutcome {
@@ -1292,6 +1455,126 @@ impl Vault {
         Ok(result)
     }
 
+    fn validate_trash_referrers(
+        &self,
+        transaction: &Dir,
+        journal: &Journal,
+        item: &str,
+    ) -> VaultResult<()> {
+        for (index, change) in journal.changes.iter().enumerate().filter(|(_, change)| {
+            change.item.as_deref() == Some(item) && !change.applied && !change.survivor
+        }) {
+            let path = if exists(&self.dir, &change.path)? {
+                (&self.dir, change.path.clone())
+            } else {
+                let local = sibling_stage(&change.path, &journal.id, &format!("referrer-{index}"));
+                if exists(&self.dir, &local)? {
+                    (&self.dir, local)
+                } else {
+                    (transaction, format!("referrer-{index}.original"))
+                }
+            };
+            let (parent, name) = open_path(path.0, &path.1, false)?;
+            let revision = super::hash(&capability::read_regular(&parent, &name)?);
+            if revision != change.expected_revision && revision != super::hash(&change.updated) {
+                return Err(VaultError::conflict(
+                    "A deletion referrer changed; no further source was removed. Recover retained versions explicitly.",
+                    None,
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn apply_trash_referrers(
+        &self,
+        transaction: &Dir,
+        journals: &Dir,
+        journal: &mut Journal,
+        item: &str,
+    ) -> VaultResult<()> {
+        for index in 0..journal.changes.len() {
+            let change = &journal.changes[index];
+            if change.item.as_deref() != Some(item) || change.applied || change.survivor {
+                continue;
+            }
+            self.apply_change(transaction, &journal.id, index, change)?;
+            journal.changes[index].applied = true;
+            replace_json(journals, &format!("{}.json", journal.id), journal)?;
+        }
+        Ok(())
+    }
+
+    fn apply_surviving_selected_cleanup(
+        &self,
+        transaction: &Dir,
+        journals: &Dir,
+        journal: &mut Journal,
+        result: &MutationResult,
+        capture_for: Option<&String>,
+    ) -> VaultResult<()> {
+        for index in 0..journal.changes.len() {
+            let change = &journal.changes[index];
+            if !change.survivor
+                || change.applied
+                || !result.outcomes.iter().any(|outcome| {
+                    outcome.status == "completed"
+                        && Some(outcome.path.as_str()) == change.item.as_deref()
+                })
+                || result.outcomes.iter().any(|outcome| {
+                    outcome.status == "completed"
+                        && deletion_contains(std::slice::from_ref(&outcome.path), &change.path)
+                })
+            {
+                continue;
+            }
+            let present = exists(&self.dir, &change.path)?;
+            if capture_for.is_some_and(|item| {
+                present || !deletion_contains(std::slice::from_ref(item), &change.path)
+            }) {
+                continue;
+            }
+            if !present
+                && !self.captured_survivor_exists(transaction, &journal.id, index, change)?
+            {
+                continue;
+            }
+            self.apply_change(transaction, &journal.id, index, change)?;
+            journal.changes[index].applied = true;
+            replace_json(journals, &format!("{}.json", journal.id), journal)?;
+        }
+        Ok(())
+    }
+
+    fn captured_survivor_exists(
+        &self,
+        transaction: &Dir,
+        id: &str,
+        index: usize,
+        change: &JournalChange,
+    ) -> VaultResult<bool> {
+        let local = sibling_stage(&change.path, id, &format!("referrer-{index}"));
+        let candidates = [
+            (&self.dir, local),
+            (transaction, format!("referrer-{index}.original")),
+        ];
+        for (root, path) in candidates {
+            if exists(root, &path)? {
+                let (parent, name) = open_path(root, &path, false)?;
+                if super::hash(&capability::read_regular(&parent, &name)?)
+                    != change.expected_revision
+                {
+                    return Err(VaultError::conflict(
+                        "Captured survivor differs from its approved revision; all versions were retained.",
+                        None,
+                    ));
+                }
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     fn resume_move(
         &self,
         admin: &Dir,
@@ -1329,10 +1612,29 @@ impl Vault {
                     && published_matches(
                         target_root,
                         &entry.target,
+                        &entry.target,
                         transaction,
                         &format!("backup-{index}"),
                         changes,
+                        false,
                     )?))
+        {
+            return Ok(());
+        }
+        if staged && source_exists && !entry.duplicate {
+            return Err(VaultError::conflict(
+                "Both source and private staging exist; neither was overwritten.",
+                None,
+            ));
+        }
+        if staged
+            && self.publish_cleaned_trash_source(
+                (admin, transaction),
+                (stage_root, &stage),
+                (id, index),
+                entry,
+                changes,
+            )?
         {
             return Ok(());
         }
@@ -1357,18 +1659,31 @@ impl Vault {
                     None,
                 ));
             }
-            if source_revision(source_root, &entry.source)? != entry.expected_revision {
+            if source_revision(source_root, &entry.source)? != entry.expected_revision
+                && !self.cleaned_trash_source_matches(
+                    source_root,
+                    &entry.source,
+                    transaction,
+                    index,
+                    entry,
+                    changes,
+                )?
+            {
                 return Err(VaultError::conflict(
                     format!("Newer source preserved at {}.", entry.source),
                     None,
                 ));
             }
             move_one(source_root, &entry.source, stage_root, &stage)?;
-        } else if source_exists && !entry.duplicate {
-            return Err(VaultError::conflict(
-                "Both source and private staging exist; neither was overwritten.",
-                None,
-            ));
+        }
+        if self.publish_cleaned_trash_source(
+            (admin, transaction),
+            (stage_root, &stage),
+            (id, index),
+            entry,
+            changes,
+        )? {
+            return Ok(());
         }
         if !source_revision(stage_root, &stage)
             .is_ok_and(|revision| revision == entry.output_revision)
@@ -1399,6 +1714,114 @@ impl Vault {
         Ok(())
     }
 
+    fn cleaned_trash_source_matches(
+        &self,
+        root: &Dir,
+        path: &str,
+        transaction: &Dir,
+        index: usize,
+        entry: &JournalMove,
+        changes: &[JournalChange],
+    ) -> VaultResult<bool> {
+        if !entry.target_admin
+            || entry.source_admin
+            || entry.duplicate
+            || !changes.iter().any(|change| {
+                change.survivor
+                    && change.applied
+                    && deletion_contains(std::slice::from_ref(&entry.source), &change.path)
+            })
+        {
+            return Ok(false);
+        }
+        published_matches(
+            root,
+            path,
+            &entry.source,
+            transaction,
+            &format!("backup-{index}"),
+            changes,
+            true,
+        )
+    }
+
+    fn publish_cleaned_trash_source(
+        &self,
+        roots: (&Dir, &Dir),
+        staging: (&Dir, &str),
+        operation: (&str, usize),
+        entry: &JournalMove,
+        changes: &[JournalChange],
+    ) -> VaultResult<bool> {
+        let (admin, transaction) = roots;
+        let (stage_root, stage) = staging;
+        let (id, index) = operation;
+        if source_revision(stage_root, stage)? == entry.output_revision
+            || !self.cleaned_trash_source_matches(
+                stage_root,
+                stage,
+                transaction,
+                index,
+                entry,
+                changes,
+            )?
+        {
+            return Ok(false);
+        }
+        if exists(&self.dir, &entry.source)? {
+            return Err(VaultError::conflict(
+                "The public source was recreated; cleaned staging and replacement were preserved.",
+                None,
+            ));
+        }
+        self.ensure_current_manifest()?;
+        let backup = format!("backup-{index}");
+        if source_revision(transaction, &backup)? != entry.expected_revision {
+            return Err(VaultError::conflict(
+                "The original Trash source changed in recovery storage; all versions were retained.",
+                None,
+            ));
+        }
+        if exists(admin, &entry.target)? {
+            if source_revision(admin, &entry.target)? != entry.output_revision {
+                return Err(VaultError::conflict(
+                    "Trash destination changed; original and cleaned source versions were retained.",
+                    None,
+                ));
+            }
+        } else {
+            let original = format!("trash-original-{index}");
+            copy_verified_tree(transaction, &backup, transaction, &original)?;
+            publish_entry(
+                transaction,
+                &original,
+                admin,
+                &entry.target,
+                &entry.output_revision,
+                id,
+                index,
+            )?;
+        }
+        if exists(&self.dir, &entry.source)?
+            || !self.cleaned_trash_source_matches(
+                stage_root,
+                stage,
+                transaction,
+                index,
+                entry,
+                changes,
+            )?
+        {
+            return Err(VaultError::conflict(
+                "Captured cleaned source changed during publication; retained versions need recovery.",
+                None,
+            ));
+        }
+        remove_tree(stage_root, Path::new(stage))?;
+        capability::sync_dir(stage_root)?;
+        Ok(true)
+    }
+
     fn apply_change(
         &self,
         transaction: &Dir,
@@ -1419,14 +1842,21 @@ impl Vault {
         let old_root = if local { &self.dir } else { transaction };
         let old = if local { local_old } else { backup.clone() };
         if exists(&self.dir, &change.path)? {
-            let current = self.read_note(&change.path)?;
-            if current.revision == super::hash(&change.updated) {
+            let (parent, name) = open_path(&self.dir, &change.path, false)?;
+            let bytes = capability::read_regular(&parent, &name)?;
+            let revision = super::hash(&bytes);
+            if revision == super::hash(&change.updated) {
                 return Ok(());
             }
-            if current.revision != change.expected_revision || exists(old_root, &old)? {
+            if revision != change.expected_revision || exists(old_root, &old)? {
+                let current = if capability::kind(Path::new(&change.path)) == "markdown" {
+                    Some(self.read_note(&change.path)?)
+                } else {
+                    None
+                };
                 return Err(VaultError::conflict(
                     "Referrer changed; staged versions and the current file were preserved.",
-                    Some(current),
+                    current,
                 ));
             }
             move_one(&self.dir, &change.path, old_root, &old)?;
@@ -1702,6 +2132,8 @@ impl Vault {
                         original: text.into_bytes(),
                         updated: updated.into_bytes(),
                         applied: false,
+                        item: None,
+                        survivor: false,
                     });
                 }
             }
@@ -1846,8 +2278,22 @@ impl Vault {
         }
         for change in &journal.changes {
             capability::relative(&change.path)?;
+            let survivor_order =
+                change
+                    .item
+                    .as_ref()
+                    .and_then(|item| journal.request.paths.iter().position(|root| root == item))
+                    .zip(journal.request.paths.iter().position(|root| {
+                        deletion_contains(std::slice::from_ref(root), &change.path)
+                    }));
             if is_admin_path(&change.path)
                 || super::hash(&change.original) != change.expected_revision
+                || (change.survivor
+                    && survivor_order.is_none_or(|(deleted, surviving)| deleted >= surviving))
+                || change.item.as_ref().is_some_and(|item| {
+                    journal.request.kind != MutationKind::Trash
+                        || !journal.request.paths.contains(item)
+                })
             {
                 return Err(VaultError::invalid(
                     "Recovery contains an invalid original revision or path.",
@@ -2509,6 +2955,15 @@ fn is_companion_name(path: &str) -> bool {
     path.strip_suffix(".meta.yaml")
         .is_some_and(|original| matches!(capability::kind(Path::new(original)), "pdf" | "docx"))
 }
+fn deletion_contains(roots: &[String], path: &str) -> bool {
+    roots.iter().any(|root| {
+        path == root
+            || path
+                .strip_prefix(root)
+                .is_some_and(|suffix| suffix.starts_with('/'))
+            || (is_companion_name(path) && path.strip_suffix(".meta.yaml") == Some(root.as_str()))
+    })
+}
 fn collect_markdown_bounded(
     root: &Dir,
     path: &str,
@@ -2681,7 +3136,7 @@ fn inline_destination(raw: &str) -> Option<(usize, usize)> {
     destination_span(raw, close + 2)
 }
 
-fn label_end(raw: &str) -> Option<usize> {
+pub(super) fn label_end(raw: &str) -> Option<usize> {
     let bytes = raw.as_bytes();
     let mut index = usize::from(raw.starts_with('!'));
     if bytes.get(index) != Some(&b'[') {
@@ -2799,33 +3254,11 @@ fn rewrite_target(
     new_referrer: &str,
     maps: &[(String, String)],
 ) -> Option<String> {
-    if target.is_empty()
-        || target.starts_with(['#', '?'])
-        || target.starts_with("//")
-        || target.split_once(':').is_some_and(|(scheme, _)| {
-            !scheme.is_empty()
-                && scheme.as_bytes()[0].is_ascii_alphabetic()
-                && scheme
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'-' | b'.'))
-        })
-    {
-        return None;
-    }
+    let resolved = local_link_target(target, old_referrer)?;
     let (path, suffix) = target
         .find(['#', '?'])
         .map_or((target, ""), |index| (&target[..index], &target[index..]));
     let root_relative = path.starts_with('/');
-    let decoded = percent_decode(path.trim_start_matches('/'))?;
-    if decoded.contains('\0') || decoded.contains('\\') {
-        return None;
-    }
-    let base = if root_relative {
-        Path::new("")
-    } else {
-        Path::new(old_referrer).parent().unwrap_or(Path::new(""))
-    };
-    let resolved = normalize(base.join(decoded))?;
     let mapped = remap_path(&resolved, maps);
     if mapped == resolved
         && (root_relative || Path::new(old_referrer).parent() == Path::new(new_referrer).parent())
@@ -2839,6 +3272,34 @@ fn rewrite_target(
         format_encoded(&relative_link(base, Path::new(&mapped)))
     };
     Some(rewritten + suffix)
+}
+
+pub(super) fn local_link_target(target: &str, referrer: &str) -> Option<String> {
+    if target.is_empty()
+        || target.starts_with(['#', '?'])
+        || target.starts_with("//")
+        || target.split_once(':').is_some_and(|(scheme, _)| {
+            !scheme.is_empty()
+                && scheme.as_bytes()[0].is_ascii_alphabetic()
+                && scheme
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'-' | b'.'))
+        })
+    {
+        return None;
+    }
+    let path = target.split(['#', '?']).next()?;
+    let root_relative = path.starts_with('/');
+    let decoded = percent_decode(path.trim_start_matches('/'))?;
+    if decoded.contains('\0') || decoded.contains('\\') {
+        return None;
+    }
+    let base = if root_relative {
+        Path::new("")
+    } else {
+        Path::new(referrer).parent().unwrap_or(Path::new(""))
+    };
+    normalize(base.join(decoded))
 }
 fn relative_link(base: &Path, target: &Path) -> String {
     let b = base
@@ -3184,26 +3645,42 @@ fn finish_restored_trash(admin: &Dir, journal: &Journal) -> VaultResult<()> {
 fn published_matches(
     root: &Dir,
     path: &str,
+    logical_path: &str,
     backups: &Dir,
     backup: &str,
     changes: &[JournalChange],
+    strict: bool,
 ) -> VaultResult<bool> {
     let (parent, name) = open_path(backups, backup, false)?;
     if entry_kind(&parent, &name)?.is_file() {
-        if let Some((index, change)) = changes
+        let matching = changes
             .iter()
             .enumerate()
-            .find(|(_, change)| change.path == path)
-        {
+            .filter(|(_, change)| {
+                change.path == logical_path && (!strict || (change.survivor && change.applied))
+            })
+            .collect::<Vec<_>>();
+        if !matching.is_empty() {
             if !exists(root, path)? {
-                let captured = format!("referrer-{index}.original");
-                return Ok(exists(backups, &captured)?
-                    && capability::read_regular(backups, Path::new(&captured))?
-                        == change.original);
+                if strict {
+                    return Ok(false);
+                }
+                for (index, change) in matching {
+                    let captured = format!("referrer-{index}.original");
+                    if exists(backups, &captured)?
+                        && capability::read_regular(backups, Path::new(&captured))?
+                            == change.original
+                    {
+                        return Ok(true);
+                    }
+                }
+                return Ok(false);
             }
             let (dir, name) = open_path(root, path, false)?;
             let bytes = capability::read_regular(&dir, &name)?;
-            return Ok(bytes == change.original || bytes == change.updated);
+            return Ok(matching
+                .iter()
+                .any(|(_, change)| bytes == change.original || bytes == change.updated));
         }
         return Ok(source_revision(root, path)? == source_revision(backups, backup)?);
     }
@@ -3218,7 +3695,7 @@ fn published_matches(
         .entries()?
         .map(|entry| entry.map(|entry| entry.file_name()))
         .collect::<Result<HashSet<_>, _>>()?;
-    if !current.is_subset(&names) {
+    if (strict && current != names) || !current.is_subset(&names) {
         return Ok(false);
     }
     for name in names {
@@ -3228,9 +3705,11 @@ fn published_matches(
         if !published_matches(
             root,
             &join_path(path, name),
+            &join_path(logical_path, name),
             backups,
             &join_path(backup, name),
             changes,
+            strict,
         )? {
             return Ok(false);
         }

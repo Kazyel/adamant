@@ -200,11 +200,13 @@ fn identified_read_refuses_replacement_without_rebinding_the_buffer() {
     )
     .unwrap();
     fs::write(fixture.root.join("unmanaged.md"), "Replacement bytes").unwrap();
-    assert!(
+    assert_eq!(
         fixture
             .vault
             .read_note_identified("unmanaged.md", &target.identity)
-            .is_err()
+            .unwrap_err()
+            .kind,
+        "conflict"
     );
     assert_eq!(
         fs::read_to_string(fixture.root.join("original.md")).unwrap(),
@@ -214,4 +216,146 @@ fn identified_read_refuses_replacement_without_rebinding_the_buffer() {
         fs::read_to_string(fixture.root.join("unmanaged.md")).unwrap(),
         "Replacement bytes"
     );
+}
+
+#[test]
+fn navigation_reports_confirmed_deletion_without_confusing_root_loss() {
+    use crate::vault::navigation::navigation_target;
+
+    let fixture = Fixture::new();
+    fixture.vault.create_folder("nested").unwrap();
+    let note = fixture.vault.create_note("nested/note.md", "Keep").unwrap();
+    let identity = navigation_target(&fixture.vault, &note.path)
+        .unwrap()
+        .identity;
+    for path in ["nested/paper.pdf", "nested/document.docx"] {
+        fs::write(fixture.root.join(path), b"original").unwrap();
+    }
+    fs::remove_file(fixture.root.join(&note.path)).unwrap();
+    assert_eq!(
+        fixture
+            .vault
+            .read_note_identified(&note.path, &identity)
+            .unwrap_err()
+            .kind,
+        "missing"
+    );
+    fs::remove_dir_all(fixture.root.join("nested")).unwrap();
+    for path in ["nested/note.md", "nested/paper.pdf", "nested/document.docx"] {
+        let error = match navigation_target(&fixture.vault, path) {
+            Ok(_) => panic!("Deleted target must not open"),
+            Err(error) => error,
+        };
+        assert_eq!(error.kind, "missing");
+    }
+    assert_eq!(
+        fixture
+            .vault
+            .read_note_identified(&note.path, &identity)
+            .unwrap_err()
+            .kind,
+        "missing"
+    );
+    assert_eq!(
+        fixture.vault.read_note(&note.path).unwrap_err().kind,
+        "conflict"
+    );
+    fs::rename(&fixture.root, fixture.root.with_extension("moved")).unwrap();
+    let error = match navigation_target(&fixture.vault, &note.path) {
+        Ok(_) => panic!("Unavailable Vault must not authorize navigation"),
+        Err(error) => error,
+    };
+    assert_ne!(error.kind, "missing");
+}
+
+#[cfg(unix)]
+#[test]
+fn navigation_does_not_classify_unsafe_links_as_deleted_documents() {
+    use crate::vault::navigation::navigation_target;
+
+    let fixture = Fixture::new();
+    std::os::unix::fs::symlink("missing-target", fixture.root.join("linked.pdf")).unwrap();
+    std::os::unix::fs::symlink("missing-folder", fixture.root.join("linked-folder")).unwrap();
+    for path in ["linked.pdf", "linked-folder/note.md"] {
+        let error = match navigation_target(&fixture.vault, path) {
+            Ok(_) => panic!("Unsafe linked target must not open"),
+            Err(error) => error,
+        };
+        assert_ne!(error.kind, "missing");
+    }
+}
+
+#[test]
+fn navigation_bundles_markdown_without_changing_source_or_identity() {
+    let fixture = Fixture::new();
+    for (path, text) in [
+        ("identified.md", identified("# Coração\r\n")),
+        ("unmanaged.md", "\u{feff}# 日本語\r\n".into()),
+        ("invalid.md", "---\nid: [unfinished\n---\n# Body\n".into()),
+    ] {
+        fs::write(fixture.root.join(path), &text).unwrap();
+        let target = crate::vault::navigation::navigation_target(&fixture.vault, path).unwrap();
+        let identity = target.identity.clone();
+        let response = target.into_response(true).unwrap();
+        let note = response.note.as_ref().unwrap();
+        assert_eq!(response.target.identity, identity);
+        assert_eq!(note.path, path);
+        assert_eq!(note.id, response.target.entry.id);
+        assert_eq!(note.text, text);
+        assert_eq!(note.revision, crate::vault::hash(text.as_bytes()));
+        assert_eq!(fs::read_to_string(fixture.root.join(path)).unwrap(), text);
+        let serialized = serde_json::to_value(&response).unwrap();
+        assert_eq!(serialized["identity"], identity);
+        assert_eq!(serialized["entry"]["path"], path);
+        assert_eq!(serialized["note"]["text"], text);
+    }
+}
+
+#[test]
+fn bundled_navigation_retains_the_open_file_when_its_path_is_replaced() {
+    let fixture = Fixture::new();
+    let path = fixture.root.join("unmanaged.md");
+    fs::write(&path, "Original bytes").unwrap();
+    let target =
+        crate::vault::navigation::navigation_target(&fixture.vault, "unmanaged.md").unwrap();
+    let identity = target.identity.clone();
+    fs::rename(&path, fixture.root.join("original.md")).unwrap();
+    fs::write(&path, "Replacement bytes").unwrap();
+    let response = target.into_response(true).unwrap();
+    assert_eq!(response.target.identity, identity);
+    assert_eq!(response.note.unwrap().text, "Original bytes");
+    let replacement = crate::vault::navigation::navigation_target(&fixture.vault, "unmanaged.md")
+        .unwrap()
+        .into_response(true)
+        .unwrap();
+    assert_ne!(replacement.target.identity, identity);
+    assert_eq!(replacement.note.unwrap().text, "Replacement bytes");
+
+    let text = identified("# Original\n");
+    fs::write(&path, text).unwrap();
+    let target =
+        crate::vault::navigation::navigation_target(&fixture.vault, "unmanaged.md").unwrap();
+    fs::write(&path, identified("# Replaced UUID\n")).unwrap();
+    assert!(target.into_response(true).is_err());
+}
+
+#[test]
+fn navigation_omits_content_for_metadata_requests_and_non_markdown_targets() {
+    let fixture = Fixture::new();
+    fs::write(fixture.root.join("note.md"), "# Body").unwrap();
+    fs::write(fixture.root.join("paper.pdf"), b"%PDF-1.7").unwrap();
+    fs::create_dir(fixture.root.join("folder")).unwrap();
+    for (path, include_note) in [("note.md", false), ("paper.pdf", true), ("folder", true)] {
+        let response = crate::vault::navigation::navigation_target(&fixture.vault, path)
+            .unwrap()
+            .into_response(include_note)
+            .unwrap();
+        assert!(response.note.is_none());
+        assert!(
+            serde_json::to_value(response)
+                .unwrap()
+                .get("note")
+                .is_none()
+        );
+    }
 }

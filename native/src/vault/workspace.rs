@@ -39,6 +39,8 @@ pub struct HistoryLocation {
     pub line: Option<u32>,
     pub column: Option<u32>,
     #[serde(default)]
+    pub page: Option<u32>,
+    #[serde(default)]
     pub identity: Option<String>,
 }
 
@@ -183,6 +185,10 @@ fn valid_workspace(state: &WorkspaceState) -> bool {
             navigation.recent.len() <= 100
                 && navigation.favorites.len() <= 100
                 && navigation.history.len() <= 100
+                && navigation
+                    .history
+                    .iter()
+                    .all(|location| location.page != Some(0))
                 && navigation.expanded.len() <= 100
                 && navigation.identities.len() <= 400
                 && navigation.favorite_identities.len() <= 100

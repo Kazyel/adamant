@@ -20,6 +20,7 @@ pub(crate) mod graph;
 pub(crate) mod imports;
 mod remembered;
 mod session;
+pub(crate) mod tags;
 pub(crate) mod usability;
 pub(crate) mod work_context;
 pub(crate) mod workspace;
@@ -184,6 +185,34 @@ pub(crate) async fn vault_read_note(
             None => active.vault.read_note(&path),
         },
     )
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn vault_note_links(
+    limits: Option<super::indexing::NoteLinkLimits>,
+    path: String,
+    expected_identity: Option<String>,
+    query: Option<String>,
+    state: State<'_, VaultState>,
+) -> VaultResult<super::indexing::NoteLinksSnapshot> {
+    with_vault(&state, state.generation(), move |active| {
+        let mut links = active.vault.note_links(
+            &path,
+            expected_identity.as_deref(),
+            query.as_deref().unwrap_or(""),
+            limits.unwrap_or_default(),
+        )?;
+        if active.background.has_pending_changes() {
+            for link in &mut links.outgoing {
+                if matches!(link.status, super::indexing::LinkStatus::Missing) {
+                    link.status = super::indexing::LinkStatus::Unindexed;
+                }
+            }
+        }
+        active.background.project_status(&mut links.indexing);
+        Ok(links)
+    })
     .await
 }
 

@@ -13,6 +13,7 @@ pub fn run() {
                 .get_webview_window("main")
                 .ok_or("The main window is unavailable.")?;
             window.set_zoom(1.1)?;
+
             Ok(())
         })
         .manage(documents::DocumentState::default())
@@ -45,6 +46,9 @@ pub fn run() {
             commands::graph::vault_graph,
             commands::graph::vault_save_graph,
             commands::annotations::vault_annotations,
+            commands::vault_note_links,
+            commands::tags::vault_tags,
+            commands::tags::vault_set_tags,
             commands::annotations::vault_change_annotation,
             commands::vault_save_note,
             commands::vault_save_copy,

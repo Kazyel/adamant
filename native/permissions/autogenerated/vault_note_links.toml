@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-note-links"
+description = "Enables the vault_note_links command without any pre-configured scope."
+commands.allow = ["vault_note_links"]
+
+[[permission]]
+identifier = "deny-vault-note-links"
+description = "Denies the vault_note_links command without any pre-configured scope."
+commands.deny = ["vault_note_links"]

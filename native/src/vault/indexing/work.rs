@@ -154,6 +154,9 @@ impl<'a> Work<'a> {
                 Err(error) => work.cache_error(error),
             }
         }
+        if work.full {
+            work.vault.invalidate_search_index();
+        }
         work
     }
 
@@ -204,8 +207,12 @@ impl<'a> Work<'a> {
         if !self.checkpoint() {
             return;
         }
-        self.vault.invalidate_search_index();
-        if !self.vault.inventory().put(row.clone()) {
+        let published = {
+            let mut inventory = self.vault.inventory();
+            self.vault.invalidate_search_path(&row.entry.path);
+            inventory.put(row.clone())
+        };
+        if !published {
             self.halted = true;
             self.partial(&row.entry.path, "The bounded in-memory entry, directory or metadata capacity was reached. Existing rows were retained.");
             return;
@@ -232,12 +239,13 @@ impl<'a> Work<'a> {
     }
 
     fn delete_subtree(&mut self, path: &str) {
-        self.vault.invalidate_search_index();
         for path in self.subtree_paths(path) {
             if !self.checkpoint() {
                 break;
             }
-            self.vault.inventory().remove(&path);
+            let mut inventory = self.vault.inventory();
+            self.vault.invalidate_search_path(&path);
+            inventory.remove(&path);
         }
         // Also invalidate cached rows from an earlier process that have not entered memory.
         self.pending.push(Delta::DeleteSubtree(path.into()));

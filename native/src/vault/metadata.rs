@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::{collections::HashSet, sync::LazyLock};
 
 use serde_json::Value;
 use uuid::Uuid;
@@ -42,6 +42,14 @@ fn frontmatter(text: &str) -> Result<Option<Frontmatter<'_>>, String> {
         end += line.len();
     }
     Err("The YAML frontmatter has no closing delimiter. Source remains editable.".into())
+}
+
+pub(super) fn note_body_start(text: &str) -> usize {
+    frontmatter(text).ok().flatten().map_or(0, |frontmatter| {
+        text[frontmatter.end..]
+            .find('\n')
+            .map_or(text.len(), |end| frontmatter.end + end + 1)
+    })
 }
 
 fn parse_yaml(yaml: &str) -> Result<Value, String> {
@@ -145,6 +153,88 @@ pub(crate) fn note_metadata(text: &str) -> Metadata {
 
 pub(crate) fn companion_metadata(text: &str) -> Metadata {
     inspect(parse_yaml(text), document_validator())
+}
+
+pub(super) fn unlink_references(
+    text: &str,
+    note: bool,
+    deleted_ids: &HashSet<String>,
+) -> VaultResult<String> {
+    if deleted_ids.is_empty() {
+        return Ok(text.to_owned());
+    }
+    let front = if note {
+        frontmatter(text).map_err(VaultError::invalid)?
+    } else {
+        None
+    };
+    if note && front.is_none() {
+        return Ok(text.to_owned());
+    }
+    let yaml = front.as_ref().map_or(text, |front| front.yaml);
+    let mut value = parse_yaml(yaml).map_err(VaultError::invalid)?;
+    let Some(refs) = value.get_mut("refs").and_then(Value::as_array_mut) else {
+        return Ok(text.to_owned());
+    };
+    let original_count = refs.len();
+    refs.retain(|reference| {
+        !matches!(
+            reference["kind"].as_str(),
+            Some("note" | "topic" | "document" | "documentation-page")
+        ) || reference["id"]
+            .as_str()
+            .and_then(|id| Uuid::parse_str(id).ok())
+            .is_none_or(|id| !deleted_ids.contains(&id.to_string()))
+    });
+    if refs.len() == original_count {
+        return Ok(text.to_owned());
+    }
+    let inspected = if note {
+        note_metadata(text)
+    } else {
+        companion_metadata(text)
+    };
+    if inspected.error.is_some() {
+        return Err(VaultError::invalid(
+            "Repair affected metadata before deleting its reference target.",
+        ));
+    }
+    let updated = super::annotations::sequence_field_text(yaml, "refs", &value)?;
+    if let Some(front) = front {
+        let mut result = text.to_owned();
+        result.replace_range(front.start..front.end, &updated);
+        return Ok(result);
+    }
+    Ok(updated)
+}
+
+pub(super) fn tagged_note(text: &str, tags: &[String]) -> VaultResult<String> {
+    let parsed = note_metadata(text);
+    if parsed.error.is_some() {
+        return Err(VaultError::invalid(
+            "Repair or adopt this Note before editing tags.",
+        ));
+    }
+    let mut value = parsed
+        .value
+        .ok_or_else(|| VaultError::invalid("Missing Note metadata."))?;
+    value["tags"] = serde_json::json!(tags);
+    let front = frontmatter(text)
+        .map_err(VaultError::invalid)?
+        .ok_or_else(|| VaultError::invalid("Missing Note frontmatter."))?;
+    let yaml = super::annotations::sequence_field_text(front.yaml, "tags", &value)?;
+    if yaml.len() as u64 > super::indexing::MAX_METADATA_BYTES {
+        return Err(VaultError::invalid("Note metadata exceeds 256 KiB."));
+    }
+    let mut result = text.to_owned();
+    result.replace_range(front.start..front.end, &yaml);
+    let after = note_metadata(&result);
+    if after.error.is_some() || after.value.as_ref() != Some(&value) {
+        return Err(VaultError::invalid(
+            "The Note metadata cannot be changed safely. Edit its tags in source.",
+        ));
+    }
+    Ok(result)
 }
 
 /// Insert only missing fields. Existing YAML spelling, comments, line endings and body are never serialized.

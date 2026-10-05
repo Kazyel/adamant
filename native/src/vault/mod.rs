@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 pub(crate) mod annotations;
 mod capability;
 pub(crate) mod commands;
+mod deletion_links;
 pub(crate) mod graph;
 mod indexing;
 mod lifecycle;
@@ -20,6 +21,7 @@ pub(crate) mod mutations;
 pub(crate) mod navigation;
 mod notes;
 mod persistence;
+pub(crate) mod tags;
 pub(crate) mod work_context;
 pub(crate) mod workspace;
 
@@ -49,6 +51,14 @@ impl VaultError {
     pub(crate) fn io(message: impl Into<String>) -> Self {
         Self {
             kind: "io",
+            message: message.into(),
+            current: None,
+        }
+    }
+
+    fn missing(message: impl Into<String>) -> Self {
+        Self {
+            kind: "missing",
             message: message.into(),
             current: None,
         }
@@ -132,6 +142,7 @@ pub struct Vault {
     state_dir: PathBuf,
     inventory: Mutex<Inventory>,
     body_index: Mutex<indexing::BodyIndex>,
+    document_index: Mutex<indexing::BodyIndex>,
     index_work: Mutex<()>,
     identity_writes: Mutex<()>,
 }
