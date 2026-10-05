@@ -16,6 +16,7 @@ for (const directory of ['cmaps', 'standard_fonts', 'wasm', 'iccs']) {
 export default defineConfig({
   clearScreen: false,
   publicDir: '.generated',
+  resolve: { alias: { '@': fileURLToPath(new URL('./ui', import.meta.url)) } },
   server: { host: '127.0.0.1', port: 1420, strictPort: true },
   build: { target: 'es2022' },
   worker: { format: 'es' },
