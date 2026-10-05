@@ -1,11 +1,21 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { resolveFontFamily, type FontFamily } from '../../shared/styles/fontFamilies';
 import GraphNodePopover from './GraphNodePopover';
-import type { GraphEdge } from './graphTypes';
+import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
+import type { GraphConnection } from './graphConnections';
 import { graphNeighbors, type GraphPoint } from './graphLayout';
-import { drawGraph, fitGraph, screenPoint, type Camera, type GraphDrag } from './graphDrawing';
+import {
+  drawGraph,
+  fitGraph,
+  graphNodeRadii,
+  screenPoint,
+  type Camera,
+  type GraphDrag,
+} from './graphDrawing';
 
 export default function GraphCanvas({
+  active,
   points,
   children,
   matches,
@@ -17,13 +27,16 @@ export default function GraphCanvas({
   onMove,
   onConnect,
   theme,
+  interfaceFont,
   connecting,
   disabled,
+  emptyMessage = 'No files of these types.',
 }: {
+  active: boolean;
   points: GraphPoint[];
   children?: ReactNode;
   matches: Set<string> | null;
-  edges: GraphEdge[];
+  edges: GraphConnection[];
   selected: string | null;
   onSelect: (key: string) => void;
   onCloseDetails: () => void;
@@ -31,21 +44,24 @@ export default function GraphCanvas({
   onMove: (key: string, x: number, y: number) => void;
   onConnect: (source: string, target: string) => void;
   theme: string;
+  interfaceFont?: FontFamily;
   connecting: boolean;
   disabled: boolean;
+  emptyMessage?: string;
 }) {
+  const fontFamily = resolveFontFamily(interfaceFont ?? 'inter');
   const canvas = useRef<HTMLCanvasElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
   const [storedCamera, setCamera] = useState<Camera | null>(null);
   const [drag, setDrag] = useState<GraphDrag | null>(null);
   const dragRef = useRef(drag);
-  const [initialPoints] = useState(points);
-  const camera = storedCamera ?? fitGraph(initialPoints, size);
+  const camera = storedCamera ?? fitGraph(points, size);
   const cameraRef = useRef(camera);
   useLayoutEffect(() => {
     cameraRef.current = camera;
   }, [camera]);
+  const radii = useMemo(() => graphNodeRadii(points, edges, selected), [points, edges, selected]);
   const neighbors = useMemo(() => graphNeighbors(selected, edges), [selected, edges]);
 
   useEffect(() => {
@@ -59,12 +75,12 @@ export default function GraphCanvas({
         return;
       }
       // Fit once. Resizing the viewport must not move the graph beneath the pointer.
-      setCamera((current) => current ?? fitGraph(initialPoints, next));
+      setCamera((current) => current ?? fitGraph(points, next));
       setSize(next);
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [initialPoints]);
+  }, [points]);
   useEffect(() => {
     const element = canvas.current;
     if (!element) {
@@ -84,22 +100,65 @@ export default function GraphCanvas({
     return () => element.removeEventListener('wheel', wheel);
   }, []);
   useLayoutEffect(() => {
-    if (canvas.current) {
-      drawGraph(canvas.current, points, edges, camera, size, selected, neighbors, drag, matches);
+    if (!active) {
+      return;
     }
-  }, [points, edges, camera, size, selected, neighbors, drag, theme, matches]);
+    let disposed = false;
+    const draw = () => {
+      if (!disposed && canvas.current) {
+        drawGraph(
+          canvas.current,
+          points,
+          edges,
+          camera,
+          size,
+          selected,
+          neighbors,
+          radii,
+          drag,
+          matches,
+        );
+      }
+    };
+    const frame = requestAnimationFrame(draw);
+    // Canvas text must be redrawn when an offline bundled face finishes loading.
+    const fontStyles = [400, 600].map((weight) => `${weight} 12px ${fontFamily}`);
+    if (!fontStyles.every((style) => document.fonts.check(style))) {
+      void Promise.all(fontStyles.map((style) => document.fonts.load(style))).then(
+        draw,
+        () => undefined,
+      );
+    }
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [
+    active,
+    points,
+    edges,
+    camera,
+    size,
+    selected,
+    neighbors,
+    radii,
+    drag,
+    theme,
+    matches,
+    fontFamily,
+  ]);
 
   function local(clientX: number, clientY: number) {
     const rect = canvas.current!.getBoundingClientRect();
     return { x: clientX - rect.left, y: clientY - rect.top };
   }
   function hit(x: number, y: number) {
-    let distance = 18;
+    let distance = Infinity;
     let nearest: GraphPoint | undefined;
     for (const point of points) {
       const at = screenPoint(point, camera);
       const next = Math.hypot(at.x - x, at.y - y);
-      if (next < distance) {
+      if (next < Math.max(18, radii.get(point.node.key)! + 4) && next < distance) {
         nearest = point;
         distance = next;
       }
@@ -112,7 +171,12 @@ export default function GraphCanvas({
     const source = points.find((item) => item.node.key === selected);
     const sourcePosition = source ? screenPoint(source, camera) : null;
     const handle =
-      sourcePosition && Math.hypot(sourcePosition.x - at.x, sourcePosition.y - 28 - at.y) < 12;
+      source &&
+      sourcePosition &&
+      Math.hypot(
+        sourcePosition.x - at.x,
+        sourcePosition.y - radii.get(source.node.key)! - 12 - at.y,
+      ) < 12;
     let kind: GraphDrag['kind'] = 'pan';
     let key: string | null = null;
     if (!disabled && handle) {
@@ -200,6 +264,7 @@ export default function GraphCanvas({
     <div className={`graph-canvas-host${connecting ? ' is-connecting' : ''}`} ref={host}>
       <canvas
         ref={canvas}
+        style={{ fontFamily }}
         tabIndex={0}
         role="img"
         aria-label="Interactive file graph. Click to select or deselect a node; Shift+click to open its file. Drag nodes to arrange them. Drag the plus handle above the selected node onto another file to connect. Drag the background to pan; scroll to zoom. The file list provides keyboard access."
@@ -257,23 +322,29 @@ export default function GraphCanvas({
       ) : null}
       {!points.length || matches?.size === 0 ? (
         <p className="graph-canvas-empty" role="status">
-          {!points.length ? 'No files of these types.' : 'No files match your search.'}
+          {!points.length ? emptyMessage : 'No files match your search.'}
         </p>
       ) : null}
-      <div className="graph-legend" aria-label="File types">
+      <div className="graph-legend" aria-label="File types and connection origins">
         <span data-kind="markdown">Markdown</span>
         <span data-kind="pdf">PDF</span>
         <span data-kind="docx">DOCX</span>
+        <span className="graph-edge-key" data-origin="manual">
+          Manual connection
+        </span>
+        <span className="graph-edge-key" data-origin="markdown">
+          Markdown link
+        </span>
       </div>
       <div className="graph-zoom" role="group" aria-label="Graph controls">
         <button type="button" aria-label="Zoom out" onClick={() => zoom(1 / 1.3)}>
-          −
+          <WorkspaceIcon name="minimize" />
         </button>
         <button type="button" onClick={() => setCamera(fitGraph(points, size))}>
           Fit graph
         </button>
         <button type="button" aria-label="Zoom in" onClick={() => zoom(1.3)}>
-          +
+          <WorkspaceIcon name="plus" />
         </button>
         {selected ? (
           <button type="button" onClick={focusSelected}>

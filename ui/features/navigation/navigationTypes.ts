@@ -2,6 +2,7 @@ export type NavigationDocument = {
   path: string;
   line?: number | null;
   column?: number | null;
+  page?: number | null;
   identity?: string | null;
 };
 export type SearchMode = 'path' | 'content';
@@ -14,6 +15,7 @@ export type SearchHit = {
   column: number | null;
   snippet: string;
   revision: string | null;
+  page?: number | null;
 };
 type IndexState = {
   state: 'indexing' | 'ready' | 'partial' | 'stale' | 'cancelled';
@@ -44,7 +46,12 @@ function encodePath(path: string) {
   return path
     .split('/')
     .filter(Boolean)
-    .map((part) => encodeURIComponent(part))
+    .map((part) =>
+      encodeURIComponent(part).replace(
+        /[!'()*]/g,
+        (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+      ),
+    )
     .join('/');
 }
 

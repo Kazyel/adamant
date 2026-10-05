@@ -1,4 +1,5 @@
 import type { GraphEdge } from './graphTypes';
+import type { GraphConnection } from './graphConnections';
 import type { GraphPoint } from './graphLayout';
 
 export interface Camera {
@@ -53,11 +54,39 @@ export function screenPoint(point: { x: number; y: number }, camera: Camera) {
   return { x: point.x * camera.scale + camera.x, y: point.y * camera.scale + camera.y };
 }
 
+export function graphNodeRadii(
+  points: readonly GraphPoint[],
+  edges: readonly GraphEdge[],
+  selected: string | null,
+) {
+  const connections = new Map(points.map((point) => [point.node.key, new Set<string>()]));
+  for (const edge of edges) {
+    if (edge.source === edge.target) {
+      continue;
+    }
+    const source = connections.get(edge.source);
+    const target = connections.get(edge.target);
+    if (source && target) {
+      source.add(edge.target);
+      target.add(edge.source);
+    }
+  }
+  return new Map(
+    [...connections].map(([key, neighbors]) => [
+      key,
+      // Square-root growth keeps hubs visible without letting them dominate the canvas.
+      7 + Math.min(7, Math.sqrt(neighbors.size) * 2) + (key === selected ? 2 : 0),
+    ]),
+  );
+}
+
 function drawEdge(
   context: CanvasRenderingContext2D,
   a: { x: number; y: number },
   b: { x: number; y: number },
   size: GraphSize,
+  sourceInset = 0,
+  targetInset = 0,
 ) {
   if (
     Math.max(a.x, b.x) < 0 ||
@@ -67,10 +96,38 @@ function drawEdge(
   ) {
     return;
   }
+  const distance = Math.hypot(b.x - a.x, b.y - a.y);
+  if (distance <= sourceInset + targetInset) {
+    return;
+  }
+  const dx = (b.x - a.x) / distance;
+  const dy = (b.y - a.y) / distance;
   context.beginPath();
-  context.moveTo(a.x, a.y);
-  context.lineTo(b.x, b.y);
+  context.moveTo(a.x + dx * sourceInset, a.y + dy * sourceInset);
+  context.lineTo(b.x - dx * targetInset, b.y - dy * targetInset);
   context.stroke();
+}
+
+function drawNodeShape(
+  context: CanvasRenderingContext2D,
+  kind: GraphPoint['node']['kind'],
+  x: number,
+  y: number,
+  radius: number,
+) {
+  context.beginPath();
+  if (kind === 'pdf') {
+    const half = radius * 0.78;
+    context.roundRect(x - half, y - half, half * 2, half * 2, 3);
+  } else if (kind === 'docx') {
+    context.moveTo(x, y - radius - 1);
+    context.lineTo(x + radius + 1, y);
+    context.lineTo(x, y + radius + 1);
+    context.lineTo(x - radius - 1, y);
+    context.closePath();
+  } else {
+    context.arc(x, y, radius, 0, Math.PI * 2);
+  }
 }
 
 function drawNode(
@@ -80,47 +137,82 @@ function drawNode(
   selected: boolean,
   color: string,
   textColor: string,
+  surface: string,
   label: boolean,
+  width: number,
+  radius: number,
+  fontFamily: string,
 ) {
   const { x, y } = position;
-  const radius = selected ? 9 : 6;
-  context.fillStyle = color;
-  context.beginPath();
-  if (point.node.kind === 'pdf') {
-    context.rect(x - radius, y - radius, radius * 2, radius * 2);
-  } else if (point.node.kind === 'docx') {
-    context.moveTo(x, y - radius - 2);
-    context.lineTo(x + radius + 2, y);
-    context.lineTo(x, y + radius + 2);
-    context.lineTo(x - radius - 2, y);
-    context.closePath();
-  } else {
-    context.arc(x, y, radius, 0, Math.PI * 2);
-  }
-  context.fill();
+  const alpha = context.globalAlpha;
+
   if (selected) {
-    context.strokeStyle = textColor;
-    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(x, y, radius + 3, 0, Math.PI * 2);
+    context.strokeStyle = color;
+    context.globalAlpha = alpha * 0.5;
+    context.lineWidth = 1;
     context.stroke();
   }
+  drawNodeShape(context, point.node.kind, x, y, radius);
+  context.globalAlpha = alpha;
+  context.fillStyle = color;
+  context.shadowColor = color;
+  context.shadowBlur = selected ? 10 : 0;
+  context.fill();
+  context.shadowBlur = 0;
+
+  const light = context.createLinearGradient(x - radius, y - radius, x + radius, y + radius);
+  light.addColorStop(0, 'rgb(255 255 255 / 45%)');
+  light.addColorStop(0.4, 'rgb(255 255 255 / 6%)');
+  light.addColorStop(0.65, 'rgb(0 0 0 / 0%)');
+  light.addColorStop(1, 'rgb(0 0 0 / 24%)');
+  context.fillStyle = light;
+  context.fill();
+
+  const rim = context.createLinearGradient(x, y - radius, x, y + radius);
+  rim.addColorStop(0, 'rgb(255 255 255 / 65%)');
+  rim.addColorStop(0.5, 'rgb(255 255 255 / 12%)');
+  rim.addColorStop(1, 'rgb(0 0 0 / 25%)');
+  context.strokeStyle = rim;
+  context.lineWidth = 1;
+  context.stroke();
+
   if (label) {
     const name = point.node.path.split('/').at(-1) ?? point.node.path;
-    context.font = `${selected ? 600 : 400} 12px "Adamant Sans", sans-serif`;
+    const text = name.length > 32 ? `${name.slice(0, 29)}…` : name;
+    context.font = `${selected ? 600 : 400} 12px ${fontFamily}`;
+    const labelWidth = context.measureText(text).width + (selected ? 16 : 0);
+    const offset = radius + 10;
+    const labelX = x + offset + labelWidth > width - 16 ? x - offset - labelWidth : x + offset;
+    if (selected) {
+      context.beginPath();
+      context.roundRect(labelX, y - 14, labelWidth, 28, 6);
+      context.fillStyle = surface;
+      context.fill();
+      context.globalAlpha = alpha * 0.3;
+      context.strokeStyle = color;
+      context.lineWidth = 1;
+      context.stroke();
+      context.globalAlpha = alpha;
+    }
     context.fillStyle = textColor;
-    context.fillText(name.length > 32 ? `${name.slice(0, 29)}…` : name, x + 16, y + 5);
+    context.fillText(text, labelX + (selected ? 8 : 0), y + 4);
   }
   if (selected) {
-    context.fillStyle = color;
+    const handleY = y - radius - 12;
+    context.fillStyle = surface;
     context.beginPath();
-    context.arc(x, y - 28, 7, 0, Math.PI * 2);
+    context.arc(x, handleY, 8, 0, Math.PI * 2);
     context.fill();
-    context.strokeStyle = textColor;
+    context.strokeStyle = color;
     context.lineWidth = 1;
+    context.stroke();
     context.beginPath();
-    context.moveTo(x - 3, y - 28);
-    context.lineTo(x + 3, y - 28);
-    context.moveTo(x, y - 31);
-    context.lineTo(x, y - 25);
+    context.moveTo(x - 3, handleY);
+    context.lineTo(x + 3, handleY);
+    context.moveTo(x, handleY - 3);
+    context.lineTo(x, handleY + 3);
     context.stroke();
   }
 }
@@ -139,11 +231,12 @@ function resizeCanvas(element: HTMLCanvasElement, size: GraphSize, ratio: number
 export function drawGraph(
   element: HTMLCanvasElement,
   points: GraphPoint[],
-  edges: GraphEdge[],
+  edges: GraphConnection[],
   camera: Camera,
   size: GraphSize,
   selected: string | null,
   neighbors: Set<string>,
+  radii: ReadonlyMap<string, number>,
   drag: GraphDrag | null,
   matches: Set<string> | null = null,
 ) {
@@ -161,6 +254,11 @@ export function drawGraph(
     markdown: color('--provider-blue'),
     pdf: color('--amber'),
     docx: color('--success'),
+    focus: color('--focus'),
+    edge: color('--control-border'),
+    error: color('--error'),
+    text: color('--text'),
+    surface: color('--surface'),
   };
   const positions = new Map(
     points.map((point) => {
@@ -179,17 +277,20 @@ export function drawGraph(
       continue;
     }
     const active = edge.source === selected || edge.target === selected;
-    context.strokeStyle = color(active ? '--focus' : '--control-border');
+    context.strokeStyle = active ? colors.focus : colors.edge;
     context.globalAlpha = edgeOpacity(edge, selected, matches);
-    context.lineWidth = active ? 1.8 : 1;
-    drawEdge(context, a, b, size);
+    context.lineWidth = active ? 1.6 : 1;
+    context.lineCap = 'round';
+    context.setLineDash(edge.manual ? [] : [5, 4]);
+    drawEdge(context, a, b, size, radii.get(edge.source)! + 2, radii.get(edge.target)! + 2);
   }
+  context.setLineDash([]);
   drawNodes();
   if (drag?.kind === 'link' && drag.key) {
     const source = positions.get(drag.key);
     if (source) {
       context.globalAlpha = 1;
-      context.strokeStyle = color('--focus');
+      context.strokeStyle = colors.focus;
       context.setLineDash([5, 4]);
       drawEdge(context, source, { x: drag.x, y: drag.y }, size);
       context.setLineDash([]);
@@ -217,8 +318,8 @@ export function drawGraph(
       context.globalAlpha = emphasis.alpha;
       if (matched) {
         context.beginPath();
-        context.arc(position.x, position.y, 14, 0, Math.PI * 2);
-        context.strokeStyle = color('--focus');
+        context.arc(position.x, position.y, radii.get(point.node.key)! + 3, 0, Math.PI * 2);
+        context.strokeStyle = colors.focus;
         context.lineWidth = 2;
         context.stroke();
       }
@@ -227,9 +328,13 @@ export function drawGraph(
         point,
         position,
         active,
-        point.node.problem ? color('--error') : colors[point.node.kind],
-        color('--text'),
+        point.node.problem ? colors.error : colors[point.node.kind],
+        colors.text,
+        colors.surface,
         emphasis.label,
+        size.width,
+        radii.get(point.node.key)!,
+        style.fontFamily,
       );
     }
   }
@@ -239,7 +344,10 @@ function edgeOpacity(edge: GraphEdge, selected: string | null, matches: Set<stri
   if (matches && !matches.has(edge.source) && !matches.has(edge.target)) {
     return 0.08;
   }
-  return selected && edge.source !== selected && edge.target !== selected ? 0.2 : 0.6;
+  if (selected && edge.source !== selected && edge.target !== selected) {
+    return 0.15;
+  }
+  return selected ? 0.85 : 0.45;
 }
 
 function nodeEmphasis(
@@ -257,7 +365,7 @@ function nodeEmphasis(
   const related = neighbors.has(key);
   return {
     matched: false,
-    alpha: selected && !related ? 0.35 : 1,
+    alpha: selected && !related && !active ? 0.28 : 1,
     label: scale > 0.45 || active || related,
   };
 }

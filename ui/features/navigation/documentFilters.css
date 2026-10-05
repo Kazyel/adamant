@@ -1,0 +1,219 @@
+.document-filters {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.document-filter-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 28px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.document-filters > label,
+.document-tag-input > label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.document-filter-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 4px 0;
+}
+.document-filter-kinds label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.document-tag-input {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.document-tag-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.document-tag-entry input {
+  min-width: 0;
+  flex: 1;
+}
+.document-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.document-tags li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding-left: 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.document-tags li > span {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.document-tags .icon-button {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+}
+.document-tag-input [role='alert'] {
+  margin: 0;
+  color: var(--error);
+  font-size: 12px;
+}
+.navigation-filter-toggle {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  padding: 8px;
+  border-color: var(--edge-soft);
+  background: var(--reading);
+  color: var(--muted);
+}
+
+.navigation-filter-toggle[aria-expanded='true'],
+.navigation-filter-toggle[data-active='true'] {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.navigation-filter-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  border: 2px solid var(--surface);
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--base);
+  font-size: 10px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.navigation-filter-content {
+  grid-column: 1 / -1;
+  min-width: 0;
+  max-height: min(36dvh, 270px);
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid var(--edge-soft);
+  border-radius: 9px;
+  background: var(--reading);
+}
+
+.navigation-filter-content[hidden] {
+  display: none;
+}
+
+.navigation-filter-content .document-filters {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 16px;
+}
+
+.navigation-filter-content .document-filter-heading {
+  grid-column: 1 / -1;
+}
+
+.navigation-filter-content .document-filters > label {
+  grid-column: 1;
+}
+
+.navigation-filter-content .document-filters > input {
+  grid-column: 1;
+}
+
+.navigation-filter-content .document-tag-input {
+  grid-column: 2;
+  grid-row: 2 / 4;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.navigation-filter-content .document-tag-input > label {
+  order: -2;
+}
+
+.navigation-filter-content .document-tag-entry {
+  order: -1;
+}
+
+.navigation-filter-content .document-filter-kinds {
+  grid-column: 1 / -1;
+  gap: 6px;
+  padding: 5px 0 0;
+}
+
+.navigation-filter-content .document-filter-kinds label {
+  gap: 7px;
+  padding: 6px 9px;
+  border: 1px solid var(--edge-soft);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.navigation-filter-content .navigation-coverage,
+.navigation-filter-content > [role='status'] {
+  margin: 10px 0 0;
+  font-size: 11px;
+}
+
+@media (max-width: 560px) {
+  .navigation-filter-content .document-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .navigation-filter-content .document-filter-heading,
+  .navigation-filter-content .document-filters > label,
+  .navigation-filter-content .document-filters > input,
+  .navigation-filter-content .document-tag-input,
+  .navigation-filter-content .document-filter-kinds {
+    grid-column: 1;
+  }
+
+  .navigation-filter-content .document-tag-input {
+    grid-row: auto;
+  }
+}
+.document-tags-form {
+  display: grid;
+  gap: 16px;
+}
+.document-tags-form > p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.note-template-picker {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.note-template-picker label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.note-template-picker p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}

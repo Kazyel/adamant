@@ -1,7 +1,12 @@
+import {
+  emptyDocumentFilters,
+  hasDocumentFilters,
+  type DocumentFiltersState,
+} from './documentFilters.ts';
 import { useCallback, useRef, useState } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
-import { errorMessage } from '../../shared/errors';
+import { errorMessage } from '../../shared/errors.ts';
 import type {
   NavigationDocument,
   NavigationState,
@@ -29,6 +34,7 @@ type SearchRequest = {
   query: string;
   offset: number;
   controller: AbortController;
+  filters: DocumentFiltersState;
 };
 export interface NavigationController {
   state: NavigationState;
@@ -40,7 +46,7 @@ export interface NavigationController {
   currentDocument: NavigationDocument | null;
   canBack: boolean;
   canForward: boolean;
-  search: (query: string, mode: SearchMode) => Promise<void>;
+  search: (query: string, mode: SearchMode, filters?: DocumentFiltersState) => Promise<void>;
   continueSearch: () => Promise<void>;
   loadMoreSearch: () => Promise<void>;
   cancelSearch: () => void;
@@ -49,6 +55,7 @@ export interface NavigationController {
   rememberTarget: (path: string, identity: string) => void;
   toggleFavorite: (path: string, identity?: string | null) => void;
   remapPaths: (mappings: ReadonlyArray<{ from: string; to: string; id?: string | null }>) => void;
+  removePaths: (paths: readonly string[]) => void;
   missing: ReadonlySet<string>;
   markMissing: (path: string, value?: boolean) => void;
   back: () => void;
@@ -60,6 +67,7 @@ function sameDocument(left: NavigationDocument, right: NavigationDocument) {
     left.path === right.path &&
     left.line === right.line &&
     left.column === right.column &&
+    (left.page ?? null) === (right.page ?? null) &&
     left.identity === right.identity
   );
 }
@@ -88,6 +96,7 @@ function sortHits(hits: SearchHit[], mode: SearchMode): SearchHit[] {
         numeric: true,
         sensitivity: mode === 'path' ? 'base' : 'variant',
       }) ||
+      (a.page ?? 0) - (b.page ?? 0) ||
       (a.line ?? 0) - (b.line ?? 0) ||
       (a.column ?? 0) - (b.column ?? 0),
   );
@@ -269,6 +278,7 @@ export function useNavigation(initialState: Partial<NavigationState> = {}): Navi
         offset,
         limit: 50,
         expectedGeneration,
+        filters: current.filters,
       });
       if (request.current?.id !== current.id || current.controller.signal.aborted) {
         return null;
@@ -295,7 +305,11 @@ export function useNavigation(initialState: Partial<NavigationState> = {}): Navi
   );
 
   const search = useCallback(
-    async (query: string, mode: SearchMode) => {
+    async (
+      query: string,
+      mode: SearchMode,
+      filters: DocumentFiltersState = emptyDocumentFilters,
+    ) => {
       const previous = request.current;
       previous?.controller.abort();
       if (previous) {
@@ -303,7 +317,8 @@ export function useNavigation(initialState: Partial<NavigationState> = {}): Navi
       }
       const current: SearchRequest = {
         id: crypto.randomUUID(),
-        mode,
+        mode: query.trim() ? mode : 'path',
+        filters,
         query,
         offset: 0,
         controller: new AbortController(),
@@ -313,7 +328,7 @@ export function useNavigation(initialState: Partial<NavigationState> = {}): Navi
       setResults([]);
       setSearchPage(null);
       setSearchStatus(null);
-      if (!isTauri() || !query.trim()) {
+      if (!isTauri() || (!query.trim() && !hasDocumentFilters(filters))) {
         request.current = null;
         setSearchStatus(null);
         return;
@@ -403,6 +418,67 @@ export function useNavigation(initialState: Partial<NavigationState> = {}): Navi
     setMissing(new Set());
   }, [cancelSearch]);
 
+  const removePaths = useCallback(
+    (paths: readonly string[]) => {
+      const roots = paths.filter(Boolean);
+      if (!roots.length) {
+        return;
+      }
+      const removed = (path: string) =>
+        roots.some((root) => path === root || path.startsWith(`${root}/`));
+      setState((current) => {
+        const history = current.history.filter((entry) => !removed(entry.path));
+        const retainedIndex =
+          current.history.slice(0, current.historyIndex + 1).filter((entry) => !removed(entry.path))
+            .length - 1;
+        return {
+          ...current,
+          recent: current.recent.filter((path) => !removed(path)),
+          favorites: current.favorites.filter((path) => !removed(path)),
+          expanded: current.expanded.filter((path) => !removed(path)),
+          identities: Object.fromEntries(
+            Object.entries(current.identities).filter(([path]) => !removed(path)),
+          ),
+          favoriteIdentities: Object.fromEntries(
+            Object.entries(current.favoriteIdentities).filter(([path]) => !removed(path)),
+          ),
+          history,
+          historyIndex:
+            current.historyIndex < 0
+              ? -1
+              : Math.min(Math.max(0, retainedIndex), history.length - 1),
+        };
+      });
+      setMissing((current) => new Set([...current].filter((path) => !removed(path))));
+      // Retire the old index generation before it can reintroduce deleted hits.
+      if (request.current) {
+        cancelSearch();
+      }
+      resultsRef.current = resultsRef.current.filter((hit) => !removed(hit.path));
+      setResults(resultsRef.current);
+      setSearchPage((page) =>
+        page
+          ? {
+              ...page,
+              hits: page.hits.filter((hit) => !removed(hit.path)),
+              hasMore: false,
+              canContinue: false,
+            }
+          : null,
+      );
+      setSearchStatus((status) =>
+        status
+          ? {
+              ...status,
+              state: 'stale',
+              message: 'Documents changed. Search again to refresh the results.',
+            }
+          : null,
+      );
+    },
+    [cancelSearch, setState],
+  );
+
   const back = useCallback(
     () =>
       setState((current) => ({
@@ -444,6 +520,7 @@ export function useNavigation(initialState: Partial<NavigationState> = {}): Navi
     rememberTarget,
     toggleFavorite,
     remapPaths,
+    removePaths,
     missing,
     markMissing,
     back,

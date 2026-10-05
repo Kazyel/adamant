@@ -8,6 +8,7 @@ function node(key: string, kind: GraphNode['kind'] = 'markdown'): GraphNode {
     key,
     path: `content/${key}`,
     kind,
+    tags: [],
     id: null,
     identity: `file:${key}`,
     problem: null,
@@ -49,6 +50,11 @@ void test('graph JSON contains portable file references and positions, not docum
   const snapshot: GraphSnapshot = {
     nodes: [node('a.md'), node('b.pdf', 'pdf')],
     edges: [{ id: 'edge', source: 'a.md', target: 'b.pdf' }],
+    references: {
+      edges: [{ source: 'a.md', target: 'b.pdf' }],
+      indexing: { state: 'ready', scannedEntries: 2, indexedDocuments: 2, message: null },
+      canContinue: false,
+    },
     revision: 5,
     generation: 9,
     complete: true,

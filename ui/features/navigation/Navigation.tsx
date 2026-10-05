@@ -1,9 +1,11 @@
 import SearchField from '../../shared/ui/SearchField';
 import { useEffect, useId, useRef, useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import type { SearchHit, SearchMode, SearchPage } from './navigationTypes';
 import './navigation.css';
+import { quickOpenItems } from './quickOpen';
+import type { QuickOpenItem } from './quickOpen';
 
 export function Breadcrumbs({
   path,
@@ -48,6 +50,7 @@ export function Breadcrumbs({
 
 type SearchFeedbackProps = {
   query: string;
+  filtered?: boolean;
   pending?: boolean;
   status?: SearchPage['indexing'] | null;
   hasMore?: boolean;
@@ -133,7 +136,7 @@ function SearchContinuation({
 }
 
 function SearchFeedback(props: SearchFeedbackProps) {
-  if (!props.query.trim()) {
+  if (!props.query.trim() && !props.filtered) {
     return null;
   }
   return (
@@ -149,24 +152,27 @@ function SearchEmptyState({
   status,
   coverageIncomplete,
   mode,
-}: Pick<SearchFeedbackProps, 'query' | 'status' | 'coverageIncomplete'> & {
+  filtered,
+}: Pick<SearchFeedbackProps, 'query' | 'status' | 'coverageIncomplete' | 'filtered'> & {
   mode: SearchMode | 'recent';
 }) {
   let title = 'No matches found';
   let description = 'Try a different search.';
-  if (!query.trim()) {
+  if (!query.trim() && !filtered) {
     title = 'Search your Vault';
     description = 'Find Markdown, PDF and DOCX documents by their name or location.';
     if (mode === 'recent') {
       title = 'No recent documents';
       description = 'Open a document from the explorer, or search this Vault above.';
     } else if (mode === 'content') {
-      description =
-        'Find text in Markdown documents. Search names and paths to also find PDFs and DOCX files.';
+      description = 'Find text in Markdown notes and extracted PDF and DOCX content.';
     }
   } else {
     if (status && status.state !== 'ready') {
       title = 'No results yet';
+    }
+    if (filtered) {
+      description = 'Try removing a filter or changing your search.';
     }
     if (coverageIncomplete) {
       description = 'Continue searching the remaining documents, or try a different search.';
@@ -192,10 +198,37 @@ function ResultPath({ path }: { path: string }) {
   );
 }
 
+function highlightedText(value: string, query: string) {
+  const term = query.trim();
+  const index = term ? value.toLocaleLowerCase().indexOf(term.toLocaleLowerCase()) : -1;
+  if (index < 0) {
+    return value;
+  }
+  return (
+    <>
+      {value.slice(0, index)}
+      <mark>{value.slice(index, index + term.length)}</mark>
+      {value.slice(index + term.length)}
+    </>
+  );
+}
+
+function quickOpenStatus(item: QuickOpenItem, activeId: string | null, unavailable: boolean) {
+  if (item.kind === 'path') {
+    return unavailable ? 'Unavailable' : '';
+  }
+  if (item.dirty) {
+    return 'Unsaved';
+  }
+  return item.tabId === activeId ? 'Active' : 'Open';
+}
+
 type QuickOpenProps = SearchFeedbackProps & {
   onQuery: (value: string) => void;
   recent: string[];
-  onOpen: (path: string) => void;
+  onOpen: (item: QuickOpenItem) => void;
+  openTabs: Parameters<typeof quickOpenItems>[0];
+  activeId: string | null;
   items?: string[];
   missing?: ReadonlySet<string>;
 };
@@ -205,24 +238,24 @@ export function QuickOpen({
   onQuery,
   recent,
   onOpen,
+  openTabs,
+  activeId,
   items,
   missing,
   ...feedback
 }: QuickOpenProps) {
   const searching = !!query.trim();
   const candidates = searching ? (items ?? recent) : recent;
-  const normalized = query.toLocaleLowerCase();
-  const shown = candidates.filter(
-    (path) => !searching || path.toLocaleLowerCase().includes(normalized),
-  );
-  const [selection, setSelection] = useState<{ query: string; path: string | null }>({
+  const shown = quickOpenItems(openTabs, candidates, query);
+  const [selection, setSelection] = useState<{ query: string; key: string | null }>({
     query,
-    path: null,
+    key: null,
   });
   const selected = Math.max(
     0,
-    shown.indexOf(selection.query === query ? (selection.path ?? '') : ''),
+    shown.findIndex((item) => item.key === (selection.query === query ? selection.key : null)),
   );
+  const unavailable = (item: QuickOpenItem) => item.kind === 'path' && missing?.has(item.path);
   const input = useRef<HTMLInputElement>(null);
   const listId = useId();
   useEffect(() => {
@@ -238,13 +271,13 @@ export function QuickOpen({
     }
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setSelection({ query, path: shown[Math.min(selected + 1, shown.length - 1)] });
+      setSelection({ query, key: shown[Math.min(selected + 1, shown.length - 1)].key });
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setSelection({ query, path: shown[Math.max(selected - 1, 0)] });
+      setSelection({ query, key: shown[Math.max(selected - 1, 0)].key });
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      if (!missing?.has(shown[selected])) {
+      if (!unavailable(shown[selected])) {
         onOpen(shown[selected]);
       }
     }
@@ -269,7 +302,7 @@ export function QuickOpen({
         spellCheck={false}
       />
       <div className="navigation-result-summary">
-        <span>{searching ? 'Matching documents' : 'Recent documents'}</span>
+        <span>{searching ? 'Matching documents' : 'Open and recent documents'}</span>
         <span>
           {shown.length}
           {feedback.hasMore && searching ? '+' : ''}
@@ -279,27 +312,30 @@ export function QuickOpen({
         className="navigation-results"
         id={listId}
         role="listbox"
-        aria-label={searching ? 'Matching documents' : 'Recent documents'}
+        aria-label={searching ? 'Matching documents' : 'Open and recent documents'}
         aria-busy={feedback.pending}
       >
-        {shown.map((path, index) => (
+        {shown.map((item, index) => (
           <button
             className="navigation-result"
             id={`${listId}-${index}`}
             type="button"
             role="option"
             aria-selected={index === selected}
-            disabled={missing?.has(path)}
-            key={path}
-            data-tooltip={path}
-            onMouseEnter={() => setSelection({ query, path })}
-            onClick={() => onOpen(path)}
+            disabled={unavailable(item)}
+            key={item.key}
+            data-tooltip={item.path || item.name}
+            onMouseEnter={() => setSelection({ query, key: item.key })}
+            onClick={() => onOpen(item)}
           >
-            <WorkspaceIcon name={missing?.has(path) ? 'warning' : 'document'} />
-            <ResultPath path={path} />
-            {missing?.has(path) ? (
-              <span className="navigation-result-state">Unavailable</span>
-            ) : null}
+            <WorkspaceIcon name={unavailable(item) ? 'warning' : 'document'} />
+            <span className="navigation-result-copy">
+              <span className="navigation-result-name">{item.name}</span>
+              <span className="navigation-result-path">{item.path || 'New document'}</span>
+            </span>
+            <span className="navigation-result-state">
+              {quickOpenStatus(item, activeId, !!unavailable(item))}
+            </span>
           </button>
         ))}
       </div>
@@ -311,7 +347,7 @@ export function QuickOpen({
           coverageIncomplete={feedback.coverageIncomplete}
         />
       ) : null}
-      {shown.some((path) => missing?.has(path)) ? (
+      {shown.some(unavailable) ? (
         <p className="navigation-coverage">
           Unavailable documents may have moved. Reopen them from the explorer to update their
           identity.
@@ -338,51 +374,87 @@ export function SearchResults({
   query,
   mode,
   hits,
+  filters,
   onQuery,
   onMode,
   onOpen,
   ...feedback
 }: SearchFeedbackProps & {
   mode: SearchMode;
+  filters?: ReactNode;
   hits: SearchHit[];
   onQuery: (value: string) => void;
   onMode: (mode: SearchMode) => void;
   onOpen: (hit: SearchHit) => void;
 }) {
+  const input = useRef<HTMLInputElement>(null);
+  const results = useRef<HTMLOListElement>(null);
+
+  function moveResultFocus(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+      return;
+    }
+    event.preventDefault();
+    const next = index + (event.key === 'ArrowDown' ? 1 : -1);
+    if (next < 0) {
+      input.current?.focus();
+    } else {
+      results.current?.querySelectorAll<HTMLButtonElement>('.navigation-result')[next]?.focus();
+    }
+  }
+
   return (
     <section
-      className="navigation-panel"
+      className="navigation-panel navigation-search-panel"
       aria-label={mode === 'content' ? 'Search document content' : 'Search document names'}
     >
-      <SearchField
-        className="navigation-search-field"
-        aria-label={mode === 'content' ? 'Search Markdown content' : 'Search names and paths'}
-        value={query}
-        onChange={(event) => onQuery(event.target.value)}
-        placeholder={
-          mode === 'content'
-            ? 'Search inside Markdown documents…'
-            : 'Search document names and paths…'
-        }
-        autoComplete="off"
-        spellCheck={false}
-      />
-      <div className="navigation-search-modes" role="group" aria-label="Search mode">
-        <button type="button" aria-pressed={mode === 'path'} onClick={() => onMode('path')}>
-          Names and paths
-        </button>
-        <button type="button" aria-pressed={mode === 'content'} onClick={() => onMode('content')}>
-          Markdown content
-        </button>
+      <div className="navigation-search-controls">
+        <SearchField
+          ref={input}
+          className="navigation-search-field"
+          aria-label={mode === 'content' ? 'Search document content' : 'Search names and paths'}
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowDown' && hits.length) {
+              event.preventDefault();
+              results.current?.querySelector<HTMLButtonElement>('.navigation-result')?.focus();
+            }
+          }}
+          placeholder={
+            mode === 'content'
+              ? 'Search inside Markdown, PDF and DOCX…'
+              : 'Search document names and paths…'
+          }
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <div className="navigation-search-toolbar">
+          <div className="navigation-search-modes" role="group" aria-label="Search mode">
+            <button type="button" aria-pressed={mode === 'path'} onClick={() => onMode('path')}>
+              Names and paths
+            </button>
+            <button
+              type="button"
+              aria-pressed={mode === 'content'}
+              onClick={() => onMode('content')}
+            >
+              Document content
+            </button>
+          </div>
+          {filters}
+        </div>
       </div>
       <div className="navigation-result-summary" role="status">
-        <span>{mode === 'content' ? 'Content matches' : 'Matching documents'}</span>
+        <strong>Results</strong>
         <span>
           {hits.length}
           {feedback.hasMore ? '+' : ''}
+          {hits.length === 1 ? ' match' : ' matches'}
         </span>
       </div>
       <ol
+        ref={results}
         className="navigation-results navigation-search-results"
         aria-label="Search results"
         aria-busy={feedback.pending}
@@ -394,18 +466,32 @@ export function SearchResults({
               type="button"
               data-tooltip={hit.path}
               onClick={() => onOpen(hit)}
+              onKeyDown={(event) => moveResultFocus(event, index)}
             >
-              <WorkspaceIcon name="document" />
-              <span className="navigation-result-body">
-                <ResultPath path={hit.path} />
-                {hit.snippet ? (
-                  <span className="navigation-result-snippet">{hit.snippet}</span>
-                ) : null}
+              <span className="navigation-result-icon" data-kind={hit.kind}>
+                <WorkspaceIcon name="document" />
               </span>
-              <span className="navigation-result-location">
-                {hit.line !== null
-                  ? `Line ${hit.line}${hit.column !== null ? `:${hit.column}` : ''}`
-                  : hit.kind.toUpperCase()}
+              <span className="navigation-result-body">
+                <span className="navigation-result-heading">
+                  <span className="navigation-result-name">
+                    {highlightedText(hit.path.split('/').filter(Boolean).at(-1) || 'Vault', query)}
+                  </span>
+                  <span className="navigation-result-location">
+                    {mode === 'content' && hit.kind !== 'markdown'
+                      ? documentHitLocation(hit)
+                      : null}
+                    {hit.line !== null
+                      ? `Line ${hit.line}${hit.column !== null ? `:${hit.column}` : ''}`
+                      : null}
+                    {mode === 'path' && hit.line === null ? hit.kind.toUpperCase() : null}
+                  </span>
+                </span>
+                <span className="navigation-result-path">{highlightedText(hit.path, query)}</span>
+                {hit.snippet ? (
+                  <span className="navigation-result-snippet">
+                    {highlightedText(hit.snippet, query)}
+                  </span>
+                ) : null}
               </span>
             </button>
           </li>
@@ -417,9 +503,25 @@ export function SearchResults({
           mode={mode}
           status={feedback.status}
           coverageIncomplete={feedback.coverageIncomplete}
+          filtered={feedback.filtered}
         />
       ) : null}
       <SearchFeedback query={query} {...feedback} />
+      <div className="navigation-key-hints navigation-search-key-hints" aria-hidden="true">
+        {hits.length ? (
+          <>
+            <span>
+              <kbd>↓</kbd> Results
+            </span>
+            <span>
+              <kbd>Enter</kbd> Open
+            </span>
+          </>
+        ) : null}
+        <span>
+          <kbd>Esc</kbd> Close
+        </span>
+      </div>
     </section>
   );
 }
@@ -487,4 +589,8 @@ export function Favorites({
       ) : null}
     </section>
   );
+}
+
+function documentHitLocation(hit: SearchHit) {
+  return hit.page ? `Page ${hit.page}` : 'Extracted text';
 }
