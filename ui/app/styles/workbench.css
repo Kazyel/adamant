@@ -51,6 +51,7 @@
 
 .document-toolbar-controls,
 .view-controls,
+.document-relations,
 .document-actions {
   display: flex;
   align-items: center;
@@ -58,10 +59,22 @@
 }
 
 .document-toolbar-controls {
+  gap: 0;
   flex-shrink: 0;
   max-width: 100%;
   flex-wrap: wrap;
   margin-left: auto;
+}
+
+.document-relations:empty {
+  display: none;
+}
+
+.view-controls + .document-relations:not(:empty),
+.document-toolbar-controls > :not(:empty) ~ .document-actions {
+  margin-left: 12px;
+  padding-left: 12px;
+  background: linear-gradient(var(--edge-soft), var(--edge-soft)) left center / 1px 18px no-repeat;
 }
 
 .view-controls {
@@ -71,7 +84,8 @@
   background: var(--base);
 }
 
-.view-controls .icon-button[aria-pressed='true'] {
+.view-controls .icon-button[aria-pressed='true'],
+.document-relations .icon-button[aria-expanded='true'] {
   background: var(--selection);
   color: var(--text);
 }
@@ -107,13 +121,6 @@
 .document-save:hover:not(:disabled) {
   background: var(--selection);
   color: var(--text);
-}
-
-.toolbar-divider {
-  width: 1px;
-  height: 20px;
-  margin-inline: 4px;
-  background: var(--edge-light);
 }
 
 /* The content, not pane decoration, owns the visual hierarchy. */
@@ -159,7 +166,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 780px;
+  max-width: 860px;
   margin-inline: auto;
   flex: 1;
   min-height: 0;
@@ -316,6 +323,22 @@
 .viewer-message.error {
   color: var(--error);
   border-left-color: var(--error);
+}
+
+.workspace-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.workspace-notice > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.workspace-notice > .icon-button {
+  flex-shrink: 0;
+  color: inherit;
 }
 
 .workbench-notice.error {

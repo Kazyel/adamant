@@ -11,10 +11,19 @@ export function WorkspaceNotices({ workspace }: WorkspaceProps) {
 
   return (
     <div
-      className={`workbench-notice ${notice.error ? 'error' : ''}`}
+      className={`workbench-notice workspace-notice ${notice.error ? 'error' : ''}`}
       role={notice.error ? 'alert' : 'status'}
     >
-      {notice.text}
+      <span>{notice.text}</span>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label="Dismiss notification"
+        data-tooltip="Dismiss notification"
+        onClick={workspace.dismissNotice}
+      >
+        <WorkspaceIcon name="close" />
+      </button>
     </div>
   );
 }
@@ -26,13 +35,20 @@ export function DocumentNotices({
   const { buffer, busy } = workspace;
   const disabled = !native || !!busy;
 
+  let recoveryHint = '';
+  if (buffer.conflict && !buffer.conflict.removed) {
+    recoveryHint = buffer.conflict.current
+      ? 'Reload the disk version or keep your edits in a separate recovery file.'
+      : 'Save a recovery copy to preserve your changes at a new path.';
+  }
+
   if (workspace.documents.activeTab?.kind !== 'markdown') {
     return null;
   }
 
   return (
     <>
-      {note?.metadataError ? (
+      {note?.metadataError && !buffer.conflict?.removed ? (
         <div className="workbench-notice metadata-notice" role="status">
           <span>
             <strong>Metadata issue.</strong> {note.metadataError} Raw Markdown remains editable;
@@ -48,19 +64,18 @@ export function DocumentNotices({
       {buffer.conflict ? (
         <div className="workbench-notice conflict-notice" role="alert">
           <span>
-            {buffer.conflict.message}{' '}
-            {buffer.conflict.current
-              ? 'Reload the disk version or keep your edits in a separate recovery file.'
-              : 'Save a recovery copy to preserve your changes at a new path.'}
+            {buffer.conflict.message} {recoveryHint}
           </span>
           <div>
-            <button
-              type="button"
-              disabled={disabled || !buffer.conflict.current}
-              onClick={workspace.reloadDisk}
-            >
-              Reload disk
-            </button>
+            {!buffer.conflict.removed ? (
+              <button
+                type="button"
+                disabled={disabled || !buffer.conflict.current}
+                onClick={workspace.reloadDisk}
+              >
+                Reload disk
+              </button>
+            ) : null}
             <button type="button" disabled={disabled} onClick={workspace.saveCopy}>
               Save recovery copy
             </button>
@@ -71,42 +86,44 @@ export function DocumentNotices({
   );
 }
 
-function IndexStatus({
-  workspace,
-  sidebarOpen,
-  revealIndexDetails,
-}: WorkspaceProps & { sidebarOpen: boolean; revealIndexDetails: () => void }) {
-  const { indexing } = workspace;
-  if (
-    !indexing ||
-    indexing.state === 'ready' ||
-    indexing.state === 'stale' ||
-    indexing.state === 'indexing'
-  ) {
-    return null;
-  }
-  if (sidebarOpen) {
-    return null;
+function BufferStatus({ workspace }: WorkspaceProps) {
+  const { buffer, dirty, busy, documents } = workspace;
+  const tab = documents.activeTab;
+  let saveStatus = getSaveStatus(workspace);
+  let saveState = 'saved';
+  if (buffer.conflict || tab?.hydration?.state === 'error') {
+    saveState = 'error';
+  } else if (tab?.restored) {
+    saveState = 'busy';
+  } else if (busy === 'save') {
+    saveState = 'busy';
+    saveStatus = 'Saving…';
+  } else if (dirty || saveStatus === 'Not saved yet') {
+    saveState = 'pending';
   }
 
   return (
-    <button type="button" className="status-index-warning" onClick={revealIndexDetails}>
-      {indexLabels[indexing.state]} — view details
-    </button>
+    <span className="buffer-status" data-state={saveState} role="status" aria-atomic="true">
+      {saveState === 'error' ? <WorkspaceIcon name="warning" /> : null}
+      {saveStatus}
+    </span>
   );
 }
 
 export function StatusBar({
   workspace,
   navigation,
-  documentInfo,
   revealIndexDetails,
 }: DocumentProps & { revealIndexDetails: () => void }) {
-  const { vault, buffer, dirty } = workspace;
-  const { readingDocument, note } = documentInfo;
-  let format = note ? 'Markdown · Raw source' : 'Markdown';
-  if (readingDocument) {
-    format = `${readingDocument.kind.toUpperCase()} · Original unchanged`;
+  const { documents, indexing } = workspace;
+  const isMarkdown = documents.activeTab?.kind === 'markdown';
+  const indexWarning =
+    !navigation.sidebarOpen && (indexing?.state === 'partial' || indexing?.state === 'cancelled')
+      ? indexing.state
+      : null;
+
+  if (native && !isMarkdown && !indexWarning) {
+    return null;
   }
 
   return (
@@ -117,24 +134,21 @@ export function StatusBar({
           data-tooltip="Launch the Tauri desktop application to open local documents, save Notes, check accounts, and use the OS credential store."
         >
           <WorkspaceIcon name="warning" />
-          Browser preview: desktop features unavailable
+          Browser preview
         </span>
       ) : null}
-      {native && !vault ? <span className="runtime-status">No Vault open</span> : null}
-      <IndexStatus
-        workspace={workspace}
-        sidebarOpen={navigation.sidebarOpen}
-        revealIndexDetails={revealIndexDetails}
-      />
-      {workspace.documents.activeTab?.kind === 'markdown' ? (
-        <span
-          className={dirty || buffer.conflict ? 'buffer-status unsaved-label' : 'buffer-status'}
-          role="status"
+      {indexWarning ? (
+        <button
+          type="button"
+          className="status-index-warning"
+          onClick={revealIndexDetails}
+          data-tooltip="Open the Explorer to view indexing details."
         >
-          {getSaveStatus(workspace)}
-        </span>
+          <WorkspaceIcon name="warning" />
+          {indexLabels[indexWarning]} · View details
+        </button>
       ) : null}
-      <span className="status-format">{format}</span>
+      {isMarkdown ? <BufferStatus workspace={workspace} /> : null}
     </footer>
   );
 }

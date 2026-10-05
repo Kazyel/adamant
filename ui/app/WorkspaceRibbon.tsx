@@ -159,6 +159,7 @@ export default function WorkspaceRibbon({
         data-tooltip="Open Trash"
         aria-label="Open Trash"
         disabled={!native || !workspace.vault || !!workspace.busy || workspace.fileActions.busy}
+        data-unavailable={!workspace.vault}
         onClick={() => {
           const action = workspace
             .getExplorerActions()

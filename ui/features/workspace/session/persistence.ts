@@ -20,7 +20,13 @@ export interface WorkspaceTabState {
 interface WorkspaceNavigationState {
   recent: string[];
   favorites: string[];
-  history: { path: string; line: number | null; column: number | null; identity?: string | null }[];
+  history: {
+    path: string;
+    line: number | null;
+    column: number | null;
+    page?: number | null;
+    identity?: string | null;
+  }[];
   historyIndex: number;
   expanded: string[];
   identities: Record<string, string>;
@@ -154,6 +160,16 @@ function parseIdentities(value: unknown): Record<string, string> {
   return identities as Record<string, string>;
 }
 
+function parseHistoryPage(value: unknown): number | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+    invalidState('history page is invalid');
+  }
+  return value;
+}
+
 function parseNavigation(value: unknown): WorkspaceNavigationState | undefined {
   if (value === undefined) {
     return undefined;
@@ -198,6 +214,7 @@ function parseNavigation(value: unknown): WorkspaceNavigationState | undefined {
     ) {
       invalidState('history location is invalid');
     }
+    const page = parseHistoryPage(entry.page);
     const identity =
       entry.identity === undefined ? (identities[entry.path] ?? null) : entry.identity;
     if (identity !== null && (typeof identity !== 'string' || !identity)) {
@@ -207,6 +224,7 @@ function parseNavigation(value: unknown): WorkspaceNavigationState | undefined {
       path: entry.path,
       line: entry.line as number | null,
       column: entry.column as number | null,
+      page,
       identity,
     };
   });

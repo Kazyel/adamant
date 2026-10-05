@@ -109,19 +109,27 @@ export default function WorkContext({
   onConnections,
   active = true,
   onRegisterPersistenceGuard,
+  onRegisterRemovalHandler,
 }: {
   vault: VaultSnapshot | null;
   onOpenNote: (target: string) => void;
   onConnections: () => void;
   active?: boolean;
   onRegisterPersistenceGuard?: (guard: (() => Promise<void>) | null) => void;
+  onRegisterRemovalHandler?: (
+    handler: ((paths: readonly string[]) => Promise<void>) | null,
+  ) => void;
 }) {
   const work = useWorkContext(vault, active);
   const [openedVault, setOpenedVault] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [busy, setBusy] = useState(false);
   const remoteBusy = useRef(false);
-  const { flush } = work;
+  const { flush, removeLinks } = work;
+  useEffect(() => {
+    onRegisterRemovalHandler?.(removeLinks);
+    return () => onRegisterRemovalHandler?.(null);
+  }, [removeLinks, onRegisterRemovalHandler]);
   useEffect(() => {
     if (!onRegisterPersistenceGuard) {
       return;

@@ -103,19 +103,6 @@
   align-items: center;
   gap: 4px;
 }
-.annotation-tool {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: transparent;
-  border-color: transparent;
-  padding: 6px 9px;
-  white-space: nowrap;
-}
-.annotation-tool[aria-expanded='true'] {
-  background: var(--surface);
-  border-color: var(--border);
-}
 .annotation-panel {
   display: flex;
   flex-direction: column;

@@ -1,18 +1,18 @@
 import { Component, Suspense, lazy, useState } from 'react';
 import type { ReactNode } from 'react';
+import MarkdownEditor from '../features/markdown/MarkdownEditor';
+import MarkdownPreview from '../features/markdown/MarkdownPreview';
 import { invoke } from '@tauri-apps/api/core';
 import { resolveMarkdownLink } from '../features/navigation/navigationTypes';
 import { errorMessage } from '../shared/errors';
 import LoadingIndicator from '../shared/ui/LoadingIndicator';
 import WorkspaceIcon from '../shared/ui/WorkspaceIcon';
-import { getSaveStatus, native } from './workspaceView';
+import { getSaveStatus, native, noteLinkSource } from './workspaceView';
 import type { DocumentProps, WorkspaceProps } from './workspaceView';
 import type { SessionTab } from '../features/workspace/session';
 import { isEmptyDraft } from '../features/workspace/session/useDocumentSession';
 import Atmosphere from './Atmosphere';
 
-const MarkdownEditor = lazy(() => import('../features/markdown/MarkdownEditor'));
-const MarkdownPreview = lazy(() => import('../features/markdown/MarkdownPreview'));
 const PdfViewer = lazy(() => import('../features/documents/PdfViewer'));
 const DocxViewer = lazy(() => import('../features/documents/DocxViewer'));
 
@@ -53,34 +53,50 @@ function RestoredDocument({
     return null;
   }
   const failure = tab.hydration?.state === 'error' ? tab.hydration : null;
+  if (tab.kind === 'markdown' && !failure) {
+    return (
+      <section
+        className={slot === 'edit' ? 'editor-pane' : 'reading-pane'}
+        aria-label={slot === 'edit' ? 'Markdown editor' : 'Document reading surface'}
+        aria-busy="true"
+      />
+    );
+  }
   const name = tab.retained?.name ?? documentInfo.activeName;
   const path = documentInfo.activePath ?? tab.retained?.path;
 
+  if (!failure) {
+    return (
+      <section
+        className="viewer-message session-restored-document"
+        aria-label="Document opening status"
+        aria-busy="true"
+      >
+        <LoadingIndicator label={`Opening ${name}`} />
+      </section>
+    );
+  }
   return (
     <section
       className="viewer-message session-restored-document"
       aria-label="Document opening status"
     >
-      <WorkspaceIcon name={failure ? 'warning' : 'document'} />
-      <div aria-busy={!failure} role={failure ? 'status' : undefined}>
-        <h3>{failure ? `Could not open ${name}` : `Opening ${name}…`}</h3>
+      <WorkspaceIcon name="warning" />
+      <div role="status">
+        <h3>Could not open {name}</h3>
         {path ? <p className="session-dialog-path">{path}</p> : null}
-        {failure ? <p className="error">{failure.message}</p> : null}
+        <p className="error">{failure.message}</p>
       </div>
       <p>The source file and any retained draft are unchanged.</p>
-      {failure ? (
-        <button
-          type="button"
-          className="session-retry-button"
-          disabled={!!workspace.busy}
-          onClick={() => workspace.documents.activate(tab.id)}
-        >
-          <WorkspaceIcon name="refresh" />
-          Retry opening tab
-        </button>
-      ) : (
-        <LoadingIndicator label={`Opening ${name}`} />
-      )}
+      <button
+        type="button"
+        className="session-retry-button"
+        disabled={!!workspace.busy}
+        onClick={() => workspace.documents.activate(tab.id)}
+      >
+        <WorkspaceIcon name="refresh" />
+        Retry opening tab
+      </button>
     </section>
   );
 }
@@ -135,36 +151,29 @@ export function EditorPane({
       <div className={`editor-canvas${welcome ? ' editor-welcome' : ''}`}>
         {welcome && view !== 'read' ? <Atmosphere /> : null}
         <ViewerBoundary key={buffer.editorKey}>
-          <Suspense
-            fallback={
-              <div className="viewer-message">
-                <LoadingIndicator label="Loading Markdown editor" />
-              </div>
-            }
-          >
-            <MarkdownEditor
-              focusOnOpen={focusOnOpen}
-              initialValue={buffer.text}
-              validatedSource={validatedSource}
-              onChange={(text) => {
-                if (editorIsCurrent()) {
-                  workspace.changeText(text);
-                }
-              }}
-              editorState={tab.editorState}
-              onStateChange={(state) =>
-                workspace.documents.setEditorState(tab.id, state, tab.editorKey)
+          <MarkdownEditor
+            noteLinkSource={noteLinkSource(workspace)}
+            focusOnOpen={focusOnOpen}
+            initialValue={buffer.text}
+            validatedSource={validatedSource}
+            onChange={(text) => {
+              if (editorIsCurrent()) {
+                workspace.changeText(text);
               }
-              location={{ line: tab.line, column: tab.column }}
-              onLocationChange={(line, column) => {
-                if (editorIsCurrent()) {
-                  workspace.documents.updateTab(tab.id, { line, column });
-                }
-              }}
-              preferences={workspace.preferences}
-              readOnly={busy === 'navigate'}
-            />
-          </Suspense>
+            }}
+            editorState={tab.editorState}
+            onStateChange={(state) =>
+              workspace.documents.setEditorState(tab.id, state, tab.editorKey)
+            }
+            location={{ line: tab.line, column: tab.column }}
+            onLocationChange={(line, column) => {
+              if (editorIsCurrent()) {
+                workspace.documents.updateTab(tab.id, { line, column });
+              }
+            }}
+            preferences={workspace.preferences}
+            readOnly={busy === 'navigate'}
+          />
         </ViewerBoundary>
       </div>
     </section>
@@ -292,22 +301,15 @@ export function ReadingPane({ workspace, navigation, documentInfo }: DocumentPro
       ) : null}
       <div className="reading-content" hidden={showOriginal}>
         <ViewerBoundary>
-          <Suspense
-            fallback={
-              <div className="viewer-message">
-                <LoadingIndicator label="Loading Markdown preview" />
-              </div>
-            }
-          >
-            <MarkdownPreview
-              key={tab?.id}
-              value={buffer.text}
-              validatedSource={validatedSource}
-              onOpenLink={(href) => void openPreviewLink(href)}
-              anchor={linkIsActive ? linkTarget?.anchor : undefined}
-              onAnchorApplied={() => setLinkTarget(null)}
-            />
-          </Suspense>
+          <MarkdownPreview
+            preferences={workspace.preferences}
+            key={tab?.id}
+            value={buffer.text}
+            validatedSource={validatedSource}
+            onOpenLink={(href) => void openPreviewLink(href)}
+            anchor={linkIsActive ? linkTarget?.anchor : undefined}
+            onAnchorApplied={() => setLinkTarget(null)}
+          />
         </ViewerBoundary>
       </div>
       <OriginalPreview workspace={workspace} />

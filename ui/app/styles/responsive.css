@@ -20,7 +20,7 @@
   }
   .sidebar {
     position: absolute;
-    inset: calc(40px + var(--workspace-gap) * 2) auto var(--workspace-gap) 44px;
+    inset: calc(var(--titlebar-height) + var(--workspace-gap) * 2) auto var(--workspace-gap) 44px;
     z-index: 5;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -39,9 +39,6 @@
   .breadcrumb > .workspace-icon {
     display: none;
   }
-  .status-format {
-    display: none;
-  }
   .status-bar {
     gap: 4px 12px;
     padding-inline: 10px;
@@ -57,6 +54,29 @@
   }
 }
 
+@media (max-width: 620px) {
+  .app-shell[data-tabs-visible='false'] .document-toolbar {
+    padding-right: 10px;
+  }
+  .app-shell[data-tabs-visible='false'] .breadcrumb {
+    flex-basis: 100%;
+    min-height: 30px;
+    padding-right: calc(var(--window-controls-width) + 20px);
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell {
+    --window-controls-width: 96px;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell[data-tabs-visible='false'] .sidebar {
+    inset-block-start: var(--workspace-gap);
+  }
+}
+
 @media (max-width: 400px) {
   .workspace-tab {
     padding-inline: 8px;
@@ -65,8 +85,10 @@
   .view-controls {
     gap: 0;
   }
-  .toolbar-divider {
-    margin-inline: 2px;
+  .view-controls + .document-relations:not(:empty),
+  .document-toolbar-controls > :not(:empty) ~ .document-actions {
+    margin-left: 8px;
+    padding-left: 8px;
   }
   .document-toolbar {
     flex-wrap: wrap;

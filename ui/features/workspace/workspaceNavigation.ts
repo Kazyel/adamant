@@ -1,19 +1,31 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { RefObject } from 'react';
-import { errorMessage } from '../../shared/errors';
+import { errorMessage } from '../../shared/errors.ts';
 import type { SelectedDocument } from '../documents/types';
 import type { NavigationController } from '../navigation/useNavigation';
-import { markdownLink } from '../navigation/navigationTypes';
+import { markdownLink } from '../navigation/navigationTypes.ts';
 import type { SearchHit, NavigationDocument } from '../navigation/navigationTypes';
-import type { DocumentSession, SessionTab } from './session/useDocumentSession';
+import {
+  vaultTabPath,
+  type DocumentSession,
+  type SessionTab,
+} from './session/useDocumentSession.ts';
 import type { NoteDocument, VaultEntry, VaultSnapshot } from './types';
+import { missingError } from './buffer.ts';
 
 interface NavigationContext {
   vault: RefObject<VaultSnapshot | null>;
-  documents: DocumentSession;
-  finder: NavigationController;
+  documents: Pick<
+    DocumentSession,
+    'tabsRef' | 'activeIdRef' | 'openNote' | 'openDocument' | 'nextRevision' | 'updateTab'
+  >;
+  finder: Pick<
+    NavigationController,
+    'stateRef' | 'rememberTarget' | 'markMissing' | 'navigate' | 'setState' | 'toggleFavorite'
+  >;
   run: (action: () => Promise<void>) => void;
   revealPath: (path: string) => Promise<void>;
+  removePaths: (paths: readonly string[]) => void;
   fail: (error: unknown) => void;
   notify: (text: string) => void;
 }
@@ -21,6 +33,7 @@ interface NavigationContext {
 interface NavigationTarget {
   entry: VaultEntry;
   identity: string;
+  note?: NoteDocument;
 }
 
 class UnavailableTargetError extends Error {}
@@ -31,22 +44,21 @@ export function useWorkspaceNavigation({
   finder,
   run,
   revealPath,
+  removePaths,
   fail,
   notify,
 }: NavigationContext) {
   function activeSourcePath(): string | null {
     const tab = documents.tabsRef.current.find((item) => item.id === documents.activeIdRef.current);
-    return tab?.source?.kind === 'vault'
-      ? tab.source.note.path
-      : (tab?.document?.vaultPath ??
-          (tab?.retained?.sourceKind === 'vault' ? tab.retained.path : null));
+    return vaultTabPath(tab);
   }
 
   async function resolve(
     path: string,
     expectedIdentity?: string | null,
+    includeNote = false,
   ): Promise<NavigationTarget> {
-    const target = await invoke<NavigationTarget>('vault_navigation_target', { path });
+    const target = await invoke<NavigationTarget>('vault_navigation_target', { path, includeNote });
     if (expectedIdentity && target.identity !== expectedIdentity) {
       throw new Error(
         `The saved navigation target "${path}" no longer refers to the same item. Re-add the favorite or reopen the document.`,
@@ -70,10 +82,10 @@ export function useWorkspaceNavigation({
       return null;
     }
     if (entry.kind === 'markdown') {
-      const note = await invoke<NoteDocument>('vault_read_note', {
-        path: entry.path,
-        expectedIdentity: identity,
-      });
+      const note = target.note;
+      if (!note) {
+        throw new Error('The note content was not returned. Open the file again.');
+      }
       if (!isCurrentVault(root)) {
         return null;
       }
@@ -98,13 +110,41 @@ export function useWorkspaceNavigation({
         'The document identity changed while opening. Reopen the current file explicitly.',
       );
     }
+    const bytes = Uint8Array.from(doc.bytes);
+    if (revision) {
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+      const actual = Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
+      if (actual !== revision) {
+        throw new Error(
+          'This search result changed on disk. Search again to navigate to the current occurrence.',
+        );
+      }
+    }
+    if (!isCurrentVault(root)) {
+      return null;
+    }
     return documents.openDocument({
       ...doc,
       identity,
-      bytes: Uint8Array.from(doc.bytes),
+      bytes,
       revision: documents.nextRevision(),
       vaultPath: entry.path,
     });
+  }
+
+  function applyLocation(tabId: string, kind: VaultEntry['kind'], location?: NavigationDocument) {
+    if (!location) {
+      return;
+    }
+    if (kind === 'pdf' && typeof location.page === 'number') {
+      const page = location.page;
+      documents.updateTab(tabId, (current) => ({
+        ...current,
+        viewerState: { ...current.viewerState, page, scrollTop: 0 },
+      }));
+    } else {
+      documents.updateTab(tabId, { line: location.line ?? 1, column: location.column ?? 1 });
+    }
   }
 
   async function open(
@@ -128,15 +168,18 @@ export function useWorkspaceNavigation({
     if (!tabId) {
       return;
     }
-    if (location) {
-      documents.updateTab(tabId, { line: location.line ?? 1, column: location.column ?? 1 });
-    }
+    applyLocation(tabId, entry.kind, location);
     if (view && entry.kind === 'markdown') {
       documents.updateTab(tabId, { view });
     }
     if (recordHistory) {
       finder.navigate(
-        { path: entry.path, line: location?.line ?? null, column: location?.column ?? null },
+        {
+          path: entry.path,
+          line: location?.line ?? null,
+          column: location?.column ?? null,
+          page: location?.page ?? null,
+        },
         identity,
       );
     }
@@ -150,6 +193,10 @@ export function useWorkspaceNavigation({
     expectedIdentity?: string | null,
     view?: SessionTab['view'],
   ) {
+    const root = vault.current;
+    if (!root) {
+      return;
+    }
     const state = finder.stateRef.current;
     const retained =
       state.favorites.includes(path) ||
@@ -163,9 +210,17 @@ export function useWorkspaceNavigation({
           'This retained target has no verified identity. Open it explicitly from the explorer.',
         );
       }
-      target = await resolve(path, identity);
+      target = await resolve(path, identity, true);
     } catch (error) {
-      finder.markMissing(path);
+      if (!isCurrentVault(root)) {
+        return;
+      }
+      if (missingError(error)) {
+        removePaths([path]);
+        throw new UnavailableTargetError(errorMessage(error));
+      } else {
+        finder.markMissing(path);
+      }
       const message = errorMessage(error);
       if (identity || retained) {
         throw new UnavailableTargetError(
@@ -173,6 +228,9 @@ export function useWorkspaceNavigation({
         );
       }
       throw new UnavailableTargetError(message);
+    }
+    if (!isCurrentVault(root)) {
+      return;
     }
     finder.markMissing(path, false);
     await open(target, location, recordHistory, revision, view);
@@ -187,7 +245,10 @@ export function useWorkspaceNavigation({
       const target = history[index];
       try {
         await locate(target.path, target, false, null, target.identity);
-        finder.setState((current) => ({ ...current, historyIndex: index }));
+        finder.setState((current) => {
+          const position = current.history.indexOf(target);
+          return position < 0 ? current : { ...current, historyIndex: position };
+        });
         if (skipped.length) {
           notify(`Skipped unavailable history entries: ${skipped.join(', ')}`);
         }
@@ -231,8 +292,14 @@ export function useWorkspaceNavigation({
   return {
     openEntry: (entry: VaultEntry) =>
       run(async () => {
-        const target = await resolve(entry.path, entry.id ? `uuid:${entry.id}` : null);
-        await open(target);
+        const root = vault.current;
+        if (!root) {
+          return;
+        }
+        const target = await resolve(entry.path, entry.id ? `uuid:${entry.id}` : null, true);
+        if (isCurrentVault(root)) {
+          await open(target);
+        }
       }),
     openPath: (path: string, expectedIdentity?: string | null, view?: SessionTab['view']) =>
       run(() => locate(path, undefined, true, undefined, expectedIdentity, view)),
@@ -240,7 +307,7 @@ export function useWorkspaceNavigation({
       run(() =>
         locate(
           hit.path,
-          { path: hit.path, line: hit.line, column: hit.column },
+          { path: hit.path, line: hit.line, column: hit.column, page: hit.page },
           true,
           hit.revision,
           hit.identity,

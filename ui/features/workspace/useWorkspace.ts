@@ -1,3 +1,4 @@
+import type { TagsRequest, TagsChange } from '../navigation/tagTypes';
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { invoke, isTauri } from '@tauri-apps/api/core';
@@ -6,12 +7,17 @@ import { errorMessage } from '../../shared/errors';
 import type { SelectedDocument } from '../documents/types';
 import type { AnnotationChange, AnnotationRequest } from '../documents/annotationTypes';
 import { adoptAnnotationIdentity } from './annotationNavigation';
-import { conflictError, sourceName } from './buffer';
+import { conflictError, missingError, sourceName } from './buffer';
 import type { NoteDocument, VaultSnapshot } from './types';
-import useDirectoryPages from './useDirectoryPages';
+import useDirectoryPages, { MissingRevealTargetError } from './useDirectoryPages';
 import subscribeWorkspaceEvents from './workspaceEvents';
 import useWorkspacePrompt from './useWorkspacePrompt';
-import { isEmptyDraft, tabIdentity, useDocumentSession } from './session/useDocumentSession';
+import {
+  isEmptyDraft,
+  tabIdentity,
+  useDocumentSession,
+  vaultTabPath,
+} from './session/useDocumentSession';
 import type { SessionTab } from './session/useDocumentSession';
 import { validatedMarkdownPrefix } from '../markdown/markdownSource';
 import { useNavigation } from '../navigation/useNavigation';
@@ -25,7 +31,10 @@ import type { Workspace } from './workspaceTypes';
 
 const native = isTauri();
 
-export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspace {
+export default function useWorkspace(
+  beforeLeave?: () => Promise<void>,
+  afterRemoval?: (paths: readonly string[]) => Promise<void> | undefined,
+): Workspace {
   const [vault, setVaultState] = useState<VaultSnapshot | null>(null);
   const vaultRef = useRef(vault);
   const session = useRef(0);
@@ -55,20 +64,38 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
     loadMore,
     setDirectoryOptions,
     revealPath: revealDirectoryPath,
+    removePaths: removeDirectoryPaths,
   } = useDirectoryPages(vaultRef, session, mounted);
   const revealGeneration = useRef(0);
+  const pendingReveal = useRef<{ path: string; controller: AbortController } | null>(null);
+  const removalBatch = useRef<string[]>([]);
+  const [removedPaths, setRemovedPaths] = useState<readonly string[]>([]);
   const [revealTarget, setRevealTarget] = useState<{ path: string; focus: boolean } | null>(null);
 
   async function revealPath(path: string, options?: { focus?: boolean }) {
+    if (options?.focus === false) {
+      setNotice((current) => (current?.revealPath ? null : current));
+    }
     const generation = ++revealGeneration.current;
+    pendingReveal.current?.controller.abort();
+    const request = { path: path.replace(/\/+$/g, ''), controller: new AbortController() };
+    pendingReveal.current = request;
     try {
-      await revealDirectoryPath(path);
+      await revealDirectoryPath(path, request.controller.signal);
     } catch (error) {
-      if (generation === revealGeneration.current) {
-        throw error;
+      if (generation !== revealGeneration.current || request.controller.signal.aborted) {
+        return;
+      }
+      if (error instanceof MissingRevealTargetError && options?.focus === false) {
+        return;
+      }
+      throw error;
+    } finally {
+      if (pendingReveal.current === request) {
+        pendingReveal.current = null;
       }
     }
-    if (generation === revealGeneration.current) {
+    if (generation === revealGeneration.current && !request.controller.signal.aborted) {
       setRevealTarget({ path: path.replace(/\/+$/g, ''), focus: options?.focus ?? true });
     }
   }
@@ -80,10 +107,14 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
 
   const { selected, showOriginal, setShowOriginal } = documents;
   const [busy, setBusy] = useState<Workspace['busy']>(native ? 'navigate' : null);
-  const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(null);
+  const [notice, setNotice] = useState<Workspace['notice']>(null);
   const fail = useCallback(
     (error: unknown) => {
-      setNotice({ error: true, text: errorMessage(error) });
+      setNotice({
+        error: true,
+        text: errorMessage(error),
+        ...(error instanceof MissingRevealTargetError ? { revealPath: error.path } : {}),
+      });
     },
     [setNotice],
   );
@@ -110,6 +141,7 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
     finder,
     fail,
     revealPath: revealDirectoryPath,
+    preferences,
     setPreferences,
   });
   const {
@@ -139,6 +171,7 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
     documents,
     finder,
     run: (action) => run('background', action),
+    removePaths: removeVaultPaths,
     revealPath,
     fail,
     notify: (text) => setNotice({ error: false, text }),
@@ -165,6 +198,10 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
   function startVaultSession(next: VaultSnapshot | null) {
     session.current++;
     revealGeneration.current++;
+    pendingReveal.current?.controller.abort();
+    pendingReveal.current = null;
+    removalBatch.current = [];
+    setRemovedPaths([]);
     setRevealTarget(null);
     resetHydration();
     if (vaultRef.current?.root !== next?.root || vaultRef.current?.id !== next?.id) {
@@ -371,7 +408,9 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
     if (captured.conflict) {
       setNotice({
         error: true,
-        text: 'The disk version changed. Cancel navigation, then reload disk or save a recovery copy.',
+        text: captured.conflict.removed
+          ? 'This file was removed. Save a recovery copy to keep your text, or close the tab.'
+          : 'The disk version changed. Cancel navigation, then reload disk or save a recovery copy.',
       });
       return false;
     }
@@ -486,10 +525,10 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
       return;
     }
     const activate = async () => {
-      documents.activate(id);
       await hydrateTab(id);
+      documents.activate(id);
       const tab = documents.tabsRef.current.find((item) => item.id === id);
-      const path = tab?.source?.kind === 'vault' ? tab.source.note.path : tab?.document?.vaultPath;
+      const path = vaultTabPath(tab);
       if (path && tab) {
         finder.navigate({ path, line: tab.line, column: tab.column }, tabIdentity(tab));
       }
@@ -581,6 +620,9 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
       return;
     }
     if (current.source.note.revision === note.revision && current.source.note.path === note.path) {
+      if (current.conflict?.removed) {
+        documents.updateTab(current.id, { conflict: null });
+      }
       return;
     }
     const changedIdentity = current.source.note.id !== note.id;
@@ -664,8 +706,14 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
       }
     } catch (error) {
       if (isCurrent()) {
-        documents.updateTab(tab.id, { conflict: { current: null, message: errorMessage(error) } });
-        finder.markMissing(path);
+        if (missingError(error)) {
+          removeVaultPaths([path]);
+        } else {
+          documents.updateTab(tab.id, {
+            conflict: { current: null, message: errorMessage(error) },
+          });
+          finder.markMissing(path);
+        }
       }
     } finally {
       if (tabRefreshRequests.current.get(tab.id) === request) {
@@ -697,7 +745,28 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
     });
   }
 
+  async function cleanupRemovedLinks(paths: readonly string[]) {
+    if (!paths.length) {
+      return;
+    }
+    try {
+      await afterRemoval?.(paths);
+    } catch (error) {
+      fail(error);
+    }
+  }
+
   async function onMutation(result: MutationResult) {
+    // Trash receipts have no destination; purge receipts refer to Trash IDs and no content paths.
+    const removedPaths = result.outcomes
+      .filter(
+        (outcome) =>
+          outcome.status === 'completed' &&
+          outcome.destination === null &&
+          result.affectedPaths.includes(outcome.path),
+      )
+      .map((outcome) => outcome.path);
+    removeVaultPaths(removedPaths);
     const mappings = [...result.mappings].sort(
       (left, right) => right.from.length - left.from.length,
     );
@@ -715,6 +784,9 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
           : (tab.document?.vaultPath ??
             (tab.retained?.sourceKind === 'vault' ? tab.retained.path : null));
       if (!path) {
+        continue;
+      }
+      if (removedPaths.some((removed) => path === removed || path.startsWith(`${removed}/`))) {
         continue;
       }
       const nextPath = remap(path);
@@ -736,6 +808,7 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
     }
     refreshPages();
     actions.current.refreshSnapshot();
+    await cleanupRemovedLinks(removedPaths);
     try {
       await persistWorkspace();
     } catch (error) {
@@ -745,6 +818,49 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
         ),
       );
     }
+  }
+
+  function removeVaultPaths(paths: readonly string[]) {
+    if (!paths.length) {
+      return;
+    }
+    for (const tab of documents.tabsRef.current) {
+      const path =
+        tab.source?.kind === 'vault'
+          ? tab.source.note.path
+          : (tab.document?.vaultPath ??
+            (tab.retained?.sourceKind === 'vault' ? tab.retained.path : null));
+      if (path && paths.some((removed) => path === removed || path.startsWith(`${removed}/`))) {
+        tabRefreshRequests.current.delete(tab.id);
+      }
+    }
+    const request = pendingReveal.current;
+    if (
+      request &&
+      paths.some((path) => request.path === path || request.path.startsWith(`${path}/`))
+    ) {
+      revealGeneration.current++;
+      request.controller.abort();
+      pendingReveal.current = null;
+    }
+    setNotice((current) => {
+      const target = current?.revealPath;
+      return target && paths.some((path) => target === path || target.startsWith(`${path}/`))
+        ? null
+        : current;
+    });
+    removeDirectoryPaths(paths);
+    // Preserve every removal discovered before React commits this batch.
+    removalBatch.current.push(...paths);
+    setRemovedPaths([...removalBatch.current]);
+    finder.removePaths(paths);
+    documents.removeVaultPaths(paths);
+    setRevealTarget((current) =>
+      current &&
+      paths.some((removed) => current.path === removed || current.path.startsWith(`${removed}/`))
+        ? null
+        : current,
+    );
   }
 
   function save() {
@@ -930,7 +1046,7 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
         session.current === request.session &&
         snapshotGeneration.current === request.generation
       ) {
-        setVault(snapshot);
+        applyInventorySnapshot(snapshot);
       }
     } catch (error) {
       if (
@@ -954,6 +1070,20 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
     }
   }
 
+  function applyInventorySnapshot(snapshot: VaultSnapshot) {
+    const previous = vaultRef.current?.indexing;
+    const next = snapshot.indexing;
+    setVault(snapshot);
+    if (
+      previous &&
+      (previous.scannedEntries !== next.scannedEntries ||
+        previous.indexedDocuments !== next.indexedDocuments ||
+        previous.state !== next.state)
+    ) {
+      refreshPages(true);
+    }
+  }
+
   async function refreshOpenTabs() {
     for (const tab of documents.tabsRef.current) {
       if (operation.current) {
@@ -961,7 +1091,7 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
         break;
       }
       const path = tab.source?.kind === 'vault' ? tab.source.note.path : tab.document?.vaultPath;
-      if (path && !tab.restored) {
+      if (path && !tab.restored && !tab.conflict?.removed) {
         await refreshAffectedTab(tab, path);
       }
     }
@@ -1077,6 +1207,7 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
   }
 
   useLayoutEffect(() => {
+    removalBatch.current = [];
     actions.current = {
       flushDrafts: persistence.flushDrafts,
       refresh,
@@ -1105,6 +1236,7 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
     mounted.current = true;
     const sessionRef = session;
     const epochRef = epoch;
+    const revealRef = pendingReveal;
 
     return subscribeWorkspaceEvents(
       actions,
@@ -1113,6 +1245,7 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
       fail,
       () => {
         mounted.current = false;
+        revealRef.current?.controller.abort();
         sessionRef.current++;
         epochRef.current++;
       },
@@ -1149,6 +1282,37 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
     documents: { ...documents, activate: activateTab, close: closeTab, reopenClosed: reopenTab },
     finder,
     fileActions,
+    changeTags: (request: TagsRequest) =>
+      runOperation('save', async () => {
+        const affected = documents.tabsRef.current.filter(
+          (tab) =>
+            (tab.source?.kind === 'vault' && tab.source.note.path === request.path) ||
+            tab.document?.vaultPath === request.path,
+        );
+        if (affected.some((tab) => tab.dirty || tab.conflict || tab.restored)) {
+          throw new Error('Save or resolve this document before changing its tags.');
+        }
+        try {
+          const change = await invoke<TagsChange>('vault_set_tags', { request });
+          for (const tab of affected) {
+            if (change.note && tab.source?.kind === 'vault') {
+              documents.refreshBuffer(change.note, tab.editorKey);
+            } else if (tab.document && tabIdentity(tab) === request.expectedIdentity) {
+              documents.updateTab(tab.id, {
+                identity: change.identity,
+                document: { ...tab.document, identity: change.identity },
+              });
+            }
+          }
+          finder.setState((state) =>
+            adoptAnnotationIdentity(state, request.path, request.expectedIdentity, change.identity),
+          );
+          return change;
+        } finally {
+          refreshPages();
+          actions.current.refreshSnapshot();
+        }
+      }),
     changeAnnotation: (request: AnnotationRequest) =>
       runOperation('background', async () => {
         try {
@@ -1204,6 +1368,7 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
     getExplorerActions: () => explorerActions.current,
     revealPath,
     revealTarget,
+    removedPaths,
     pages,
     indexing: vault?.indexing ?? null,
     indexAction,
@@ -1215,6 +1380,7 @@ export default function useWorkspace(beforeLeave?: () => Promise<void>): Workspa
     setShowOriginal,
     busy,
     notice,
+    dismissNotice: () => setNotice(null),
     prompt,
     answer,
     reconcile: () => {
