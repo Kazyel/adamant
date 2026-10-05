@@ -1,7 +1,7 @@
 use super::IndexedEntry;
 use crate::vault::{
     Vault,
-    graph::{GraphData, GraphNode, GraphSnapshot, SavedGraphNode},
+    graph::{GraphData, GraphNode, GraphReferences, GraphSnapshot, SavedGraphNode},
 };
 use serde_json::Value;
 use std::collections::HashSet;
@@ -25,7 +25,7 @@ fn node(
             _ => "note",
         }
     };
-    GraphNode { key, path: row.entry.path.clone(), kind: row.entry.kind, id: row.entry.id.clone(), identity: row.identity.clone().unwrap_or_default(), reference_kind,
+    GraphNode { key, path: row.entry.path.clone(), kind: row.entry.kind, id: row.entry.id.clone(), identity: row.identity.clone().unwrap_or_default(), tags: crate::vault::tags::metadata_tags(value.as_ref()), reference_kind,
         problem: duplicate.then(|| "Duplicate file UUID; graph connections use this specific path until the collision is resolved.".into()),
         x: saved.and_then(|node| node.x), y: saved.and_then(|node| node.y) }
 }
@@ -36,6 +36,11 @@ impl Vault {
         let mut graph = GraphSnapshot {
             nodes: Vec::new(),
             edges: data.edges,
+            references: GraphReferences {
+                edges: Vec::new(),
+                indexing: inventory.status.clone(),
+                can_continue: false,
+            },
             indexing: inventory.status.clone(),
             generation: inventory.generation,
             complete: inventory.complete && inventory.status.state == super::IndexState::Ready,
@@ -45,7 +50,7 @@ impl Vault {
         let mut keys = HashSet::new();
         for saved in &data.nodes {
             keys.insert(saved.key.clone());
-            let (row, problem) = if let Some(id) = &saved.id {
+            let (row, problem, missing) = if let Some(id) = &saved.id {
                 let id = uuid::Uuid::parse_str(id)
                     .expect("Graph UUID was validated")
                     .to_string();
@@ -56,6 +61,7 @@ impl Vault {
                             .next()
                             .and_then(|path| inventory.rows.get(path)),
                         None,
+                        false,
                     ),
                     Some(_) if saved.key == format!("path:{}", saved.path) => (
                         inventory
@@ -63,20 +69,24 @@ impl Vault {
                             .get(&saved.path)
                             .filter(|row| row.entry.id.as_ref() == Some(&id)),
                         None,
+                        false,
                     ),
                     Some(_) => (
                         None,
                         Some(
                             "Duplicate file identity. Resolve the collision to reconnect this node.",
                         ),
+                        false,
                     ),
                     None => (
                         None,
                         Some("This file is missing from the current inventory."),
+                        !inventory.rows.contains_key(&saved.path),
                     ),
                 }
             } else {
-                (inventory.rows.get(&saved.path), None)
+                let row = inventory.rows.get(&saved.path);
+                (row, None, row.is_none())
             };
             if let Some(row) =
                 row.filter(|row| matches!(row.entry.kind, "markdown" | "pdf" | "docx"))
@@ -93,12 +103,16 @@ impl Vault {
                     .push(node(row, saved.key.clone(), Some(saved), duplicate));
                 continue;
             }
+            if graph.complete && missing {
+                continue;
+            }
             graph.nodes.push(GraphNode {
                 key: saved.key.clone(),
                 path: saved.path.clone(),
                 kind: crate::vault::capability::kind(std::path::Path::new(&saved.path)),
                 id: saved.id.clone(),
                 identity: String::new(),
+                tags: Vec::new(),
                 reference_kind: if saved.path.to_ascii_lowercase().ends_with(".md") {
                     "note"
                 } else {
@@ -141,6 +155,12 @@ impl Vault {
             }
             graph.nodes.push(node(row, key, None, duplicate));
         }
+        let visible_keys: HashSet<_> = graph.nodes.iter().map(|node| &node.key).collect();
+        graph.edges.retain(|edge| {
+            visible_keys.contains(&edge.source) && visible_keys.contains(&edge.target)
+        });
+        drop(inventory);
+        graph.references = self.graph_references(&graph.nodes, graph.generation);
         graph
     }
 }

@@ -28,13 +28,13 @@ export function AnnotationToolbar({
         <>
           <button
             type="button"
-            className="annotation-tool"
+            className="icon-button"
+            aria-label="New note"
             disabled={disabled}
             onClick={() => controller.show('create')}
             data-tooltip="Create a note alongside this document"
           >
             <WorkspaceIcon name="new" />
-            <span>New note</span>
           </button>
           <button
             type="button"
@@ -50,7 +50,8 @@ export function AnnotationToolbar({
       ) : null}
       <button
         type="button"
-        className="annotation-tool"
+        className="icon-button"
+        aria-label={markdown ? 'Source documents' : 'Show annotations'}
         disabled={disabled}
         aria-expanded={controller.visible && controller.mode === 'notes'}
         aria-controls="annotation-panel"
@@ -62,7 +63,6 @@ export function AnnotationToolbar({
         data-tooltip={markdown ? 'Source documents' : 'Show annotations'}
       >
         <WorkspaceIcon name={markdown ? 'document' : 'edit'} />
-        <span>{markdown ? 'Sources' : 'Notes'}</span>
       </button>
     </div>
   );

@@ -1,13 +1,14 @@
 import { useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
-import { errorMessage } from '../../shared/errors';
-import { conflictError } from './buffer';
+import { errorMessage } from '../../shared/errors.ts';
+import { conflictError } from './buffer.ts';
 import type { ExplorerPage, VaultEntry, VaultPage, VaultSnapshot } from './types';
 
 interface PageRequest {
   session: number;
   generation: number;
+  refreshAfterLoad?: boolean;
 }
 
 const native = isTauri();
@@ -77,6 +78,17 @@ function reconcileDirectoryPages(pages: ReadonlyMap<string, ExplorerPage>, page:
   return next;
 }
 
+export class MissingRevealTargetError extends Error {
+  readonly path: string;
+  readonly inventoryReady: boolean;
+
+  constructor(path: string, inventoryReady: boolean) {
+    super(`Could not find ${path} in the Vault inventory. It may have been moved or removed.`);
+    this.path = path;
+    this.inventoryReady = inventoryReady;
+  }
+}
+
 export interface DirectoryListingOptions {
   sort?: 'name' | 'type' | 'modified';
   filter?: string;
@@ -140,7 +152,7 @@ export default function useDirectoryPages(
     request: PageRequest,
   ): Promise<ExplorerPage | null> {
     let offset = page.refreshing ? 0 : page.nextOffset;
-    let through = page.refreshing ? Math.max(100, page.nextOffset) : offset + 100;
+    const through = page.refreshing ? Math.max(100, page.nextOffset) : offset + 100;
     const entries = page.refreshing ? [] : page.entries.slice();
     const known = new Set(entries.map((entry) => entry.path));
     let inventoryGeneration = page.inventoryGeneration ?? null;
@@ -162,7 +174,6 @@ export default function useDirectoryPages(
           entries.length = 0;
           known.clear();
           offset = 0;
-          through = 100;
           inventoryGeneration = null;
           restarted = true;
           continue;
@@ -201,7 +212,7 @@ export default function useDirectoryPages(
       return;
     }
 
-    const request = { session: session.current, generation: page.generation };
+    const request: PageRequest = { session: session.current, generation: page.generation };
     pageRequests.current.set(directory, request);
 
     try {
@@ -225,19 +236,29 @@ export default function useDirectoryPages(
         setPages(next);
       }
     } finally {
-      if (pageRequests.current.get(directory) === request) {
-        pageRequests.current.delete(directory);
-      }
+      completePageRequest(directory, request);
+    }
+  }
 
-      // Keep visible rows while the newest generation revalidates their loaded
-      // extent. An obsolete response never replaces or appends to that generation.
-      if (
-        mounted.current &&
-        session.current === request.session &&
-        pagesRef.current.get(directory)?.loading
-      ) {
-        void fetchPage(directory);
-      }
+  function completePageRequest(directory: string, request: PageRequest) {
+    if (pageRequests.current.get(directory) === request) {
+      pageRequests.current.delete(directory);
+    }
+    if (request.refreshAfterLoad && isCurrentPageRequest(directory, request)) {
+      const page = pagesRef.current.get(directory)!;
+      const next = new Map(pagesRef.current);
+      next.set(directory, refreshingPage(page));
+      setPages(next);
+    }
+
+    // Keep visible rows while the newest generation revalidates their loaded
+    // extent. An obsolete response never replaces or appends to that generation.
+    if (
+      mounted.current &&
+      session.current === request.session &&
+      pagesRef.current.get(directory)?.loading
+    ) {
+      void fetchPage(directory);
     }
   }
 
@@ -279,18 +300,30 @@ export default function useDirectoryPages(
     void fetchPage(directory);
   }
 
-  function refreshPages() {
+  function refreshingPage(page: ExplorerPage): ExplorerPage {
+    return {
+      ...page,
+      inventoryGeneration: undefined,
+      loading: true,
+      refreshing: true,
+      error: null,
+      generation: ++pageGeneration.current,
+    };
+  }
+
+  function refreshPages(afterPending = false) {
     // Only root and expanded branches exist in this map; unopened folders are
     // never enumerated, and collapsed subtrees release their pages.
     const next = new Map<string, ExplorerPage>();
     for (const [directory, page] of pagesRef.current) {
-      next.set(directory, {
-        ...page,
-        loading: true,
-        refreshing: true,
-        error: null,
-        generation: ++pageGeneration.current,
-      });
+      const request = pageRequests.current.get(directory);
+      if (afterPending && request && isCurrentPageRequest(directory, request)) {
+        // Let a slow listing become visible before reading the latest scan batch.
+        request.refreshAfterLoad = true;
+        next.set(directory, page);
+      } else {
+        next.set(directory, refreshingPage(page));
+      }
     }
     setPages(next);
     for (const directory of next.keys()) {
@@ -298,7 +331,31 @@ export default function useDirectoryPages(
     }
   }
 
-  async function revealPath(path: string) {
+  function removePaths(paths: readonly string[]) {
+    const removed = (path: string) =>
+      paths.some((root) => path === root || path.startsWith(`${root}/`));
+    const parents = new Set(paths.map((path) => path.split('/').slice(0, -1).join('/')));
+    const next = new Map<string, ExplorerPage>();
+    for (const [directory, page] of pagesRef.current) {
+      if (removed(directory)) {
+        continue;
+      }
+      const entries = page.entries.filter((entry) => !removed(entry.path));
+      next.set(
+        directory,
+        entries.length === page.entries.length && !parents.has(directory)
+          ? page
+          : refreshingPage({ ...page, entries }),
+      );
+    }
+    setPages(next);
+    for (const directory of next.keys()) {
+      void fetchPage(directory);
+    }
+  }
+
+  async function revealPath(path: string, signal?: AbortSignal) {
+    signal?.throwIfAborted();
     if (!native || !vaultRef.current) {
       throw new Error('Reveal requires an open desktop Vault.');
     }
@@ -329,9 +386,16 @@ export default function useDirectoryPages(
       }
     }
 
+    const assertCurrent = () => {
+      signal?.throwIfAborted();
+      if (!mounted.current || session.current !== startedSession) {
+        throw new Error('Vault changed while revealing the document.');
+      }
+    };
     const parts = target.split('/').filter(Boolean);
     async function revealOnce() {
       const ensurePage = async (directory: string) => {
+        assertCurrent();
         let page = pagesRef.current.get(directory);
         if (!page) {
           const next = new Map(pagesRef.current);
@@ -342,16 +406,18 @@ export default function useDirectoryPages(
         } else if (!page.loading && !page.loaded) {
           loadMore(directory);
         }
-        while (mounted.current && session.current === startedSession) {
+        while (true) {
+          assertCurrent();
           page = pagesRef.current.get(directory);
-          if (page && !page.loading) {
+          if (!page) {
+            throw new MissingRevealTargetError(target, false);
+          }
+          if (!page.loading) {
             break;
           }
           await wait(20);
         }
-        if (!mounted.current || session.current !== startedSession) {
-          throw new Error('Vault changed while revealing the document.');
-        }
+        assertCurrent();
         if (!page || page.error) {
           throw new Error(page?.error ?? `Could not load ${directory || 'Vault root'}.`);
         }
@@ -371,9 +437,7 @@ export default function useDirectoryPages(
           page = await ensurePage(directory);
         }
         if (!page.entries.some((entry) => entry.path === child)) {
-          throw new Error(
-            `Could not find ${target} in the Vault inventory. Clear the explorer filter and retry.`,
-          );
+          throw new MissingRevealTargetError(target, page.indexing?.state === 'ready');
         }
         if (index < parts.length - 1 || folderTarget) {
           const entry = page.entries.find((candidate) => candidate.path === child);
@@ -389,6 +453,7 @@ export default function useDirectoryPages(
         await revealOnce();
         return;
       } catch (error) {
+        signal?.throwIfAborted();
         const text = error instanceof Error ? error.message : String(error);
         if (attempt === 1 || !/changed|generation|stale/i.test(text)) {
           throw error;
@@ -434,6 +499,7 @@ export default function useDirectoryPages(
     resetPages,
     clearPageRequests: () => pageRequests.current.clear(),
     refreshPages,
+    removePaths,
     toggleDirectory,
     loadMore,
   };

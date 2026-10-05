@@ -1,5 +1,11 @@
+import {
+  noteTemplates,
+  templateText,
+  type NoteTemplate,
+} from '../features/workspace/noteTemplates';
 import SearchField from '../shared/ui/SearchField';
 import Form from '../shared/ui/Form';
+import SelectField from '../features/interaction/SelectField';
 import ExplorerEmptyState from '../features/workspace/ExplorerEmptyState';
 import {
   useCallback,
@@ -185,8 +191,10 @@ function useExplorerReveal(workspace: Workspace, activePath: string | null, acti
   const target = workspace.revealTarget;
   if (target !== lastReveal) {
     setLastReveal(target);
-    setFilter('');
-    setSelectedPaths(new Set(target?.path ? [target.path] : []));
+    if (target) {
+      setFilter('');
+      setSelectedPaths(new Set(target.path ? [target.path] : []));
+    }
   }
   const revealActive = useEffectEvent((path: string) => {
     void workspace.revealPath(path, { focus: false }).catch(actions.reportError);
@@ -226,8 +234,9 @@ function CreateEntry({
   directory: string;
   onChange: (value: string) => void;
   cancel: () => void;
-  create: () => void;
+  create: (template: NoteTemplate) => void;
 }) {
+  const [template, setTemplate] = useState<NoteTemplate>('blank');
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const trigger = document.activeElement;
@@ -248,7 +257,7 @@ function CreateEntry({
       onSubmit={(event) => {
         event.preventDefault();
         if (!disabled) {
-          create();
+          create(template);
         }
       }}
     >
@@ -293,6 +302,29 @@ function CreateEntry({
           <WorkspaceIcon name="close" />
         </button>
       </div>
+      {kind === 'note' ? (
+        <div className="note-template-picker">
+          <label htmlFor="note-template">Template</label>
+          <SelectField
+            id="note-template"
+            value={template}
+            disabled={disabled}
+            onChange={(event) => {
+              const selected = noteTemplates.find((item) => item.id === event.target.value);
+              if (selected) {
+                setTemplate(selected.id);
+              }
+            }}
+          >
+            {noteTemplates.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </SelectField>
+          <p>{noteTemplates.find((item) => item.id === template)?.description}</p>
+        </div>
+      ) : null}
     </Form>
   );
 }
@@ -381,6 +413,38 @@ function ResultDialog({ result, close }: { result: ResultState; close: () => voi
   );
 }
 
+function DeletionReferences({ state }: { state: PlanState }) {
+  const referrers = [
+    ...new Set(
+      state.plan.affectedPaths
+        .filter(
+          (path) =>
+            !state.request.paths.some((root) => path === root || path.startsWith(`${root}/`)),
+        )
+        .map((path) => (path.endsWith('.meta.yaml') ? path.slice(0, -'.meta.yaml'.length) : path)),
+    ),
+  ];
+  if (!referrers.length) {
+    return null;
+  }
+  return (
+    <div className="explorer-dialog-hint">
+      <p>
+        Links and note associations will be removed from {referrers.length} other{' '}
+        {referrers.length === 1 ? 'file' : 'files'}. Markdown link text will stay.
+      </p>
+      <details>
+        <summary>Files with references to remove</summary>
+        <ul>
+          {referrers.map((path) => (
+            <li key={path}>{path}</li>
+          ))}
+        </ul>
+      </details>
+    </div>
+  );
+}
+
 function PlanDialog({
   state,
   busy,
@@ -406,6 +470,7 @@ function PlanDialog({
       className="explorer-dialog explorer-plan-dialog"
       pending={busy}
       cancel={cancel}
+      fallbackFocus="#explorer"
     >
       {state.refreshed ? (
         <p className="explorer-warning" role="status">
@@ -436,6 +501,7 @@ function PlanDialog({
           display them individually.
         </p>
       ) : null}
+      {state.request.kind === 'trash' ? <DeletionReferences state={state} /> : null}
       {state.plan.conflicts.length ? (
         <div className="explorer-warning" role="alert">
           <strong>Cannot continue until conflicts are resolved.</strong>
@@ -574,9 +640,20 @@ function TrashDialog({
   const [purgeIds, setPurgeIds] = useState<string[] | null>(null);
   const [purging, setPurging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  function reconcileEntries(next: TrashEntry[]) {
+    const available = new Set(next.map((entry) => entry.id));
+    setEntries(next);
+    setSelected((current) => new Set([...current].filter((id) => available.has(id))));
+    setRestoreDestination((current) =>
+      Object.fromEntries(Object.entries(current).filter(([id]) => available.has(id))),
+    );
+    setRestoreErrors((current) =>
+      Object.fromEntries(Object.entries(current).filter(([id]) => available.has(id))),
+    );
+  }
   const loadEntries = useEffectEvent(async () => {
     try {
-      setEntries(await actions.listTrash());
+      reconcileEntries(await actions.listTrash());
     } catch (cause) {
       setError(errorMessage(cause));
       setEntries([]);
@@ -607,6 +684,17 @@ function TrashDialog({
       const done = completedEntries(result, [entry]);
       if (done.has(entry.id)) {
         setEntries((current) => current?.filter((item) => item.id !== entry.id) ?? current);
+        setSelected((current) => new Set([...current].filter((id) => id !== entry.id)));
+        setRestoreDestination((current) => {
+          const next = { ...current };
+          delete next[entry.id];
+          return next;
+        });
+        setRestoreErrors((current) => {
+          const next = { ...current };
+          delete next[entry.id];
+          return next;
+        });
       }
       const failed = result.outcomes.find((item) => item.status !== 'completed');
       if (failed) {
@@ -634,7 +722,7 @@ function TrashDialog({
       setEntries((current) => current?.filter((entry) => !done.has(entry.id)) ?? current);
       setSelected((current) => new Set([...current].filter((id) => !done.has(id))));
       setPurgeIds(null);
-      setEntries(await actions.listTrash());
+      reconcileEntries(await actions.listTrash());
     } catch (cause) {
       const text = errorMessage(cause);
       setError(text);
@@ -934,6 +1022,32 @@ function VaultFiles({
       };
     });
   };
+  const [lastRemoval, setLastRemoval] = useState(workspace.removedPaths);
+  function clearRemovedTargets() {
+    const removed = (path: string) =>
+      workspace.removedPaths.some((root) => path === root || path.startsWith(`${root}/`));
+    setSelectedPaths((current) => new Set([...current].filter((path) => !removed(path))));
+    setClipboard((current) => {
+      if (!current) {
+        return null;
+      }
+      const paths = current.paths.filter((path) => !removed(path));
+      return paths.length ? { ...current, paths } : null;
+    });
+    setMenu((current) =>
+      current && (removed(current.directory) || current.paths.some(removed)) ? null : current,
+    );
+    setRenamingPath((current) => (current && removed(current) ? null : current));
+    if (removed(createDirectory)) {
+      setCreateKind(null);
+      setCreateDirectory('');
+      setCreateName('');
+    }
+  }
+  if (workspace.removedPaths !== lastRemoval) {
+    setLastRemoval(workspace.removedPaths);
+    clearRemovedTargets();
+  }
   const selected = [...selectedPaths];
   const allEntries = [...pages.values()].flatMap((page) => page.entries);
   const selectedEntry = allEntries.find((entry) => entry.path === selected[0]);
@@ -1171,7 +1285,7 @@ function VaultFiles({
       setCommitPending(false);
     }
   }
-  async function create(kind: 'note' | 'folder') {
+  async function create(kind: 'note' | 'folder', template: NoteTemplate) {
     const name = createName.trim();
     if (!name || /[\\/]/.test(name) || name === '.' || name === '..') {
       fileActions.reportError(
@@ -1185,7 +1299,10 @@ function VaultFiles({
         await fileActions.createFolder(path);
         refreshPages();
       } else {
-        await fileActions.createNote(path.endsWith('.md') ? path : `${path}.md`);
+        await fileActions.createNote(
+          path.endsWith('.md') ? path : `${path}.md`,
+          templateText(template, name),
+        );
       }
       setCreateKind(null);
       setCreateName('');
@@ -1515,7 +1632,7 @@ function VaultFiles({
             setCreateKind(null);
             setCreateName('');
           }}
-          create={() => void create(createKind)}
+          create={(template) => void create(createKind, template)}
         />
       ) : null}
       <IndexDetails workspace={workspace} detailsRef={detailsRef} />
@@ -1694,6 +1811,7 @@ export default function ExplorerSidebar({
     <aside
       className="sidebar"
       id="explorer"
+      tabIndex={-1}
       hidden={!navigation.sidebarOpen}
       inert={!navigation.sidebarOpen}
       aria-label="Document explorer"

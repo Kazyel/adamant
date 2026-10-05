@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0c0d0f" />
+    <meta
+      name="description"
+      content="Notes, documents, and tasks in one local workspace. Your files stay yours."
+    />
+    <meta property="og:title" content="Adamant — keep the thinking with the work" />
+    <meta
+      property="og:description"
+      content="Notes, documents, and tasks. Local first, with optional GitHub and Jira connections."
+    />
+    <meta property="og:image" content="assets/adamant.png" />
+    <title>Adamant — keep the thinking with the work</title>
+    <link rel="icon" type="image/png" href="assets/adamant.png" />
+    <link rel="preload" href="assets/manrope.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" data-theme="light" data-hidden="false" data-compact="false">
+      <nav class="nav" aria-label="Main navigation">
+        <a class="brand" href="#top" aria-label="Adamant, back to top">
+          <img src="assets/adamant.png" width="48" height="48" alt="" />
+          <span>Adamant</span>
+        </a>
+        <div class="nav-links">
+          <a href="#workspace">Workspace</a>
+          <a href="#vault">Your files</a>
+          <a href="#connections">Connections</a>
+        </div>
+        <a class="nav-action" href="https://github.com/Kazyel/adamant#run-the-desktop-app">
+          <span>Get Adamant</span>
+          <svg class="nav-action-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d="M4 12 12 4M4 4h8v8" />
+          </svg>
+        </a>
+      </nav>
+    </header>
+
+    <div class="dark-intro">
+      <main id="main">
+        <section class="hero wrap" id="top" aria-labelledby="hero-title" data-section-tone="dark">
+          <canvas class="dither-canvas hero-dither" data-dither="hero" aria-hidden="true"></canvas>
+          <div class="hero-copy">
+            <div class="availability">
+              <span class="availability-dot"></span> Early development · Linux
+            </div>
+            <h1 id="hero-title">Keep the thinking with the work.</h1>
+            <p class="hero-lede">Notes, documents, and project boards. One local workspace.</p>
+            <div class="hero-actions">
+              <a
+                class="button button-light"
+                href="https://github.com/Kazyel/adamant#run-the-desktop-app"
+              >
+                Run on Linux <span class="button-icon" aria-hidden="true">↗</span>
+              </a>
+              <a class="text-link" href="#workspace"
+                >Explore workspace <span aria-hidden="true">↓</span></a
+              >
+            </div>
+            <p class="hero-assurance">Your files. No account required.</p>
+          </div>
+
+          <div class="hero-art" aria-hidden="true">
+            <div class="hero-object">
+              <canvas class="hero-crystal-3d" data-crystal aria-hidden="true"></canvas>
+              <img
+                class="hero-crystal"
+                src="assets/adamant.png"
+                width="1254"
+                height="1254"
+                alt=""
+              />
+            </div>
+          </div>
+          <div class="hero-footnote" aria-hidden="true">
+            <span>Local-first desktop workspace</span>
+            <span>Markdown · PDF · DOCX · Projects</span>
+          </div>
+        </section>
+        <section
+          class="workspace-section dither-section"
+          data-section-tone="light"
+          id="workspace"
+          aria-labelledby="workspace-title"
+        >
+          <canvas
+            class="dither-canvas section-dither"
+            data-dither="workspace"
+            aria-hidden="true"
+          ></canvas>
+          <div class="wrap">
+            <div class="section-intro" data-copy-reveal>
+              <div>
+                <p class="section-kicker">Work in context</p>
+                <h2 id="workspace-title">A workspace for<br />every project.</h2>
+              </div>
+              <p>
+                Keep tasks, notes, and documents together. Add GitHub and Jira when you need them.
+              </p>
+            </div>
+
+            <figure class="screenshot-frame" data-reveal="window">
+              <div class="screenshot-chrome" aria-hidden="true">
+                <div class="window-dots"><span></span><span></span><span></span></div>
+                <span>Adamant</span>
+                <span>Project workspace</span>
+              </div>
+              <img
+                src="assets/workspace.png"
+                width="1365"
+                height="715"
+                alt="Adamant's first-workspace screen, with a Create your first workspace button and an illustrative task board"
+                loading="lazy"
+              />
+              <figcaption>Your first workspace.</figcaption>
+            </figure>
+
+            <div
+              class="capability-row"
+              aria-label="Workspace capabilities"
+              data-reveal="capabilities"
+            >
+              <div>
+                <span class="capability-mark">01</span><strong>Write</strong
+                ><span>Markdown with preview and split view</span>
+              </div>
+              <div>
+                <span class="capability-mark">02</span><strong>Read</strong
+                ><span>PDF and DOCX beside your notes</span>
+              </div>
+              <div>
+                <span class="capability-mark">03</span><strong>Organize</strong
+                ><span>Tasks and linked files</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="vault-section dither-section"
+          id="vault"
+          aria-labelledby="vault-title"
+          data-section-tone="light"
+        >
+          <canvas
+            class="dither-canvas section-dither"
+            data-dither="vault"
+            aria-hidden="true"
+          ></canvas>
+          <div class="wrap vault-grid">
+            <div class="vault-copy" data-copy-reveal>
+              <p class="section-kicker">Local by design</p>
+              <h2 id="vault-title">Your files.<br />Your folder.</h2>
+              <p>
+                Your Vault keeps files local. Markdown stays readable outside Adamant. PDF and DOCX
+                originals stay intact.
+              </p>
+              <a class="underlined-link" href="https://github.com/Kazyel/adamant#data-boundaries"
+                >About your data <span aria-hidden="true">↗</span></a
+              >
+            </div>
+            <div
+              class="vault-visual"
+              aria-label="Example of files in an Adamant Vault"
+              data-reveal="files"
+            >
+              <div class="folder-top">
+                <span class="folder-icon" aria-hidden="true">▱</span> my-vault
+                <span class="folder-top-meta">Local folder</span>
+              </div>
+              <div class="folder-list">
+                <div class="folder-line">
+                  <span class="file-icon file-icon-folder" aria-hidden="true"></span
+                  ><span>content</span><span class="file-meta">Your files</span>
+                </div>
+                <div class="folder-line folder-child">
+                  <span class="file-icon file-icon-note" aria-hidden="true"></span
+                  ><span>Project notes.md</span><span class="file-meta">Markdown</span>
+                </div>
+                <div class="folder-line folder-child">
+                  <span class="file-icon file-icon-pdf" aria-hidden="true"></span
+                  ><span>Research.pdf</span><span class="file-meta">Original</span>
+                </div>
+                <div class="folder-line folder-child">
+                  <span class="file-icon file-icon-doc" aria-hidden="true"></span
+                  ><span>Proposal.docx</span><span class="file-meta">Original</span>
+                </div>
+                <div class="folder-line">
+                  <span class="file-icon file-icon-folder" aria-hidden="true"></span
+                  ><span>.adamant</span><span class="file-meta">Project context</span>
+                </div>
+              </div>
+              <p class="folder-note">Take your folder with you.</p>
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="connections-section dither-section"
+          data-section-tone="dark"
+          id="connections"
+          aria-labelledby="connections-title"
+        >
+          <canvas
+            class="dither-canvas section-dither"
+            data-dither="connections"
+            aria-hidden="true"
+          ></canvas>
+          <div class="wrap connections-grid">
+            <div class="connections-copy" data-copy-reveal>
+              <p class="section-kicker">Optional connections</p>
+              <h2 id="connections-title">GitHub and Jira.<br />Alongside your notes.</h2>
+              <p>
+                Follow issues, review pull requests, and read discussions alongside your local
+                tasks.
+              </p>
+              <p class="connections-note">
+                Moving cards leaves GitHub and Jira statuses unchanged.
+              </p>
+            </div>
+            <figure class="connections-image" data-reveal="connections">
+              <img
+                src="assets/connections.png"
+                width="1121"
+                height="688"
+                alt="Adamant connections screen showing GitHub account management and Jira Cloud setup"
+                loading="lazy"
+              />
+              <figcaption>Your connected accounts.</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section
+          class="closing-section dither-section"
+          aria-labelledby="closing-title"
+          data-section-tone="light"
+        >
+          <canvas
+            class="dither-canvas section-dither"
+            data-dither="closing"
+            aria-hidden="true"
+          ></canvas>
+          <div class="wrap closing-grid" data-copy-reveal>
+            <div>
+              <p class="section-kicker">Build from source</p>
+              <h2 id="closing-title">Room to think.</h2>
+            </div>
+            <div class="closing-action">
+              <p>Early development. Tested on Linux.</p>
+              <a
+                class="button button-dark"
+                href="https://github.com/Kazyel/adamant#run-the-desktop-app"
+              >
+                Setup guide <span class="button-icon" aria-hidden="true">↗</span>
+              </a>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="site-footer" data-section-tone="light">
+      <div class="wrap footer-inner">
+        <a class="footer-brand" href="#top"
+          ><img src="assets/adamant.png" width="24" height="24" alt="" />Adamant</a
+        >
+        <p>Notes, documents, and tasks. Together.</p>
+        <div>
+          <a href="https://github.com/Kazyel/adamant">GitHub</a
+          ><a href="https://github.com/Kazyel/adamant/blob/main/LICENSE">MIT License</a
+          ><a href="assets/manrope-license.txt">Font license</a>
+        </div>
+      </div>
+    </footer>
+    <script type="module" src="dither.js"></script>
+    <script type="module" src="crystal.js"></script>
+    <script type="module" src="motion.js"></script>
+    <script type="module" src="header.js"></script>
+  </body>
+</html>

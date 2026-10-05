@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Status: approved roadmap and revised technology baseline. M0 was approved by the owner on September 6, 2026; M1/M1.1 have scoped Linux evidence. The expanded M2 project workspace is implemented, with live provider authorization/write acceptance still unverified. M3 has document viewing and annotation links implemented; documentation capture remains planned. M4 includes the interactive document graph; its other workflows and M5–M7 remain planned; other operating systems and installers remain unverified.
+Status: approved roadmap and revised technology baseline. M0 was approved by the owner on September 6, 2026; M1/M1.1 have scoped Linux evidence. The expanded M2 project workspace is implemented, with live provider authorization/write acceptance still unverified. M3 has document viewing and annotation links implemented; documentation capture is deferred by the owner. M4 implements graph navigation, Markdown links/backlinks, tags and filters, note templates, and text search with PDF page navigation. M5–M7 remain planned; other operating systems and installers remain unverified.
 
 ## Delivery strategy
 
@@ -44,7 +44,7 @@ Toolchain baseline:
 
 ### Selection decisions and constraints
 
-**CodeMirror 6 replaces Monaco (owner decision):** use the modular editor directly, without a React wrapper or editor worker. Load Markdown editing on demand and retain the separate Marked/DOMPurify preview. CodeMirror owns selection, changes, and undo/redo; a persistent newline map recorded in its native history retains the original BOM and mixed line endings. Validated metadata stays outside the editable document. External document replacement remounts the editor instead of injecting non-history edits. Native history retains at least 200 edit groups; regression coverage exercises 140 groups and abandoned redo branches.
+**CodeMirror 6 replaces Monaco (owner decision):** use the modular editor directly, without a React wrapper or editor worker. Bundle Markdown editing and the Marked/DOMPurify preview with the initial app. Mount the reading preview when visible, and keep PDF/DOCX viewers loaded on demand. CodeMirror owns selection, changes, and undo/redo; a persistent newline map recorded in its native history retains the original BOM and mixed line endings. Validated metadata stays outside the editable document. External document replacement remounts the editor instead of injecting non-history edits. Native history retains at least 200 edit groups; regression coverage exercises 140 groups and abandoned redo branches.
 
 **Migration verification:** the four source-preservation tests now exercise actual CodeMirror transactions and history, including grouped newline edits, simultaneous unequal ranges, whole-body replacement, and frontmatter delimiters at EOF. A browser-mounted React smoke exercised text insertion/Unicode, select-all/undo/redo key bindings, current callbacks, read-only blocking, search, and StrictMode/remount cleanup. This is functional evidence, not visual acceptance or a new cross-platform claim.
 
@@ -144,10 +144,10 @@ Work:
 - Preserve PDF/DOCX originals and create companion metadata.
 - Implement viewing, navigation, zoom, and text selection where available.
 - Associate Markdown annotations and invalidate derived previews when originals change.
-- Capture technical documentation with source metadata and local resources.
+- Deferred by owner: capture technical documentation with source metadata and local resources. This does not block M4.
 - Isolate imported content and prevent document scripts or remote resources from accessing privileged APIs or credentials.
 
-Acceptance: PDF, DOCX, and captured documentation are usable offline; originals remain intact; annotations survive moving the Vault. Missing capture resources are reported honestly.
+Active acceptance: PDF and DOCX are usable offline; originals remain intact; annotations survive moving the Vault. Documentation capture acceptance is deferred with that feature.
 
 Learning goal: untrusted inputs, derived data, resource lifecycle, and asynchronous document processing.
 
@@ -155,17 +155,42 @@ Annotation verification, September 14, 2026: nine native tests cover creation, s
 
 ### M4 — Knowledge Navigation
 
-Status: partially implemented. The interactive 2D document graph stores connections and node coordinates in portable `.adamant/graph.json` without editing Markdown, PDF, DOCX, or companion metadata. Existing unique UUIDs resolve moves; files without UUIDs retain explicit path bindings. The [graph contract](graph-contract.md) defines storage and limits. The remaining work below is planned.
+Status: implemented workflows with scoped verification. The interactive 2D document graph stores connections and node coordinates in portable `.adamant/graph.json` without editing Markdown, PDF, DOCX, or companion metadata. Existing unique UUIDs resolve moves; files without UUIDs retain explicit path bindings. The [graph contract](graph-contract.md) defines storage and limits. Tags, shared filter controls, local graph scope, note templates, and PDF page navigation complete the increment described below. Broader structured-reference navigation and arbitrary metadata-field queries remain outside this increment.
+
+Note-link increment: a title/path picker inserts relative Markdown links into saved Vault notes with editor undo support. The reading preview follows those links through existing workspace navigation. A backlinks drawer derives incoming references and excerpts from saved Markdown and shows outgoing destinations, including missing or unindexed targets. It reuses bounded incremental body indexing and exposes partial coverage and result limits. Ordinary links and reference-style links participate; structured metadata refs and document annotation associations remain separate. Saved note links also appear in the graph, combined visually with manual connections while preserving separate storage and undo behavior. No persistent backlink record is introduced.
+
+Verification, September 26, 2026: `bun run check` passed with 40 TypeScript and 112 native tests. Focused cases cover link serialization, source-preserving undo, metadata offsets, managed renames, saved changes, incomplete inventories, identity replacement, and symlink exclusion. An isolated browser fixture mounted the real workbench and verified picker search/keyboard insertion, undo, focus return, backlink position dispatch, preview navigation, read failure/retry, partial references, and the drawer at 1280 and 760 pixels with dark/light tokens. The fixture was removed. These browser checks used simulated IPC and do not claim an end-to-end desktop Vault session.
+
+Graph integration verification, September 26, 2026: `bun run check` passed with 48 TypeScript and 117 native tests. New cases cover saved-link projection, UUID renames, duplicate identities, incomplete indexing, generation changes, visual edge deduplication, undo separation, and automatic inventory reconciliation. The real graph view was inspected in an isolated browser fixture at 1280 and 760 pixels using dark/light tokens and simulated IPC. Checks covered link origins, navigation, automatic link removal, manual saves without derived references, undo retention, bounded continuation, and save failure/retry. Temporary fixtures were removed. This does not claim an end-to-end desktop Vault session.
+
+Manual graph removal and opening responsiveness, September 26, 2026: selected-file details can remove the manual origin of a connection with undo/redo; Markdown origins remain. Markdown editor and preview ship in the initial bundle, the preview mounts only for reading/split view, and note navigation returns verified source and identity in one IPC. Restored tabs hydrate before activation; visible Explorer pages refresh as indexing progresses without discarding loaded rows. `bun run check` passed with 52 TypeScript and 120 native tests. A browser fixture with simulated IPC verified removal/save/undo/redo, opening without a Markdown loading screen, a delayed tab read preserving the current document, read failure/retry, progressive file discovery, and repeated preview initialization. Layouts were checked at 1280 and 760 pixels; the fixture was removed. Desktop opening latency remains unmeasured.
+
+Navigation and search follow-up, September 26, 2026: Quick Open includes open session documents, standalone files, and unsaved drafts; Ctrl+Tab/Ctrl+Shift+Tab reuse guarded activation when the tab bar is hidden. Document editing/closing commands are scoped to the workbench, and history brings that view forward. Backlinks retain their visible snapshot through refreshes and refresh failures, serialize requests, and provide independent continuation for incoming links, outgoing links, and picker targets. Display windows are separate from partial reference analysis.
+
+Known file changes now invalidate affected text/reference caches rather than discarding unchanged bodies. Full reconciliation still rebuilds the caches. Content search includes PDF text and DOCX main-body/table text, with excerpts that open the original document. The initial extraction increment did not include exact page navigation; the completion increment below adds it for PDF. Extraction is bounded to 16 MiB sources, 8 MiB text, 256 PDF pages, and a cooperative two-second budget; no OCR is included. Markdown and binary text caches retain at most 256 MiB and 64 MiB respectively. Parser calls are not preempted mid-operation; parsing releases the cache lock and stale results are rejected before publication. See the [Vault contract](vault-contract.md#m11-workspace-and-recovery) for the detailed limits. This increment does not implement documentation capture or arbitrary metadata-field queries.
+
+Verification of navigation and search follow-up, September 26, 2026: `bun run check` passed with 61 TypeScript and 128 native tests. Native cases cover incremental cache reuse, capacity recovery, extraction epochs, real PDF/DOCX text, unchanged originals, unsupported sources, source updates, and independent reference windows. Browser fixtures mounted the actual app/components with simulated IPC: hidden-tab cycling, Quick Open from the graph, standalone documents and drafts, graph shortcut isolation, debounced/serialized reference refresh, focus and result retention after failure, and independent list expansion. Layouts were inspected at 1280 and 600 pixels in dark/light themes. Fixtures were removed; these checks do not claim a real desktop Vault session or measured startup latency.
+
+M4 workflow completion, September 26, 2026:
+
+- The Document tags action reads and edits tags in managed Markdown frontmatter or PDF/DOCX companion metadata, with Vault autocomplete. Writes accept at most 64 exact-case tags of 1–128 UTF-8 bytes each. They retain unrelated metadata and comments, note bodies, BOM, and line endings. Existing longer lists remain readable. Dirty or conflicted note buffers, stale revisions, changed identities, and unsafe YAML layouts block metadata changes. Adding tags to a binary document can explicitly create its first companion UUID; the original remains unchanged.
+- Search and graph share tag, recursive-folder, and file-type filters. All selected tags must match; any selected file type can match. Empty type or folder filters include all supported documents. Filters apply without requiring a text query and remain separate from authoritative source content.
+- Local graph view uses the selected file, or the active Vault document when none is selected, as a fixed center. Depth one includes direct connections; depth two includes neighbors up to two connections away. Manual and resolved Markdown connections both participate. Selection does not recenter the view automatically. Local scope and filters are not stored in `graph.json` and do not alter saved connections or coordinates.
+- PDF search results retain page locations and a SHA-256 revision of their source bytes. Opening a result verifies the document before applying its page position. Back/Forward history and persisted sessions retain PDF pages. A stale result requires another search. DOCX search still opens the original without an exact page position; OCR remains outside scope.
+- The Explorer's inline New Note form offers Blank note, Technical decision, Meeting, and Study templates. Templates provide ordinary editable Markdown bodies. Native note creation supplies a fresh UUID, and no section name or learning prompt is enforced.
+
+Verification of M4 workflow completion, September 26, 2026: `bun run check` passed with 73 TypeScript and 137 native tests. Coverage includes source-preserving tag writes and companion creation, stale revisions and identities, filter boundaries before pagination, local graph traversal, PDF page extraction including empty pages, and backward-compatible page history persistence. An isolated browser fixture with simulated IPC exercised tag save failure/retry, saving pending tag text, keyboard focus and removal, filter-only search, a PDF result opening its real three-page fixture at page two, local graph depth and filters without graph writes, and creation from the Meeting template. Layouts were inspected at 1280 and 760 pixels with dark/light tokens. Temporary fixtures were removed. This does not claim an end-to-end desktop Vault session or measured performance gains.
 
 **Workflow:** find a Topic, navigate its materials, record understanding, and leave a resumption point.
 
 Work:
 
-- Organize Topics with folders, tags, and references.
-- Provide optional learning templates without enforcing section names.
-- Derive backlinks and expose missing references.
-- Search Notes, saved documentation, metadata, and extractable document text.
-- Update the index incrementally and rebuild it from authoritative files.
+- Implemented: organize Topics with folders, editable tags, shared filters, and references.
+- Implemented: provide optional learning and work templates without enforcing section names.
+- Implemented for Markdown body links: derive backlinks and expose missing references. Broader structured-reference navigation remains planned.
+- Implemented: search saved Markdown and extractable PDF/DOCX text, with tag/folder/type filters and PDF page navigation. Arbitrary metadata-field queries remain outside this increment; documentation capture is deferred.
+- Implemented: explore a fixed file neighborhood with local graph depth one or two, without changing the saved graph.
+- Implemented: preserve unaffected text caches on known changes, invalidate changed sources, and rebuild derived indexes from authoritative files.
 
 Acceptance: find the same authored content after rebuilding the index; identity-based relationships survive Note renames. Scanned PDFs remain viewable, but OCR is not implicitly included in text extraction.
 
@@ -277,4 +302,4 @@ September 12, 2026:
 - `bun run app:update` built the production frontend/native executable and installed it under an isolated temporary `XDG_DATA_HOME`, leaving the user's installed application untouched. Vite reported chunks larger than 500 kB. The installed Linux window opened the test Vault; native input verification stopped when the desktop portal denied the input session and the WebKit accessibility subtree was unreadable. This is launch evidence, not an end-to-end native task/restart acceptance claim.
 - No existing credentials were read and no live comments, field changes, transitions, reviews, or merges were sent. Real-account refresh/write acceptance, physical drag gestures, and installed-app task/draft recovery across restart remain unverified.
 
-Next: complete live-provider acceptance with explicitly authorized test items, and assess other operating systems, installers, and unsupported filesystem behavior. M3 documentation capture, the remaining M4 workflows, and M5–M7 remain planned.
+Next: complete live-provider acceptance with explicitly authorized test items, and assess other operating systems, installers, and unsupported filesystem behavior. M3 documentation capture is deferred. M5–M7 remain planned; completing M4 does not implement the local calendar.

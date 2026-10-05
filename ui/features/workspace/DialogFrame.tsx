@@ -10,6 +10,7 @@ export default function DialogFrame({
   pending = false,
   className = 'replace-dialog',
   cancel,
+  fallbackFocus,
   children,
 }: {
   title: string;
@@ -18,6 +19,7 @@ export default function DialogFrame({
   pending?: boolean;
   className?: string;
   cancel: () => void;
+  fallbackFocus?: string;
   children: ReactNode;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -42,13 +44,16 @@ export default function DialogFrame({
       if (
         ownedFocus &&
         trigger instanceof HTMLElement &&
-        trigger.isConnected &&
         (document.activeElement === document.body || document.activeElement === trigger)
       ) {
-        trigger.focus({ preventScroll: true });
+        const fallback = fallbackFocus ? document.querySelector<HTMLElement>(fallbackFocus) : null;
+        const target = trigger.isConnected && trigger !== document.body ? trigger : fallback;
+        if (target?.isConnected) {
+          target.focus({ preventScroll: true });
+        }
       }
     };
-  }, []);
+  }, [fallbackFocus]);
 
   return (
     <dialog

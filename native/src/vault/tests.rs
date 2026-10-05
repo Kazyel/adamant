@@ -10,9 +10,11 @@ mod graph;
 mod inventory;
 mod lifecycle;
 mod mutations;
+mod note_links;
 mod notes;
 mod persistence;
 mod search;
+mod tags;
 
 struct Fixture {
     _temp: TempDir,

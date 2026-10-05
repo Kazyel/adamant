@@ -37,7 +37,7 @@ export default function GraphNodePopover({
       element.removeEventListener('keydown', key);
     };
   }, []);
-  const width = Math.min(252, size.width - 32);
+  const width = Math.min(320, size.width - 32);
   const left = anchor.x + width + 40 <= size.width ? anchor.x + 24 : anchor.x - width - 24;
   const top = anchor.y + height + 84 <= size.height ? anchor.y + 20 : anchor.y - height - 20;
   const outside = anchor.x < 0 || anchor.y < 0 || anchor.x > size.width || anchor.y > size.height;
@@ -60,6 +60,7 @@ export default function GraphNodePopover({
         type="button"
         className="icon-button graph-popover-close"
         aria-label="Close file details"
+        data-tooltip="Close file details"
         onClick={onClose}
       >
         <WorkspaceIcon name="close" />

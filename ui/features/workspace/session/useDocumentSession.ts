@@ -42,6 +42,17 @@ export interface SessionTab {
   retained?: WorkspaceTabState;
 }
 
+// Recovery buffers retain their original source, but no longer expose it as a live file.
+export function vaultTabPath(tab: SessionTab | null | undefined): string | null {
+  if (!tab || tab.conflict?.removed) {
+    return null;
+  }
+  return tab.source?.kind === 'vault'
+    ? tab.source.note.path
+    : (tab.document?.vaultPath ??
+        (tab.retained?.sourceKind === 'vault' ? tab.retained.path : null));
+}
+
 export interface DocumentSession {
   buffer: BufferState;
   bufferRef: MutableRefObject<BufferState>;
@@ -64,6 +75,7 @@ export interface DocumentSession {
   activate: (id: string) => void;
   setSelected: (id: string) => void;
   close: (id: string) => void;
+  removeVaultPaths: (paths: readonly string[]) => void;
   updateTab: (id: string, updater: Partial<SessionTab> | ((tab: SessionTab) => SessionTab)) => void;
   setEditorState: (id: string, state: EditorState, expectedEditorKey?: number) => void;
   reset: () => void;
@@ -365,6 +377,37 @@ function bufferFor(tab: SessionTab | null): BufferState {
       }
     : { text: '', savedText: '', source: null, editorKey: 0, conflict: null };
 }
+
+function retainViewerDocument(previous: OpenedDocument | null, next: OpenedDocument | null) {
+  if (
+    !previous ||
+    !next ||
+    previous === next ||
+    next.kind === 'markdown' ||
+    previous.kind !== next.kind ||
+    !previous.identity ||
+    previous.identity !== next.identity ||
+    previous.bytes.length !== next.bytes.length
+  ) {
+    return next;
+  }
+  for (let index = 0; index < previous.bytes.length; index++) {
+    if (previous.bytes[index] !== next.bytes[index]) {
+      return next;
+    }
+  }
+
+  // Vault notifications and repeated opens must not restart an unchanged viewer.
+  if (
+    previous.path === next.path &&
+    previous.name === next.name &&
+    previous.vaultPath === next.vaultPath
+  ) {
+    return previous;
+  }
+  return { ...next, bytes: previous.bytes, revision: previous.revision };
+}
+
 export function useDocumentSession(
   defaultView: () => SessionTab['view'] = () => 'edit',
 ): DocumentSession {
@@ -427,6 +470,7 @@ export function useDocumentSession(
           return tab;
         }
         const updated = typeof updater === 'function' ? updater(tab) : { ...tab, ...updater };
+        updated.document = retainViewerDocument(tab.document, updated.document);
         if (
           updated.text === tab.text &&
           updated.savedText === tab.savedText &&
@@ -567,6 +611,8 @@ export function useDocumentSession(
                 message: 'This Note changed on disk. Your editor buffer has been kept.',
               },
             });
+          } else if (existing.conflict?.removed) {
+            updateTab(existing.id, { conflict: null });
           }
         } else {
           updateTab(existing.id, {
@@ -699,6 +745,64 @@ export function useDocumentSession(
       if (activeIdRef.current !== id) {
         setActiveId(nextActive);
       }
+    },
+    [sync],
+  );
+
+  const removeVaultPaths = useCallback(
+    (paths: readonly string[]) => {
+      const removed = paths.filter(Boolean);
+      if (!removed.length) {
+        return;
+      }
+      const matches = (tab: SessionTab) => {
+        const path =
+          tab.source?.kind === 'vault'
+            ? tab.source.note.path
+            : (tab.document?.vaultPath ??
+              (tab.retained?.sourceKind === 'vault' ? tab.retained.path : null));
+        return (
+          path !== null &&
+          path !== undefined &&
+          removed.some((removedPath) => path === removedPath || path.startsWith(`${removedPath}/`))
+        );
+      };
+      const retain = (tab: SessionTab) => !!(tab.dirty || tab.conflict || tab.draftId);
+      const markRemoved = (tab: SessionTab): SessionTab => ({
+        ...tab,
+        conflict: {
+          current: null,
+          removed: true,
+          message:
+            'This file was removed from the Vault. Your text is retained; save a recovery copy or close this tab.',
+        },
+      });
+      const clean = (tabs: SessionTab[]) =>
+        tabs.flatMap((tab) => {
+          if (!matches(tab)) {
+            return [tab];
+          }
+          if (retain(tab)) {
+            return [markRemoved(tab)];
+          }
+          clearTimeout(draftTimers.current.get(tab.id));
+          draftTimers.current.delete(tab.id);
+          scheduledDrafts.current.delete(tab.id);
+          return [];
+        });
+      const index = tabsRef.current.findIndex((tab) => tab.id === activeIdRef.current);
+      const next = clean(tabsRef.current);
+      const nextClosed = clean(closedRef.current);
+      if (!next.length) {
+        next.push(blankTab(++revision.current));
+      }
+      if (!next.some((tab) => tab.id === activeIdRef.current)) {
+        activeIdRef.current = next[Math.min(Math.max(index, 0), next.length - 1)].id;
+      }
+      sync(next, nextClosed);
+      closedRef.current = nextClosed;
+      setClosed(nextClosed);
+      setActiveId(activeIdRef.current);
     },
     [sync],
   );
@@ -1030,6 +1134,7 @@ export function useDocumentSession(
     activate,
     setSelected: activate,
     close,
+    removeVaultPaths,
     requestClose,
     reopenClosed,
     updateTab,

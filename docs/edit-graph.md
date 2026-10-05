@@ -10,4 +10,6 @@ Use this procedure to change connections or node positions without editing the d
 6. Increase `revision` by one, write the complete replacement to a sibling temporary file, and install it while other writers remain excluded. Retain the previous bytes until verification succeeds.
 7. Reopen or refresh the graph in Adamant. Verify the connections and positions before deleting your backup.
 
+The stored edges are manual connections. Markdown links shown in the graph are derived from saved notes; edit the source note to change those links instead of copying them into `graph.json`.
+
 To repair a moved file without an existing UUID, update its node's `path` and preserve its `key`. Do not insert an `id` into the source or create companion metadata for the graph. Existing UUIDs may be copied into a node's `id` when they identify the intended file unambiguously.

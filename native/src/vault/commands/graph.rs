@@ -18,6 +18,9 @@ pub(crate) async fn vault_graph(
         active.vault.graph_scope(&root, &vault_id)?;
         let mut graph = active.vault.graph()?;
         active.background.project_status(&mut graph.indexing);
+        active
+            .background
+            .project_status(&mut graph.references.indexing);
         graph.complete &= graph.indexing.state == crate::vault::IndexState::Ready;
         Ok(graph)
     })
@@ -35,6 +38,9 @@ pub(crate) async fn vault_save_graph(
         active.vault.graph_scope(&root, &vault_id)?;
         let mut graph = active.vault.save_graph(graph, expected_revision)?;
         active.background.project_status(&mut graph.indexing);
+        active
+            .background
+            .project_status(&mut graph.references.indexing);
         graph.complete &= graph.indexing.state == crate::vault::IndexState::Ready;
         Ok(graph)
     })

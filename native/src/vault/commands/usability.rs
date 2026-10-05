@@ -9,10 +9,10 @@ use super::{
     VaultState,
     session::{with_vault, with_write},
 };
-use crate::vault::navigation::{NavigationTarget, navigation_target};
+use crate::vault::navigation::{NavigationResponse, navigation_target};
 use crate::vault::{
     VaultError, VaultResult,
-    indexing::{SearchPage, SearchQuery},
+    indexing::{SearchFilters, SearchPage, SearchQuery},
     mutations::{MutationPlan, MutationRequest, MutationResult, TrashEntry},
 };
 
@@ -32,10 +32,11 @@ pub(crate) async fn vault_create_folder(
 #[tauri::command]
 pub(crate) async fn vault_navigation_target(
     path: String,
+    include_note: Option<bool>,
     state: State<'_, VaultState>,
-) -> VaultResult<NavigationTarget> {
+) -> VaultResult<NavigationResponse> {
     with_vault(&state, state.generation(), move |active| {
-        navigation_target(&active.vault, &path)
+        navigation_target(&active.vault, &path)?.into_response(include_note.unwrap_or(false))
     })
     .await
 }
@@ -148,6 +149,8 @@ pub(crate) async fn vault_purge_trash(
 }
 
 #[tauri::command]
+// Preserve the existing IPC arguments while adding optional filters for older callers.
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn vault_search(
     query: String,
     mode: String,
@@ -155,8 +158,11 @@ pub(crate) async fn vault_search(
     offset: usize,
     limit: usize,
     expected_generation: Option<u64>,
+    filters: Option<SearchFilters>,
     state: State<'_, VaultState>,
 ) -> VaultResult<SearchPage> {
+    let filters = filters.unwrap_or_default();
+    filters.validate()?;
     if request_id.is_empty()
         || request_id.len() > 128
         || query.len() > 4096
@@ -190,6 +196,7 @@ pub(crate) async fn vault_search(
                 offset,
                 limit,
                 expected_generation,
+                filters,
             },
             &flag,
         )?;

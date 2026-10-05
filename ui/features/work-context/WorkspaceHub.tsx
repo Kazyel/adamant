@@ -1,14 +1,14 @@
 import SearchField from '../../shared/ui/SearchField';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import ProviderIcon from './ProviderIcon';
 import type { WorkSpace, WorkState } from './types';
 
 const providerLabels = { github: 'GitHub', jira: 'Jira' } as const;
 
-function columnCounts(space: WorkSpace) {
-  const counts = new Map(space.columns.map((column) => [column.id, 0]));
-  for (const member of space.members) {
+function columnCounts(columns: WorkSpace['columns'], members: WorkSpace['members']) {
+  const counts = new Map(columns.map((column) => [column.id, 0]));
+  for (const member of members) {
     if (counts.has(member.columnId)) {
       counts.set(member.columnId, counts.get(member.columnId)! + 1);
     }
@@ -17,33 +17,41 @@ function columnCounts(space: WorkSpace) {
 }
 
 function WorkspaceCard({ space, onOpen }: { space: WorkSpace; onOpen: (id: string) => void }) {
-  const counts = columnCounts(space);
+  const counts = useMemo(
+    () => columnCounts(space.columns, space.members),
+    [space.columns, space.members],
+  );
+  const itemCount = [...counts.values()].reduce((total, count) => total + count, 0);
   const kanbanLabel =
     space.columns.map((column) => `${counts.get(column.id)} ${column.name}`).join(', ') ||
     'no columns';
   return (
     <button
+      type="button"
       className="work-hub-card"
       onClick={() => onOpen(space.id)}
       aria-label={`Open workspace ${space.name}. Kanban: ${kanbanLabel}`}
     >
       <span className="work-hub-card-topline">
-        <WorkspaceIcon name="board" />
-        <strong className="work-hub-card-name">{space.name}</strong>
+        <span className="work-hub-card-emblem">
+          <WorkspaceIcon name="board" />
+        </span>
+        <strong className="work-hub-card-name" data-tooltip={space.name}>
+          {space.name}
+        </strong>
         <WorkspaceIcon name="chevron" />
       </span>
       <span className="work-hub-sources">
         {space.sources.length ? (
           space.sources.slice(0, 2).map((source) => (
-            <span key={source.id}>
+            <span className="work-hub-source" key={source.id} data-tooltip={source.scope}>
               <ProviderIcon provider={source.provider} />
-              <span>
-                {providerLabels[source.provider]} · {source.scope}
-              </span>
+              <span className="work-hub-source-provider">{providerLabels[source.provider]}</span>
+              <span className="work-hub-source-scope">{source.scope}</span>
             </span>
           ))
         ) : (
-          <span>
+          <span className="work-hub-source">
             <WorkspaceIcon name="task" /> Local workspace
           </span>
         )}
@@ -51,13 +59,23 @@ function WorkspaceCard({ space, onOpen }: { space: WorkSpace; onOpen: (id: strin
           <span className="work-hub-more-sources">+{space.sources.length - 2} more sources</span>
         ) : null}
       </span>
-      <span className="work-hub-card-columns" aria-label="Kanban column totals">
-        {space.columns.map((column) => (
-          <span key={column.id} data-empty={counts.get(column.id) === 0}>
-            <b>{counts.get(column.id)}</b>
-            <span>{column.name}</span>
+      <span className="work-hub-card-board">
+        <span className="work-hub-card-board-heading">
+          <span>
+            <WorkspaceIcon name="columns" /> Kanban
           </span>
-        ))}
+          <span>
+            {itemCount} {itemCount === 1 ? 'item' : 'items'}
+          </span>
+        </span>
+        <span className="work-hub-card-columns" aria-label="Kanban column totals">
+          {space.columns.map((column) => (
+            <span key={column.id} data-empty={counts.get(column.id) === 0}>
+              <b>{counts.get(column.id)}</b>
+              <span>{column.name}</span>
+            </span>
+          ))}
+        </span>
       </span>
     </button>
   );
@@ -152,10 +170,12 @@ export default function WorkspaceHub({
         {state.spaces.length ? (
           <>
             <div className="work-hub-toolbar">
-              <span role="status">
-                {search ? `${spaces.length} of ${state.spaces.length}` : state.spaces.length}{' '}
-                {state.spaces.length === 1 ? 'workspace' : 'workspaces'}
-              </span>
+              <h2 className="work-hub-list-heading" ref={heading} tabIndex={-1}>
+                <span role="status">
+                  {search ? `${spaces.length} of ${state.spaces.length}` : state.spaces.length}{' '}
+                  {state.spaces.length === 1 ? 'workspace' : 'workspaces'}
+                </span>
+              </h2>
               <SearchField
                 className="work-hub-search"
                 ref={searchInput}

@@ -2,6 +2,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Workspace } from '../features/workspace/workspaceTypes';
 import type { NoteDocument } from '../features/workspace/types';
+import { tabIdentity } from '../features/workspace/session/useDocumentSession';
 
 export const native = isTauri();
 
@@ -45,13 +46,36 @@ export interface DocumentProps extends NavigationProps {
   documentInfo: DocumentInfo;
 }
 
+export function noteLinkSource(workspace: Workspace) {
+  const tab = workspace.documents.activeTab;
+  const vault = workspace.vault;
+  if (
+    !vault ||
+    !tab ||
+    tab.restored ||
+    tab.conflict?.removed ||
+    tab.kind !== 'markdown' ||
+    tab.source?.kind !== 'vault'
+  ) {
+    return undefined;
+  }
+  const vaultKey = `${vault.root}:${vault.id}`;
+  return {
+    path: tab.source.note.path,
+    expectedIdentity: tabIdentity(tab),
+    vaultKey,
+    ownerKey: `${vaultKey}:${tab.id}`,
+    refreshKey: tab.source.note.revision,
+  };
+}
+
 export function getSaveStatus({ buffer, dirty, documents }: Workspace) {
   const tab = documents.activeTab;
   if (tab?.restored) {
     return tab.hydration?.state === 'error' ? 'Could not open' : 'Loading…';
   }
   if (buffer.conflict) {
-    return 'File conflict — changes kept';
+    return buffer.conflict.removed ? 'File removed — changes kept' : 'File conflict — changes kept';
   }
   if (tab?.document && tab.kind !== 'markdown') {
     return 'Read-only';

@@ -1,0 +1,17 @@
+/* Arc's defaults live in a lower-priority layer; Adamant owns the shared theme. */
+:root {
+  --background: var(--base);
+  --foreground: var(--text);
+  --surface-raised: var(--raised);
+  --surface-muted: var(--raised);
+  --text-secondary: var(--secondary-text);
+  --text-muted: var(--muted);
+  --border-subtle: var(--edge-soft);
+  --border-strong: var(--control-border);
+  --danger: var(--error);
+  --shadow-resting: var(--shadow-panel);
+  --shadow-floating: var(--shadow-raised);
+  --font-body: var(--interface-font);
+  --font-display: var(--heading-font);
+  --focus-ring: var(--focus);
+}

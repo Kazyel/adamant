@@ -8,6 +8,7 @@ const original: GraphSnapshot = {
     key,
     path: `${key}.md`,
     kind: 'markdown',
+    tags: [],
     id: key,
     identity: key,
     problem: null,
@@ -15,6 +16,11 @@ const original: GraphSnapshot = {
     y: null,
   })),
   edges: [],
+  references: {
+    edges: [],
+    indexing: { state: 'ready', scannedEntries: 2, indexedDocuments: 2, message: null },
+    canContinue: false,
+  },
   revision: 1,
   generation: 1,
   complete: true,
@@ -60,4 +66,19 @@ void test('a new edit clears redo, no-op edits preserve it, and history is bound
   assert.equal(history.past.length, 100);
   const removed = rememberGraph(empty, linked, original);
   assert.deepEqual(travelGraph(removed, original, 'undo')?.snapshot.edges, linked.edges);
+});
+
+void test('undo and redo cannot restore connections to deleted files', () => {
+  const linked = { ...original, edges: [{ id: 'ab', source: 'a', target: 'b' }] };
+  const moved = { ...linked, nodes: linked.nodes.map((node) => ({ ...node, x: 50 })) };
+  const history = rememberGraph(empty, linked, moved);
+  const afterDeletion = { ...moved, nodes: [moved.nodes[0]], edges: [] };
+  const undone = travelGraph(history, afterDeletion, 'undo')!;
+  assert.deepEqual(undone.snapshot.edges, []);
+  assert.deepEqual(
+    undone.snapshot.nodes.map(({ key }) => key),
+    ['a'],
+  );
+  const redone = travelGraph(undone.history, undone.snapshot, 'redo')!;
+  assert.deepEqual(redone.snapshot.edges, []);
 });

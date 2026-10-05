@@ -2,7 +2,7 @@ import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useSta
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { errorMessage } from '../../shared/errors';
 import type { VaultSnapshot } from '../workspace/types';
-import { attachItems, remoteFromUrl } from './state';
+import { attachItems, remoteFromUrl, removeNoteLinks } from './state';
 import type { Connection, RemoteDetail, RemotePage, WorkSource, WorkState } from './types';
 
 type SaveStatus = 'loading' | 'saved' | 'unsaved' | 'saving' | 'error';
@@ -15,6 +15,9 @@ type Session = {
   generation: number;
   dirty: boolean;
   pending: Promise<void> | null;
+  loading: Promise<void> | null;
+  // Keep confirmed deletions through load/save errors and disk conflict resolution.
+  removedPaths: string[];
   timer: number | undefined;
 };
 export type SourceStatus = {
@@ -112,6 +115,9 @@ export default function useWorkContext(vault: VaultSnapshot | null, active: bool
                 ? saved
                 : { ...session.state, revision: saved.revision };
             session.dirty = generation !== session.generation;
+            if (!session.dirty) {
+              session.removedPaths = [];
+            }
           }
           session.status = session.dirty ? 'unsaved' : 'saved';
         } catch (error) {
@@ -132,9 +138,12 @@ export default function useWorkContext(vault: VaultSnapshot | null, active: bool
 
   const load = useCallback(
     (key: string, session: Session) => {
+      if (session.loading) {
+        return session.loading;
+      }
       session.status = 'loading';
       session.error = null;
-      return Promise.resolve()
+      const pending = Promise.resolve()
         .then(() =>
           invoke<WorkState>('work_load', {
             vaultId: session.vaultId,
@@ -146,17 +155,30 @@ export default function useWorkContext(vault: VaultSnapshot | null, active: bool
             throw new Error('The workspace belongs to a different Vault.');
           }
           if (!session.dirty) {
-            session.state = loaded;
-            session.status = 'saved';
+            session.state = removeNoteLinks(loaded, session.removedPaths);
+            session.dirty = session.state !== loaded;
+            if (!session.dirty) {
+              session.removedPaths = [];
+            }
+            session.status = session.dirty ? 'unsaved' : 'saved';
+            if (session.dirty) {
+              session.generation++;
+              void save(key, session);
+            }
           }
         })
         .catch((error: unknown) => {
           session.status = 'error';
           session.error = errorMessage(error);
         })
-        .finally(() => notify(key, session));
+        .finally(() => {
+          session.loading = null;
+          notify(key, session);
+        });
+      session.loading = pending;
+      return pending;
     },
-    [notify],
+    [notify, save],
   );
 
   useLayoutEffect(() => {
@@ -188,6 +210,8 @@ export default function useWorkContext(vault: VaultSnapshot | null, active: bool
         generation: 0,
         dirty: false,
         pending: null,
+        loading: null,
+        removedPaths: [],
         timer: undefined,
       };
       sessions.current.set(vaultKey, session);
@@ -437,13 +461,18 @@ export default function useWorkContext(vault: VaultSnapshot | null, active: bool
       if (!session?.state || session.pending) {
         return;
       }
-      session.state = keepMine ? { ...session.state, revision: saved.revision } : saved;
+      session.state = keepMine
+        ? { ...session.state, revision: saved.revision }
+        : removeNoteLinks(saved, session.removedPaths);
       session.generation++;
-      session.dirty = keepMine;
-      session.status = keepMine ? 'unsaved' : 'saved';
+      session.dirty = keepMine || session.state !== saved;
+      session.status = session.dirty ? 'unsaved' : 'saved';
       session.error = null;
+      if (!session.dirty) {
+        session.removedPaths = [];
+      }
       notify(vaultKey, session);
-      if (keepMine) {
+      if (session.dirty) {
         void save(vaultKey, session);
       }
     },
@@ -455,6 +484,12 @@ export default function useWorkContext(vault: VaultSnapshot | null, active: bool
     context.current = { ...context.current, epoch: context.current.epoch + 1 };
     for (const [key, session] of sessions.current) {
       window.clearTimeout(session.timer);
+      await session.loading;
+      if (session.removedPaths.length && !session.state) {
+        throw new Error(
+          'Files were removed, but their task links could not be loaded. Open Work context and resolve its loading error before leaving this Vault.',
+        );
+      }
       if (session.pending) {
         await session.pending;
       }
@@ -468,6 +503,33 @@ export default function useWorkContext(vault: VaultSnapshot | null, active: bool
       }
     }
   }, [save]);
+
+  const removeLinks = useCallback(
+    async (paths: readonly string[]) => {
+      if (!paths.length || !vaultKey || currentVault.current !== vaultKey) {
+        return;
+      }
+      const session = sessions.current.get(vaultKey);
+      if (session) {
+        session.removedPaths = [...new Set([...session.removedPaths, ...paths])];
+      }
+      await session?.loading;
+      if (currentVault.current !== vaultKey) {
+        return;
+      }
+      if (!session?.state) {
+        throw new Error(
+          'Files were removed, but their task links could not be loaded. Open Work context and resolve its loading error.',
+        );
+      }
+      change((state) => removeNoteLinks(state, session.removedPaths));
+      if (!session.dirty) {
+        session.removedPaths = [];
+      }
+      await flush();
+    },
+    [change, flush, vaultKey],
+  );
 
   return {
     native,
@@ -484,6 +546,7 @@ export default function useWorkContext(vault: VaultSnapshot | null, active: bool
     readSaved,
     resolve,
     flush,
+    removeLinks,
     status: snapshot.status,
     saveError: snapshot.error,
     dirty: snapshot.dirty,

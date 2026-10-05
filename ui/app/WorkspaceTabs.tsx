@@ -1,60 +1,11 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import WorkspaceIcon from '../shared/ui/WorkspaceIcon';
 import { sourceName } from '../features/workspace/buffer';
 import type { SessionTab } from '../features/workspace/session';
 import { isEmptyDraft } from '../features/workspace/session/useDocumentSession';
-import { native } from './workspaceView';
+import WindowControls from './WindowControls';
 import type { DocumentProps, WorkspaceProps } from './workspaceView';
 
-function WindowControls({ workspace }: WorkspaceProps) {
-  const desktopWindow = native ? getCurrentWindow() : null;
-  async function controlWindow(action: 'minimize' | 'toggleMaximize') {
-    if (!desktopWindow) {
-      return;
-    }
-    try {
-      await desktopWindow[action]();
-    } catch (error) {
-      workspace.fail(error);
-    }
-  }
-
-  return (
-    <div className="window-controls" role="group" aria-label="Window controls">
-      <button
-        className="icon-button"
-        type="button"
-        data-tooltip="Minimize window"
-        aria-label="Minimize window"
-        disabled={!native}
-        onClick={() => void controlWindow('minimize')}
-      >
-        <WorkspaceIcon name="minimize" />
-      </button>
-      <button
-        className="icon-button"
-        type="button"
-        data-tooltip="Maximize or restore window"
-        aria-label="Maximize or restore window"
-        disabled={!native}
-        onClick={() => void controlWindow('toggleMaximize')}
-      >
-        <WorkspaceIcon name="maximize" />
-      </button>
-      <button
-        className="icon-button window-close"
-        type="button"
-        data-tooltip="Close window"
-        aria-label="Close window"
-        disabled={!native}
-        onClick={workspace.closeWindow}
-      >
-        <WorkspaceIcon name="close" />
-      </button>
-    </div>
-  );
-}
 function tabLabel(tab: SessionTab): string {
   if (tab.source?.kind === 'vault') {
     return tab.source.note.path.split(/[/\\]/).at(-1)!;
@@ -144,17 +95,25 @@ function tabDetails(tabs: SessionTab[], vault: WorkspaceProps['workspace']['vaul
 export default function WorkspaceTabs({ workspace, navigation }: DocumentProps) {
   const { tabs, activeId, closedTabs, reopenClosed, activate, close } = workspace.documents;
   const { section, setSection } = navigation;
+  const tabsVisible = workspace.preferences.showDocumentTabs ?? true;
   const activeTab = useRef<HTMLDivElement>(null);
   const { vault } = workspace;
   const details = useMemo(() => tabDetails(tabs, vault), [tabs, vault]);
   const initialEmpty = tabs.length === 1 && isEmptyDraft(tabs[0]);
 
   useLayoutEffect(() => {
-    activeTab.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [activeId, tabs.length, section]);
+    if (tabsVisible) {
+      activeTab.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }, [activeId, tabs.length, section, tabsVisible]);
 
   return (
-    <header className="workspace-tabs" aria-label="Open workspace views" data-tauri-drag-region>
+    <header
+      className="workspace-tabs"
+      aria-label="Workspace title bar"
+      hidden={!tabsVisible}
+      data-tauri-drag-region
+    >
       <div className="workspace-tab-group">
         <div
           className="workspace-tab-list"

@@ -1,15 +1,18 @@
 import type { GraphNode } from '../features/graph/graphTypes';
 import { ThemeContext } from '../shared/styles/ThemeContext';
-import { lazy, Suspense, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { resolveFontFamily } from '../shared/styles/fontFamilies';
+import { useEffect, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import Connections from '../features/connections/Connections';
 import WorkspaceDialog from '../features/workspace/WorkspaceDialog';
 import { sourceName } from '../features/workspace/buffer';
+import { vaultTabPath } from '../features/workspace/session/useDocumentSession';
 import useWorkspace from '../features/workspace/useWorkspace';
 import DocumentWorkbench from './DocumentWorkbench';
 import ExplorerSidebar from './ExplorerSidebar';
 import WorkspaceRibbon from './WorkspaceRibbon';
 import { StatusBar, WorkspaceNotices } from './WorkspaceStatus';
 import WorkspaceTabs from './WorkspaceTabs';
+import WindowControls from './WindowControls';
 import { native } from './workspaceView';
 import type { DocumentInfo, Section, View } from './workspaceView';
 import type { Workspace } from '../features/workspace/workspaceTypes';
@@ -19,7 +22,7 @@ import MutationRecovery from '../features/workspace/MutationRecovery';
 import WorkContext from '../features/work-context/WorkContext';
 import { OverlayPresence } from '../features/interaction/OverlayPresence';
 
-const GraphView = lazy(() => import('../features/graph/GraphView'));
+import GraphView from '../features/graph/GraphView';
 
 function GraphSection({
   active,
@@ -33,6 +36,14 @@ function GraphSection({
   onOpen: (node: GraphNode) => void;
 }) {
   const [visited, setVisited] = useState(false);
+  useEffect(() => {
+    if (visited || !workspace.vault || workspace.busy || workspace.documents.activeTab?.restored) {
+      return;
+    }
+    // Let the active document open first, then prepare the graph before it is requested.
+    const timer = window.setTimeout(() => setVisited(true), 200);
+    return () => window.clearTimeout(timer);
+  }, [visited, workspace.vault, workspace.busy, workspace.documents.activeTab?.restored]);
   if (active && !visited) {
     setVisited(true);
   }
@@ -41,19 +52,21 @@ function GraphSection({
   }
   return (
     <div className="graph-section-host" hidden={!active}>
-      <Suspense fallback={<p className="viewer-message">Loading graph…</p>}>
-        <GraphView
-          key={`${workspace.vault?.root}:${workspace.vault?.id}`}
-          workspace={workspace}
-          onRegisterPersistenceGuard={registerGuard}
-          onOpen={onOpen}
-        />
-      </Suspense>
+      <GraphView
+        active={active}
+        activePath={vaultTabPath(workspace.documents.activeTab)}
+        workspace={workspace}
+        onRegisterPersistenceGuard={registerGuard}
+        onOpen={onOpen}
+      />
     </div>
   );
 }
 
 function getBufferPath({ vault, buffer }: Workspace) {
+  if (buffer.conflict?.removed) {
+    return null;
+  }
   if (buffer.source?.kind === 'standalone') {
     return buffer.source.path;
   }
@@ -82,7 +95,7 @@ function getDocumentInfo(workspace: Workspace, view: View): DocumentInfo {
     workspace.documents.activeTab?.retained?.name ?? readingDocument?.name ?? bufferName;
   const activePath = readingDocument?.path ?? bufferPath;
 
-  const activeVaultPath = readingDocument ? readingDocument.vaultPath : (note?.path ?? null);
+  const activeVaultPath = vaultTabPath(workspace.documents.activeTab);
 
   return {
     note,
@@ -104,14 +117,32 @@ export default function App() {
   const registerWorkGuard = useCallback((guard: (() => Promise<void>) | null) => {
     workPersistenceGuard.current = guard;
   }, []);
-  const workspace = useWorkspace(async () => {
-    await workPersistenceGuard.current?.();
-    await graphPersistenceGuard.current?.();
-  });
+  const workRemovalHandler = useRef<((paths: readonly string[]) => Promise<void>) | null>(null);
+  const registerWorkRemoval = useCallback(
+    (handler: ((paths: readonly string[]) => Promise<void>) | null) => {
+      workRemovalHandler.current = handler;
+    },
+    [],
+  );
+  const workspace = useWorkspace(
+    async () => {
+      await workPersistenceGuard.current?.();
+      await graphPersistenceGuard.current?.();
+    },
+    (paths) => workRemovalHandler.current?.(paths),
+  );
   const theme = workspace.preferences.theme ?? 'dark';
+  const interfaceFont = workspace.preferences.interfaceFont;
   useLayoutEffect(() => {
+    const interfaceFamily = resolveFontFamily(interfaceFont ?? 'inter');
     document.documentElement.dataset.theme = theme;
-  }, [theme]);
+    document.documentElement.style.setProperty('--interface-font', interfaceFamily);
+    if (interfaceFont === undefined) {
+      document.documentElement.style.removeProperty('--interface-heading-font');
+    } else {
+      document.documentElement.style.setProperty('--interface-heading-font', interfaceFamily);
+    }
+  }, [theme, interfaceFont]);
   const [section, setSection] = useState<Section>('workbench');
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 760);
   const activeTab = workspace.documents.activeTab;
@@ -158,7 +189,12 @@ export default function App() {
 
   return (
     <ThemeContext value={theme}>
-      <div className="app-shell" data-sidebar-open={sidebarOpen}>
+      <div
+        className="app-shell"
+        data-operation={workspace.busy}
+        data-sidebar-open={sidebarOpen}
+        data-tabs-visible={workspace.preferences.showDocumentTabs ?? true}
+      >
         <a className="skip-link" href="#main">
           Skip to workspace
         </a>
@@ -176,7 +212,12 @@ export default function App() {
             navigation={navigation}
             documentInfo={documentInfo}
           />
-          <div className="workspace-surface">
+          <div className="workspace-surface" data-tauri-drag-region>
+            {workspace.preferences.showDocumentTabs === false ? (
+              <div className="workspace-window-controls">
+                <WindowControls workspace={workspace} />
+              </div>
+            ) : null}
             <WorkspaceNotices workspace={workspace} />
             <MutationRecovery
               actions={workspace.fileActions}
@@ -218,6 +259,7 @@ export default function App() {
                 vault={workspace.vault}
                 active={section === 'work'}
                 onRegisterPersistenceGuard={registerWorkGuard}
+                onRegisterRemovalHandler={registerWorkRemoval}
                 onOpenNote={(target) => {
                   setSection('workbench');
                   workspace.openPath(target);
@@ -226,6 +268,7 @@ export default function App() {
               />
             </div>
             <GraphSection
+              key={`${workspace.vault?.root}:${workspace.vault?.id}`}
               active={section === 'graph'}
               workspace={workspace}
               registerGuard={registerGraphGuard}

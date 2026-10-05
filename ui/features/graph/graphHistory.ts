@@ -24,6 +24,7 @@ export function travelGraph(
     return null;
   }
   const positions = new Map(target.nodes.map((node) => [node.key, node]));
+  const keys = new Set(current.nodes.map((node) => node.key));
   return {
     history:
       direction === 'undo'
@@ -35,7 +36,7 @@ export function travelGraph(
         const position = positions.get(node.key);
         return position ? { ...node, x: position.x, y: position.y } : node;
       }),
-      edges: target.edges,
+      edges: target.edges.filter((edge) => keys.has(edge.source) && keys.has(edge.target)),
     },
   };
 }

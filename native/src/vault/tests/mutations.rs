@@ -4,6 +4,476 @@ use super::{Fixture, identified};
 use crate::vault::mutations::{MutationKind, MutationRequest};
 
 #[test]
+fn trash_removes_surviving_markdown_links_and_metadata_references() {
+    let fixture = Fixture::new();
+    fixture.vault.create_folder("removed").unwrap();
+    let gone = fixture
+        .vault
+        .create_note("removed/gone.md", "Gone")
+        .unwrap();
+    let kept = fixture.vault.create_note("kept.md", "Keep").unwrap();
+    let document_id = uuid::Uuid::new_v4();
+    fs::write(fixture.root.join("removed/paper.pdf"), b"original PDF").unwrap();
+    fs::write(
+        fixture.root.join("removed/paper.pdf.meta.yaml"),
+        format!("id: {document_id}\n"),
+    )
+    .unwrap();
+    let referrer = format!(
+        "\u{feff}---\r\nid: {}\r\ncustom: 'keep spelling' # comment\r\nrefs:\r\n  - {{kind: note, id: {}}}\r\n  - {{kind: document, id: {document_id}}}\r\n  - {{kind: note, id: {}}}\r\n---\r\nBefore [Gone](removed/gone.md) [Paper](removed/paper.pdf) [Keep](kept.md).\r\n",
+        uuid::Uuid::new_v4(),
+        gone.id.as_ref().unwrap(),
+        kept.id.as_ref().unwrap()
+    );
+    fs::write(fixture.root.join("referrer.md"), &referrer).unwrap();
+    let companion = format!(
+        "id: {}\r\ncustom: 'preserve me' # companion\r\nrefs: [{{kind: note, id: {}}}, {{kind: note, id: {}}}]\r\n",
+        uuid::Uuid::new_v4(),
+        gone.id.unwrap(),
+        kept.id.unwrap()
+    );
+    fs::write(fixture.root.join("outside.docx"), b"original DOCX").unwrap();
+    fs::write(fixture.root.join("outside.docx.meta.yaml"), &companion).unwrap();
+    let plan = fixture
+        .vault
+        .prepare_mutation(MutationRequest {
+            kind: MutationKind::Trash,
+            paths: vec!["removed".into()],
+            destination: None,
+        })
+        .unwrap();
+    assert!(plan.affected_paths.contains(&"referrer.md".into()));
+    assert!(plan.affected_paths.contains(&"outside.docx".into()));
+    assert_eq!(
+        fixture.vault.commit_mutation(&plan.id).unwrap().outcomes[0].status,
+        "completed"
+    );
+    let changed = fs::read_to_string(fixture.root.join("referrer.md")).unwrap();
+    assert!(changed.contains("custom: 'keep spelling' # comment\r\n"));
+    assert!(changed.ends_with("Before Gone Paper [Keep](kept.md).\r\n"));
+    let refs = super::super::metadata::note_metadata(&changed)
+        .value
+        .unwrap()["refs"]
+        .clone();
+    assert_eq!(refs.as_array().unwrap().len(), 1);
+    let changed_companion =
+        fs::read_to_string(fixture.root.join("outside.docx.meta.yaml")).unwrap();
+    assert!(changed_companion.contains("custom: 'preserve me' # companion\r\n"));
+    let refs = super::super::metadata::companion_metadata(&changed_companion)
+        .value
+        .unwrap()["refs"]
+        .clone();
+    assert_eq!(refs.as_array().unwrap().len(), 1);
+    assert_eq!(
+        fs::read(fixture.root.join("outside.docx")).unwrap(),
+        b"original DOCX"
+    );
+}
+
+#[test]
+fn partial_trash_cleans_only_completed_targets_and_keeps_newer_sources() {
+    let fixture = Fixture::new();
+    fixture.vault.create_note("a.md", "A").unwrap();
+    let b = fixture.vault.create_note("b.md", "B").unwrap();
+    fixture
+        .vault
+        .create_note("referrer.md", "[A](a.md) [B](b.md)")
+        .unwrap();
+    let plan = fixture
+        .vault
+        .prepare_mutation(MutationRequest {
+            kind: MutationKind::Trash,
+            paths: vec!["a.md".into(), "b.md".into()],
+            destination: None,
+        })
+        .unwrap();
+    let path = fixture.root.join("b.md");
+    let external = format!("{}External", b.text);
+    let replacement = external.clone();
+    crate::vault::mutations::before_move_to("stage-1", move || {
+        fs::write(path, replacement).unwrap()
+    });
+    let result = fixture.vault.commit_mutation(&plan.id).unwrap();
+    assert_eq!(result.outcomes[0].status, "completed");
+    assert_eq!(result.outcomes[1].status, "failed");
+    assert!(result.recovery_id.is_some());
+    assert!(
+        fixture
+            .vault
+            .read_note("referrer.md")
+            .unwrap()
+            .text
+            .ends_with("A [B](b.md)")
+    );
+    assert_eq!(
+        fs::read_to_string(fixture.root.join("b.md")).unwrap(),
+        external
+    );
+    assert_eq!(
+        fixture.vault.recover_mutation(&plan.id).unwrap().state,
+        "conflicted"
+    );
+    assert!(
+        fixture
+            .vault
+            .read_note("referrer.md")
+            .unwrap()
+            .text
+            .ends_with("A [B](b.md)")
+    );
+}
+
+#[test]
+fn failed_selected_referrer_is_cleaned_and_recovery_preserves_its_original_payload() {
+    let fixture = Fixture::new();
+    let a = fixture.vault.create_note("a.md", "A").unwrap();
+    let original_b = format!(
+        "---\nid: {}\nrefs: [{{kind: note, id: {}}}]\n---\n[A](a.md)",
+        uuid::Uuid::new_v4(),
+        a.id.unwrap()
+    );
+    fs::write(fixture.root.join("b.md"), &original_b).unwrap();
+    let plan = fixture
+        .vault
+        .prepare_mutation(MutationRequest {
+            kind: MutationKind::Trash,
+            paths: vec!["a.md".into(), "b.md".into()],
+            destination: None,
+        })
+        .unwrap();
+    let collision = fixture
+        .root
+        .join(format!(".adamant/transactions/{}/stage-1", plan.id));
+    let collision_path = collision.clone();
+    crate::vault::mutations::before_move_to("stage-1", move || {
+        fs::write(collision_path, b"occupied staging").unwrap()
+    });
+    let result = fixture.vault.commit_mutation(&plan.id).unwrap();
+    assert_eq!(result.outcomes[0].status, "completed");
+    assert_eq!(result.outcomes[1].status, "failed");
+    let surviving_b = fixture.vault.read_note("b.md").unwrap();
+    assert!(surviving_b.text.ends_with("A"));
+    let refs = super::super::metadata::note_metadata(&surviving_b.text)
+        .value
+        .unwrap()["refs"]
+        .clone();
+    assert_eq!(refs.as_array().unwrap().len(), 0);
+    let blocked = fixture.vault.recover_mutation(&plan.id).unwrap();
+    assert_eq!(blocked.state, "conflicted");
+    assert_eq!(
+        fixture.vault.read_note("b.md").unwrap().text,
+        surviving_b.text
+    );
+    fs::remove_file(collision).unwrap();
+    assert_eq!(
+        fixture.vault.recover_mutation(&plan.id).unwrap().state,
+        "recovered"
+    );
+    let trash_b = fixture
+        .vault
+        .list_trash()
+        .unwrap()
+        .into_iter()
+        .find(|entry| entry.path == "b.md")
+        .unwrap();
+    assert_eq!(
+        fs::read_to_string(
+            fixture
+                .root
+                .join(format!(".adamant/trash/{}/payload/b.md", trash_b.id))
+        )
+        .unwrap(),
+        original_b
+    );
+    assert!(fixture.vault.startup_recover().unwrap().is_empty());
+}
+
+#[test]
+fn cleaned_selected_folder_recovery_rejects_untracked_writer_changes() {
+    let fixture = Fixture::new();
+    fixture.vault.create_note("a.md", "A").unwrap();
+    fixture.vault.create_folder("b").unwrap();
+    let original = fixture
+        .vault
+        .create_note("b/referrer.md", "[A](../a.md)")
+        .unwrap();
+    fs::write(fixture.root.join("b/unrelated.bin"), b"keep").unwrap();
+    let plan = fixture
+        .vault
+        .prepare_mutation(MutationRequest {
+            kind: MutationKind::Trash,
+            paths: vec!["a.md".into(), "b".into()],
+            destination: None,
+        })
+        .unwrap();
+    let collision = fixture
+        .root
+        .join(format!(".adamant/transactions/{}/stage-1", plan.id));
+    let collision_path = collision.clone();
+    crate::vault::mutations::before_move_to("stage-1", move || {
+        fs::write(collision_path, b"occupied staging").unwrap()
+    });
+    assert!(
+        fixture
+            .vault
+            .commit_mutation(&plan.id)
+            .unwrap()
+            .recovery_id
+            .is_some()
+    );
+    fs::remove_file(collision).unwrap();
+    fs::write(fixture.root.join("b/unrelated.bin"), b"external change").unwrap();
+    let denied = fixture.vault.recover_mutation(&plan.id).unwrap();
+    assert_eq!(denied.state, "conflicted");
+    assert!(
+        denied.result.unwrap().outcomes[1]
+            .message
+            .as_ref()
+            .unwrap()
+            .contains("Newer source preserved")
+    );
+    assert_eq!(
+        fs::read(fixture.root.join("b/unrelated.bin")).unwrap(),
+        b"external change"
+    );
+    fs::write(fixture.root.join("b/unrelated.bin"), b"keep").unwrap();
+    assert_eq!(
+        fixture.vault.recover_mutation(&plan.id).unwrap().state,
+        "recovered"
+    );
+    let trash = fixture
+        .vault
+        .list_trash()
+        .unwrap()
+        .into_iter()
+        .find(|entry| entry.path == "b")
+        .unwrap();
+    assert_eq!(
+        fs::read_to_string(
+            fixture
+                .root
+                .join(format!(".adamant/trash/{}/payload/b/referrer.md", trash.id))
+        )
+        .unwrap(),
+        original.text
+    );
+}
+
+#[test]
+fn cleaned_staging_recovery_preserves_a_recreated_public_source() {
+    let fixture = Fixture::new();
+    fixture.vault.create_note("a.md", "A").unwrap();
+    fixture.vault.create_note("b.md", "[A](a.md)").unwrap();
+    let plan = fixture
+        .vault
+        .prepare_mutation(MutationRequest {
+            kind: MutationKind::Trash,
+            paths: vec!["a.md".into(), "b.md".into()],
+            destination: None,
+        })
+        .unwrap();
+    let staging = fixture
+        .root
+        .join(format!(".adamant/transactions/{}/stage-1", plan.id));
+    let collision = staging.clone();
+    crate::vault::mutations::before_move_to("stage-1", move || {
+        fs::write(collision, b"occupied staging").unwrap()
+    });
+    assert!(
+        fixture
+            .vault
+            .commit_mutation(&plan.id)
+            .unwrap()
+            .recovery_id
+            .is_some()
+    );
+    fs::remove_file(&staging).unwrap();
+    fs::rename(fixture.root.join("b.md"), &staging).unwrap();
+    let captured = fs::read(&staging).unwrap();
+    fs::write(fixture.root.join("b.md"), b"external replacement").unwrap();
+    assert_eq!(
+        fixture.vault.recover_mutation(&plan.id).unwrap().state,
+        "conflicted"
+    );
+    assert_eq!(
+        fs::read(fixture.root.join("b.md")).unwrap(),
+        b"external replacement"
+    );
+    assert_eq!(fs::read(staging).unwrap(), captured);
+}
+
+#[test]
+fn interrupted_survivor_publication_resumes_only_its_journal_owned_capture() {
+    let fixture = Fixture::new();
+    fixture.vault.create_note("a.md", "A").unwrap();
+    let original = fixture.vault.create_note("b.md", "[A](a.md)").unwrap();
+    let plan = fixture
+        .vault
+        .prepare_mutation(MutationRequest {
+            kind: MutationKind::Trash,
+            paths: vec!["a.md".into(), "b.md".into()],
+            destination: None,
+        })
+        .unwrap();
+    let collision = fixture
+        .root
+        .join(format!(".adamant/transactions/{}/stage-1", plan.id));
+    let collision_path = collision.clone();
+    crate::vault::mutations::before_move_to("stage-1", move || {
+        fs::write(collision_path, b"occupied staging").unwrap();
+        crate::vault::mutations::before_move_to("b.md", || {
+            panic!("interrupted survivor publication")
+        });
+    });
+    assert!(
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| fixture
+            .vault
+            .commit_mutation(&plan.id)))
+        .is_err()
+    );
+    assert!(!fixture.root.join("b.md").exists());
+    let captured = fixture.root.join(format!(
+        ".adamant/transactions/{}/referrer-0.original",
+        plan.id
+    ));
+    assert_eq!(fs::read_to_string(captured).unwrap(), original.text);
+    fs::remove_file(collision).unwrap();
+    assert_eq!(
+        fixture.vault.recover_mutation(&plan.id).unwrap().state,
+        "recovered"
+    );
+    let trash = fixture
+        .vault
+        .list_trash()
+        .unwrap()
+        .into_iter()
+        .find(|entry| entry.path == "b.md")
+        .unwrap();
+    assert_eq!(
+        fs::read_to_string(
+            fixture
+                .root
+                .join(format!(".adamant/trash/{}/payload/b.md", trash.id))
+        )
+        .unwrap(),
+        original.text
+    );
+    assert!(fixture.vault.startup_recover().unwrap().is_empty());
+}
+
+#[test]
+fn interrupted_trash_resumes_incremental_reference_cleanup() {
+    let fixture = Fixture::new();
+    let a = fixture.vault.create_note("a.md", "A").unwrap();
+    let b = fixture.vault.create_note("b.md", "B").unwrap();
+    let source = format!(
+        "---\nid: {}\nrefs: [{{kind: note, id: {}}}, {{kind: note, id: {}}}]\n---\n[A](a.md) [B](b.md)",
+        uuid::Uuid::new_v4(),
+        a.id.unwrap(),
+        b.id.unwrap()
+    );
+    fs::write(fixture.root.join("referrer.md"), source).unwrap();
+    let plan = fixture
+        .vault
+        .prepare_mutation(MutationRequest {
+            kind: MutationKind::Trash,
+            paths: vec!["a.md".into(), "b.md".into()],
+            destination: None,
+        })
+        .unwrap();
+    crate::vault::mutations::before_move_to("stage-1", || panic!("interrupted next item"));
+    assert!(
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| fixture
+            .vault
+            .commit_mutation(&plan.id)))
+        .is_err()
+    );
+    let partial = fixture.vault.read_note("referrer.md").unwrap();
+    assert!(partial.text.ends_with("A [B](b.md)"));
+    let refs = super::super::metadata::note_metadata(&partial.text)
+        .value
+        .unwrap()["refs"]
+        .clone();
+    assert_eq!(refs.as_array().unwrap().len(), 1);
+    assert_eq!(
+        fixture.vault.recover_mutation(&plan.id).unwrap().state,
+        "recovered"
+    );
+    let complete = fixture.vault.read_note("referrer.md").unwrap();
+    assert!(complete.text.ends_with("A B"));
+    let refs = super::super::metadata::note_metadata(&complete.text)
+        .value
+        .unwrap()["refs"]
+        .clone();
+    assert_eq!(refs.as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn trash_retains_uuid_references_when_a_duplicate_file_survives() {
+    let fixture = Fixture::new();
+    let a = fixture.vault.create_note("a.md", "A").unwrap();
+    fs::write(fixture.root.join("duplicate.md"), &a.text).unwrap();
+    let source = format!(
+        "---\nid: {}\nrefs: [{{kind: note, id: {}}}]\n---\n[A](a.md) [Duplicate](duplicate.md)",
+        uuid::Uuid::new_v4(),
+        a.id.unwrap()
+    );
+    fs::write(fixture.root.join("referrer.md"), &source).unwrap();
+    let plan = fixture
+        .vault
+        .prepare_mutation(MutationRequest {
+            kind: MutationKind::Trash,
+            paths: vec!["a.md".into()],
+            destination: None,
+        })
+        .unwrap();
+    assert_eq!(
+        fixture.vault.commit_mutation(&plan.id).unwrap().outcomes[0].status,
+        "completed"
+    );
+    let changed = fixture.vault.read_note("referrer.md").unwrap();
+    assert_eq!(changed.text, source.replace("[A](a.md)", "A"));
+}
+
+#[test]
+fn trash_refuses_unsafe_metadata_and_changed_referrers_before_removal() {
+    let fixture = Fixture::new();
+    let a = fixture.vault.create_note("a.md", "A").unwrap();
+    let unsafe_source = format!(
+        "---\nid: {}\nshared: &links [{{kind: note, id: {}}}]\nrefs: *links\n---\nBody",
+        uuid::Uuid::new_v4(),
+        a.id.unwrap()
+    );
+    fs::write(fixture.root.join("referrer.md"), &unsafe_source).unwrap();
+    let request = MutationRequest {
+        kind: MutationKind::Trash,
+        paths: vec!["a.md".into()],
+        destination: None,
+    };
+    assert!(fixture.vault.prepare_mutation(request.clone()).is_err());
+    assert_eq!(
+        fs::read_to_string(fixture.root.join("a.md")).unwrap(),
+        a.text
+    );
+    assert_eq!(
+        fs::read_to_string(fixture.root.join("referrer.md")).unwrap(),
+        unsafe_source
+    );
+    fs::write(fixture.root.join("referrer.md"), "[A](a.md)").unwrap();
+    let plan = fixture.vault.prepare_mutation(request).unwrap();
+    fs::write(fixture.root.join("referrer.md"), "[A](a.md) External").unwrap();
+    assert_eq!(
+        fixture.vault.commit_mutation(&plan.id).unwrap_err().kind,
+        "conflict"
+    );
+    assert!(fixture.root.join("a.md").exists());
+    assert_eq!(
+        fs::read_to_string(fixture.root.join("referrer.md")).unwrap(),
+        "[A](a.md) External"
+    );
+}
+
+#[test]
 fn duplicate_gets_a_new_identity_and_preserves_source_bytes() {
     let fixture = Fixture::new();
     let original = fixture

@@ -102,6 +102,13 @@
   line-height: 1.45;
 }
 
+/* Keep selection and current-file colors while navigation blocks clicks. */
+:where(.app-shell:is([data-operation='navigate'], [data-operation='background']) .vault-tree)
+  .explorer-file:disabled {
+  color: var(--secondary-text);
+  opacity: 1;
+}
+
 .explorer-file > span:not(.buffer-dot) {
   flex: 1;
   min-width: 0;

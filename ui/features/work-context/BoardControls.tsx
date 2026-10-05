@@ -200,7 +200,7 @@ export function BoardHeader({
   const state = work.state;
   return (
     <>
-      <header className="work-heading">
+      <header className="work-heading" data-tauri-drag-region>
         <div className="work-heading-identity">
           {space ? (
             <button className="work-hub-back" disabled={busy} onClick={onHub}>
@@ -408,35 +408,37 @@ export function BoardToolbar({
           </OverlayPresence>
         </div>
       ) : null}
-      <div className="work-toolbar-actions">
-        <MenuButton
-          label="Add work"
-          actions={[
-            {
-              id: 'existing',
-              label: 'Add existing work',
-              icon: 'import',
-              run: () => showDialog({ kind: 'existing' }),
-            },
-            {
-              id: 'follow',
-              label: 'Follow a work URL',
-              icon: 'link',
-              run: () => showDialog({ kind: 'follow' }),
-            },
-          ]}
-        >
-          Add <WorkspaceIcon name="chevron" />
-        </MenuButton>
-        <button
-          className="primary work-new-task-button"
-          type="button"
-          onClick={() => showDialog({ kind: 'task' })}
-        >
-          <WorkspaceIcon name="plus" />
-          New task
-        </button>
-      </div>
+      {space.members.length > 0 || activeTab === 'sources' ? (
+        <div className="work-toolbar-actions">
+          <MenuButton
+            label="Add work"
+            actions={[
+              {
+                id: 'existing',
+                label: 'Add existing work',
+                icon: 'import',
+                run: () => showDialog({ kind: 'existing' }),
+              },
+              {
+                id: 'follow',
+                label: 'Follow a work URL',
+                icon: 'link',
+                run: () => showDialog({ kind: 'follow' }),
+              },
+            ]}
+          >
+            Add <WorkspaceIcon name="chevron" />
+          </MenuButton>
+          <button
+            className="primary work-new-task-button"
+            type="button"
+            onClick={() => showDialog({ kind: 'task' })}
+          >
+            <WorkspaceIcon name="plus" />
+            New task
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

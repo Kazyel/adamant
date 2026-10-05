@@ -1,7 +1,7 @@
 import type { NoteDocument } from './types';
 
 interface VaultError {
-  kind: 'conflict' | 'invalid' | 'io';
+  kind: 'conflict' | 'invalid' | 'io' | 'missing';
   message: string;
   current: NoteDocument | null;
 }
@@ -15,13 +15,17 @@ export interface BufferState {
   savedText: string;
   source: Source | null;
   editorKey: number;
-  conflict: { current: NoteDocument | null; message: string } | null;
+  conflict: { current: NoteDocument | null; message: string; removed?: boolean } | null;
 }
 
 export function conflictError(error: unknown): error is VaultError {
   return (
     typeof error === 'object' && error !== null && 'kind' in error && error.kind === 'conflict'
   );
+}
+
+export function missingError(error: unknown): error is VaultError {
+  return typeof error === 'object' && error !== null && 'kind' in error && error.kind === 'missing';
 }
 
 export function sourceName(source: Source | null): string {

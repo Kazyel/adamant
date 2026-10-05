@@ -5,7 +5,7 @@ use std::{
     sync::MutexGuard,
 };
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::capability::{kind, relative};
 use super::{NoteDocument, Vault, VaultEntry, VaultError, VaultIssue, VaultResult, VaultSnapshot};
@@ -15,6 +15,7 @@ mod graph;
 mod search;
 mod work;
 pub(super) use search::BodyIndex;
+pub(crate) use search::links::{LinkStatus, NoteLinkLimits, NoteLinksSnapshot};
 
 const MAX_ENTRIES: usize = 50_000;
 const MAX_DIRECTORIES: usize = 2048;
@@ -65,6 +66,59 @@ pub struct SearchHit {
     pub column: Option<usize>,
     pub snippet: String,
     pub revision: Option<String>,
+    pub page: Option<usize>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+pub struct SearchFilters {
+    pub tags: Vec<String>,
+    pub directory: Option<String>,
+    pub kinds: Vec<String>,
+}
+
+impl SearchFilters {
+    pub(crate) fn validate(&self) -> VaultResult<()> {
+        super::tags::validated_tags(&self.tags)?;
+        if self.kinds.len() > 3
+            || self
+                .kinds
+                .iter()
+                .any(|kind| !matches!(kind.as_str(), "markdown" | "pdf" | "docx"))
+        {
+            return Err(VaultError::invalid(
+                "Choose Markdown, PDF or DOCX file types.",
+            ));
+        }
+        if let Some(directory) = self.directory.as_deref().filter(|path| !path.is_empty()) {
+            relative(directory)?;
+            if directory.len() > 4096 {
+                return Err(VaultError::invalid("The folder filter exceeds 4096 bytes."));
+            }
+        }
+        Ok(())
+    }
+
+    fn matches(&self, row: &IndexedEntry) -> bool {
+        if !self.kinds.is_empty() && !self.kinds.iter().any(|kind| kind == row.entry.kind) {
+            return false;
+        }
+        if let Some(directory) = self.directory.as_deref().filter(|path| !path.is_empty())
+            && row.entry.path != directory
+            && !row
+                .entry
+                .path
+                .strip_prefix(directory)
+                .is_some_and(|suffix| suffix.starts_with('/'))
+        {
+            return false;
+        }
+        if self.tags.is_empty() {
+            return true;
+        }
+        let tags = row.tags();
+        self.tags.iter().all(|tag| tags.contains(tag))
+    }
 }
 
 pub struct SearchQuery<'a> {
@@ -74,6 +128,7 @@ pub struct SearchQuery<'a> {
     pub offset: usize,
     pub limit: usize,
     pub expected_generation: Option<u64>,
+    pub filters: SearchFilters,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -144,6 +199,14 @@ struct IndexedEntry {
 }
 
 impl IndexedEntry {
+    fn tags(&self) -> Vec<String> {
+        let value = self
+            .metadata
+            .as_deref()
+            .and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok());
+        super::tags::metadata_tags(value.as_ref())
+    }
+
     fn weight(&self) -> usize {
         self.metadata.as_ref().map_or(0, String::len)
             + self.references.iter().map(String::len).sum::<usize>()
@@ -255,6 +318,37 @@ fn parent_path(path: &str) -> &str {
 }
 
 impl Vault {
+    pub(crate) fn tag_facets(&self, query: &str) -> super::tags::TagSnapshot {
+        let inventory = self.inventory();
+        let query = query.to_lowercase();
+        let mut tags = BTreeSet::new();
+        let mut folders = Vec::new();
+        for row in inventory.rows.values() {
+            if row.entry.kind == "directory" {
+                folders.push(row.entry.path.clone());
+            }
+            for tag in row.tags() {
+                if tag.to_lowercase().contains(&query) {
+                    tags.insert(tag);
+                }
+            }
+        }
+        let more_suggestions = tags.len() > 100;
+        let more_folders = folders.len() > MAX_DIRECTORIES;
+        folders.truncate(MAX_DIRECTORIES);
+        super::tags::TagSnapshot {
+            identity: None,
+            revision: None,
+            tags: Vec::new(),
+            suggestions: tags.into_iter().take(100).collect(),
+            folders,
+            more_suggestions,
+            more_folders,
+            indexing: inventory.status.clone(),
+            problem: None,
+        }
+    }
+
     fn inventory(&self) -> MutexGuard<'_, Inventory> {
         self.inventory
             .lock()

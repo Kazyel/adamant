@@ -4,6 +4,7 @@ export interface GraphNode {
   key: string;
   path: string;
   kind: 'markdown' | 'pdf' | 'docx';
+  tags: string[];
   id: string | null;
   identity: string;
   problem: string | null;
@@ -24,6 +25,11 @@ export interface GraphSnapshot {
   generation: number;
   complete: boolean;
   revision: number;
+  references: {
+    edges: Pick<GraphEdge, 'source' | 'target'>[];
+    indexing: IndexState;
+    canContinue: boolean;
+  };
 }
 
 export interface GraphRecord {

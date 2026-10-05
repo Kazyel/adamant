@@ -1,0 +1,168 @@
+.note-links-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 340px;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  outline: none;
+}
+.note-links-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: var(--document-pane-header-height, 56px);
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.note-links-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.note-links-heading h2 {
+  margin: 0;
+  font-size: 0.929rem;
+  font-weight: 600;
+}
+.note-links-count {
+  color: var(--muted);
+  font-size: 0.786rem;
+  font-variant-numeric: tabular-nums;
+}
+.note-links-body {
+  padding: 16px;
+  overflow: auto;
+}
+.note-links-intro,
+.note-links-status,
+.note-links-error {
+  font-size: 0.857rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.note-links-intro {
+  margin: 0 0 16px;
+  color: var(--secondary-text);
+}
+.note-links-status {
+  color: var(--muted);
+  margin: 12px 0;
+}
+.note-links-error {
+  color: var(--error);
+  margin-bottom: 16px;
+}
+.note-links-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.note-links-list > li + li {
+  border-top: 1px solid var(--border);
+}
+.note-link-target {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 12px 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+}
+.note-link-target > .workspace-icon,
+.note-links-heading > div > .workspace-icon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.note-link-target:focus-visible {
+  outline-offset: -2px;
+  background: var(--raised);
+}
+.note-link-target > .workspace-icon {
+  margin-top: 2px;
+}
+.note-link-target > span {
+  flex: 1;
+  min-width: 0;
+}
+.note-link-target strong,
+.note-link-target small,
+.note-link-excerpt {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.note-link-target strong {
+  font-size: 0.929rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.note-link-target small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.786rem;
+  line-height: 1.5;
+}
+.note-link-excerpt {
+  margin-top: 8px;
+  color: var(--secondary-text);
+  font-size: 0.857rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.note-link-unresolved > .workspace-icon {
+  color: var(--secondary-text);
+}
+.note-links-empty {
+  padding: 16px 8px;
+  color: var(--muted);
+  font-size: 0.857rem;
+  line-height: 1.7;
+}
+.note-links-outgoing {
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.note-links-outgoing > summary {
+  padding: 16px 0;
+  font-size: 0.857rem;
+  font-weight: 500;
+}
+.note-links-outgoing > summary > span {
+  color: var(--muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.interaction-dialog.note-link-picker {
+  width: min(520px, calc(100vw - 32px));
+}
+.note-links-search {
+  width: 100%;
+}
+.note-link-picker-results {
+  margin-top: 12px;
+  min-height: 120px;
+  max-height: min(420px, 55vh);
+  overflow: auto;
+}
+@container (max-width: 900px) {
+  .document-workspace:has(.note-links-panel) {
+    flex-direction: column;
+    overflow: auto;
+  }
+  .document-workspace:has(.note-links-panel) > .document-panes {
+    flex: 1 0 45%;
+    min-height: 240px;
+  }
+  .note-links-panel {
+    flex: 1 0 260px;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}

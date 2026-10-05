@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { tabPersistence, type DocumentSession } from './useDocumentSession.ts';
 import { errorMessage } from '../../../shared/errors.ts';
+import { MissingRevealTargetError } from '../useDirectoryPages.ts';
 import type { NavigationController } from '../../navigation/useNavigation';
 import type { NoteDocument, VaultSnapshot } from '../types';
 import type { SelectedDocument } from '../../documents/types';
@@ -23,6 +24,7 @@ interface PersistenceContext {
   finder: NavigationController;
   fail: (error: unknown) => void;
   revealPath: (path: string) => Promise<void>;
+  preferences: EditorPreferences;
   setPreferences: (preferences: EditorPreferences) => void;
 }
 
@@ -53,8 +55,12 @@ export function useWorkspacePersistence({
   finder,
   fail,
   revealPath,
+  preferences,
   setPreferences,
 }: PersistenceContext) {
+  const preferencesRef = useRef(preferences);
+  preferencesRef.current = preferences;
+  const preferenceRequest = useRef<Promise<EditorPreferences> | null>(null);
   const hydrated = useRef(false);
   const [recoveries, setRecoveries] = useState<DraftRecord[]>([]);
   const [recovery, setRecovery] = useState<RecoverySelection | null>(null);
@@ -75,6 +81,19 @@ export function useWorkspacePersistence({
       vault.current?.root === root?.root &&
       vault.current?.id === root?.id
     );
+  }
+
+  function loadPreferences(): Promise<EditorPreferences> {
+    return (preferenceRequest.current ??= preferencesLoad<unknown>().then((value) => {
+      if (value !== null && !validEditorPreferences(value)) {
+        throw new Error(
+          'Saved preferences are invalid. Open Preferences to replace them explicitly.',
+        );
+      }
+      const next = value ?? preferencesRef.current;
+      preferencesRef.current = next;
+      return next;
+    }));
   }
 
   function resetHydration() {
@@ -170,7 +189,19 @@ export function useWorkspacePersistence({
       try {
         await revealPath(`${directory}/`);
       } catch (error) {
-        if (isCurrentScope(started, root)) {
+        if (!isCurrentScope(started, root)) {
+          return;
+        }
+        if (error instanceof MissingRevealTargetError) {
+          if (error.inventoryReady) {
+            finder.setState((current) => ({
+              ...current,
+              expanded: current.expanded.filter(
+                (path) => path !== directory && !path.startsWith(`${directory}/`),
+              ),
+            }));
+          }
+        } else {
           fail(error);
         }
       }
@@ -193,7 +224,12 @@ export function useWorkspacePersistence({
   async function restoreWorkspace(next: VaultSnapshot) {
     hydrated.current = false;
     const started = ++scope.current;
-    const state = await workspaceLoad();
+    await loadPreferences();
+    const saved = await workspaceLoad();
+    const state =
+      saved && preferencesRef.current.showDocumentTabs === false
+        ? { ...saved, tabs: [], activeId: null }
+        : saved;
     if (!isCurrentScope(started, next)) {
       return;
     }
@@ -226,11 +262,44 @@ export function useWorkspacePersistence({
     await persistWorkspace();
   }
 
+  function openRememberedDocument(tab: WorkspaceTabState, document: SelectedDocument) {
+    if (
+      tab.sourceKind !== 'standalone' ||
+      !tab.path ||
+      tab.path !== document.path ||
+      tab.kind !== document.kind ||
+      !tab.identity ||
+      tab.identity !== document.identity
+    ) {
+      throw new Error(
+        'The remembered file no longer refers to the same document. Open it explicitly.',
+      );
+    }
+    // Opening decodes Markdown before changing the session; failures leave the draft intact.
+    const id = documents.openDocument({
+      ...document,
+      bytes: Uint8Array.from(document.bytes),
+      revision: documents.nextRevision(),
+      vaultPath: null,
+    });
+    documents.updateTab(id, {
+      view: tab.view,
+      showOriginal: tab.showOriginal,
+      line: tab.line,
+      column: tab.column,
+      viewerState: { page: tab.page, zoom: tab.zoom, scrollTop: tab.scrollTop ?? 0 },
+    });
+  }
+
   async function restoreLastDocument(isCurrent: () => boolean) {
     hydrated.current = false;
     const started = ++scope.current;
     const current = () => isCurrent() && isCurrentScope(started, null);
     try {
+      await loadPreferences();
+      if (!current() || preferencesRef.current.showDocumentTabs === false) {
+        return;
+      }
       const payload = await (lastDocumentRequest.current ??= invoke<{
         tab: WorkspaceTabState;
         document: SelectedDocument;
@@ -238,38 +307,15 @@ export function useWorkspacePersistence({
       if (!current() || !payload) {
         return;
       }
-      const { tab, document } = payload;
-      if (
-        tab.sourceKind !== 'standalone' ||
-        !tab.path ||
-        tab.path !== document.path ||
-        tab.kind !== document.kind ||
-        !tab.identity ||
-        tab.identity !== document.identity
-      ) {
-        throw new Error(
-          'The remembered file no longer refers to the same document. Open it explicitly.',
-        );
-      }
-      // Opening decodes Markdown before changing the session; failures leave the draft intact.
-      const id = documents.openDocument({
-        ...document,
-        bytes: Uint8Array.from(document.bytes),
-        revision: documents.nextRevision(),
-        vaultPath: null,
-      });
-      documents.updateTab(id, {
-        view: tab.view,
-        showOriginal: tab.showOriginal,
-        line: tab.line,
-        column: tab.column,
-        viewerState: { page: tab.page, zoom: tab.zoom, scrollTop: tab.scrollTop ?? 0 },
-      });
+      openRememberedDocument(payload.tab, payload.document);
     } finally {
       if (current()) {
         lastDocumentRequest.current = null;
         hydrated.current = true;
         persisted.current = '';
+        if (preferencesRef.current.showDocumentTabs === false) {
+          await persistWorkspace();
+        }
       }
     }
     if (current()) {
@@ -311,13 +357,19 @@ export function useWorkspacePersistence({
             path: item.path,
             line: item.line ?? null,
             column: item.column ?? null,
+            page: item.page ?? null,
             identity: item.identity ?? null,
           })),
         })
       : null;
-    const active = !current
-      ? documents.tabsRef.current.find((item) => item.id === documents.activeIdRef.current)
-      : null;
+    if (state && preferencesRef.current.showDocumentTabs === false) {
+      state.tabs = [];
+      state.activeId = null;
+    }
+    const active =
+      !current && preferencesRef.current.showDocumentTabs !== false
+        ? documents.tabsRef.current.find((item) => item.id === documents.activeIdRef.current)
+        : null;
     const candidate = active && !active.restored ? tabPersistence(active) : null;
     const tab = candidate?.sourceKind === 'standalone' && candidate.path ? candidate : null;
     const serialized = JSON.stringify(state ?? tab);
@@ -387,9 +439,21 @@ export function useWorkspacePersistence({
       throw new Error('Choose supported editor preferences.');
     }
     if (isTauri()) {
+      // Lazy hydration reads the saved tab record. Load those sources before removing it.
+      if (next.showDocumentTabs === false && preferencesRef.current.showDocumentTabs !== false) {
+        for (const tab of documents.tabsRef.current.filter((item) => item.restored)) {
+          await hydrateTab(tab.id);
+          if (documents.tabsRef.current.some((item) => item.id === tab.id && item.restored)) {
+            throw new Error('Open or close unavailable restored tabs before hiding document tabs.');
+          }
+        }
+      }
       await preferencesSave(next);
     }
+    preferencesRef.current = next;
+    preferenceRequest.current = Promise.resolve(next);
     setPreferences(next);
+    await persistWorkspace();
   }
 
   async function readRecoverySource(draft: DraftRecord) {
@@ -511,17 +575,11 @@ export function useWorkspacePersistence({
       return;
     }
     let disposed = false;
-    void preferencesLoad<unknown>()
+    void loadPreferences()
       .then((value) => {
-        if (disposed || value === null) {
-          return;
+        if (!disposed) {
+          setPreferences(value);
         }
-        if (!validEditorPreferences(value)) {
-          throw new Error(
-            'Saved preferences are invalid. Open Preferences to replace them explicitly.',
-          );
-        }
-        setPreferences(value);
       })
       .catch(reportError);
     return () => {
@@ -532,7 +590,7 @@ export function useWorkspacePersistence({
   useEffect(() => {
     const timer = setTimeout(saveWorkspaceAfterChange, 400);
     return () => clearTimeout(timer);
-  }, [documents.tabs, documents.activeId, finder.state]);
+  }, [documents.tabs, documents.activeId, finder.state, preferences.showDocumentTabs]);
 
   useEffect(() => {
     scheduleDrafts();

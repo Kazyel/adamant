@@ -1,6 +1,4 @@
-use std::path::{Path, PathBuf};
-
-use cap_fs_ext::DirExt;
+use std::path::PathBuf;
 
 use super::capability::{kind, note_path, read_regular, read_text, relative};
 use super::metadata::{adopt, note_metadata};
@@ -18,26 +16,6 @@ pub(super) fn document(path: &str, text: String) -> NoteDocument {
 }
 
 impl Vault {
-    fn note_is_absent(&self, path: &str) -> bool {
-        let Ok(mut dir) = self.dir.try_clone() else {
-            return false;
-        };
-        let mut components = Path::new(path).components().peekable();
-        while let Some(component) = components.next() {
-            let name = Path::new(component.as_os_str());
-            if components.peek().is_none() {
-                return dir
-                    .symlink_metadata(name)
-                    .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound);
-            }
-            match dir.open_dir_nofollow(name) {
-                Ok(child) => dir = child,
-                Err(error) => return error.kind() == std::io::ErrorKind::NotFound,
-            }
-        }
-        false
-    }
-
     pub fn read_note(&self, path: &str) -> VaultResult<NoteDocument> {
         note_path(path)?;
         let result = self
@@ -49,7 +27,7 @@ impl Vault {
                 // A missing path is a deletion conflict only while the original root and
                 // manifest still authorize this Vault; links and unreadable files are not deletions.
                 self.ensure_current_manifest()?;
-                if self.note_is_absent(path) {
+                if self.document_is_absent(path) {
                     return Err(VaultError::conflict(
                         "The Note or its parent directory was deleted. Reload or save a recovery copy.",
                         None,

@@ -155,6 +155,17 @@ const markdownBridge = `
   let pending = null;
   const send = (type, values = {}) =>
     parent.postMessage({ token, type, ...values }, '*');
+  const updateScrollEdges = () => {
+    const surface = document.scrollingElement;
+    if (!surface) return;
+    const visible = surface.clientHeight > 0;
+    document.documentElement.toggleAttribute('data-scroll-top', visible && surface.scrollTop > 1);
+    document.documentElement.toggleAttribute('data-scroll-bottom',
+      visible && surface.scrollHeight - surface.clientHeight - surface.scrollTop > 1);
+  };
+  document.addEventListener('scroll', updateScrollEdges, { passive: true });
+  addEventListener('resize', updateScrollEdges);
+  new ResizeObserver(updateScrollEdges).observe(document.body);
   const scrollToAnchor = (fragment) => {
     let id = fragment.replace(/^#/, '');
     try { id = decodeURIComponent(id); } catch {}
@@ -204,6 +215,7 @@ const markdownBridge = `
   addEventListener('load', () => {
     void document.fonts.ready.then(() => {
       ready = true;
+      updateScrollEdges();
       send('ready');
       applyAnchor();
     });

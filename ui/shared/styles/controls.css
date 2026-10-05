@@ -151,7 +151,7 @@ textarea[aria-invalid='true'],
   border-radius: 6px;
   background: var(--raised);
   color: var(--text);
-  box-shadow: 0 4px 16px #0003;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 16%);
   font-size: 12px;
   line-height: 1.5;
   overflow-wrap: anywhere;

@@ -1,4 +1,5 @@
 use crate::vault::{VaultError, VaultResult};
+use cap_fs_ext::DirExt;
 use std::{io::Read, path::PathBuf};
 
 #[derive(serde::Serialize)]
@@ -9,7 +10,27 @@ pub(crate) struct NavigationTarget {
     pub(crate) source: Option<cap_std::fs::File>,
 }
 
+#[derive(serde::Serialize)]
+pub(crate) struct NavigationResponse {
+    #[serde(flatten)]
+    pub(crate) target: NavigationTarget,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) note: Option<super::NoteDocument>,
+}
+
 impl NavigationTarget {
+    pub(crate) fn into_response(mut self, include_note: bool) -> VaultResult<NavigationResponse> {
+        let note = if include_note && self.entry.kind == "markdown" {
+            // Read from the descriptor that established identity, even if the path is replaced.
+            let text = String::from_utf8(self.read_bytes()?)
+                .map_err(|_| VaultError::invalid("The Note is not UTF-8."))?;
+            Some(super::notes::document(&self.entry.path, text))
+        } else {
+            None
+        };
+        Ok(NavigationResponse { target: self, note })
+    }
+
     pub(crate) fn read_bytes(&mut self) -> VaultResult<Vec<u8>> {
         let mut file = self
             .source
@@ -48,8 +69,52 @@ pub(super) fn navigation_target(
     vault: &crate::vault::Vault,
     path: &str,
 ) -> VaultResult<NavigationTarget> {
-    let (parent, name) = vault.parent(path, false)?;
-    navigation_target_in(&parent, &name, path)
+    let result = vault
+        .parent(path, false)
+        .and_then(|(parent, name)| navigation_target_in(&parent, &name, path));
+    match result {
+        Ok(target) => Ok(target),
+        Err(error) => {
+            vault.ensure_current_manifest()?;
+            if vault.document_is_absent(path) {
+                return Err(VaultError::missing(
+                    "The document or its parent folder was deleted from this Vault.",
+                ));
+            }
+            Err(error)
+        }
+    }
+}
+
+impl crate::vault::Vault {
+    pub(super) fn document_is_absent(&self, path: &str) -> bool {
+        let Ok(relative) = super::capability::relative(path) else {
+            return false;
+        };
+        let Ok(mut dir) = self.dir.try_clone() else {
+            return false;
+        };
+        let mut components = relative.components().peekable();
+        while let Some(component) = components.next() {
+            let name = std::path::Path::new(component.as_os_str());
+            if components.peek().is_none() {
+                return dir
+                    .symlink_metadata(name)
+                    .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound);
+            }
+            match dir.open_dir_nofollow(name) {
+                Ok(child) => dir = child,
+                Err(_) => {
+                    // A dangling link also reports NotFound when opened. Only absent
+                    // directory entries establish deletion, never links or denied access.
+                    return dir
+                        .symlink_metadata(name)
+                        .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound);
+                }
+            }
+        }
+        false
+    }
 }
 
 pub(super) fn navigation_target_in(

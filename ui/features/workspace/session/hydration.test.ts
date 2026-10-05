@@ -5,17 +5,16 @@ import { renderToString } from 'react-dom/server';
 import type { NavigationController } from '../../navigation/useNavigation.ts';
 import type { SelectedDocument } from '../../documents/types.ts';
 import type { VaultSnapshot } from '../types.ts';
+import { MissingRevealTargetError } from '../useDirectoryPages.ts';
 import { useDocumentSession, type DocumentSession } from './useDocumentSession.ts';
 import { useWorkspacePersistence } from './useWorkspacePersistence.ts';
 import { defaultEditorPreferences } from '../../interaction/types.ts';
+import type { DraftRecord, WorkspacePersistenceState } from './persistence.ts';
 
 interface Workspace {
   documents: DocumentSession;
-  persistence: {
-    hydrateTab: (id: string) => Promise<void>;
-    resetHydration: () => void;
-    restoreWorkspace: (vault: VaultSnapshot) => Promise<void>;
-  };
+  persistence: ReturnType<typeof useWorkspacePersistence>;
+  finder: Pick<NavigationController, 'state' | 'stateRef' | 'setState'>;
   failures: unknown[];
 }
 type ReadDocument = { type: 'document'; document: SelectedDocument };
@@ -39,7 +38,12 @@ class SessionCapture extends Error {
   }
 }
 
-function workspaceSession(): Workspace {
+function workspaceSession(
+  root: VaultSnapshot | null = vault,
+  revealPath: (path: string) => Promise<void> = async () => {
+    throw new Error('These fixtures do not restore expanded directories.');
+  },
+): Workspace {
   const failures: unknown[] = [];
   const stateRef: NavigationController['stateRef'] = {
     current: {
@@ -61,19 +65,18 @@ function workspaceSession(): Workspace {
   } satisfies Pick<NavigationController, 'state' | 'stateRef' | 'setState'>;
 
   function Capture(): never {
-    const [, setPreferences] = useState(defaultEditorPreferences);
+    const [preferences, setPreferences] = useState(defaultEditorPreferences);
     const documents = useDocumentSession();
     const persistence = useWorkspacePersistence({
-      vault: { current: vault },
+      vault: { current: root },
       documents,
       finder: finder as NavigationController,
       fail: (error) => failures.push(error),
+      preferences,
       setPreferences,
-      revealPath: async () => {
-        throw new Error('These fixtures do not restore expanded directories.');
-      },
+      revealPath,
     });
-    throw new SessionCapture({ documents, persistence, failures });
+    throw new SessionCapture({ documents, persistence, finder, failures });
   }
   try {
     renderToString(createElement(Capture));
@@ -91,6 +94,8 @@ async function withInvoke(
   run: () => Promise<void>,
 ) {
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const previousTauri = Object.getOwnPropertyDescriptor(globalThis, 'isTauri');
+  Object.defineProperty(globalThis, 'isTauri', { configurable: true, value: true });
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: { __TAURI_INTERNALS__: { invoke } },
@@ -98,6 +103,11 @@ async function withInvoke(
   try {
     await run();
   } finally {
+    if (previousTauri) {
+      Object.defineProperty(globalThis, 'isTauri', previousTauri);
+    } else {
+      Reflect.deleteProperty(globalThis, 'isTauri');
+    }
     if (previousWindow) {
       Object.defineProperty(globalThis, 'window', previousWindow);
     } else {
@@ -157,6 +167,9 @@ await test('workspace restoration reads the active saved note before an unrelate
 
   await withInvoke(
     async (command, args) => {
+      if (command === 'preferences_load') {
+        return null;
+      }
       if (command === 'workspace_load') {
         return state;
       }
@@ -353,4 +366,249 @@ await test('a restored path with a different file identity retains its original 
       assert.deepEqual(failures, []);
     },
   );
+});
+
+await test('no-tabs restoration waits for preferences, retains navigation and drafts, and saves no tabs', async () => {
+  const { documents, persistence, finder } = workspaceSession();
+  const source = workspaceSession().documents;
+  saveDocument(source, readDocument('Remembered file'));
+  const navigation = {
+    ...finder.stateRef.current,
+    recent: ['notes.md'],
+    favorites: ['notes.md'],
+    history: [{ path: 'notes.md', line: 8, column: 3, page: null, identity: 'uuid:note' }],
+    historyIndex: 0,
+    identities: { 'notes.md': 'uuid:note' },
+    favoriteIdentities: { 'notes.md': 'uuid:note' },
+  };
+  const state = source.persist(vault.root, vault.id, navigation);
+  const draft: DraftRecord = {
+    id: 'recovery',
+    root: vault.root,
+    vaultId: vault.id,
+    path: 'notes.md',
+    identity: 'uuid:note',
+    baseRevision: 'original',
+    text: 'Unsaved recovery',
+    savedAt: 1,
+  };
+  const preferences = deferred<typeof defaultEditorPreferences>();
+  const requested = deferred<void>();
+  const saved: WorkspacePersistenceState[] = [];
+  const retained: DraftRecord[] = [];
+  let workspaceReads = 0;
+  let draftReads = 0;
+
+  await withInvoke(
+    async (command, args) => {
+      if (command === 'preferences_load') {
+        requested.resolve();
+        return preferences.promise;
+      }
+      if (command === 'workspace_load') {
+        workspaceReads++;
+        return state;
+      }
+      if (command === 'drafts_load') {
+        draftReads++;
+        return [draft];
+      }
+      if (command === 'workspace_save') {
+        saved.push(args.state as WorkspacePersistenceState);
+        return;
+      }
+      if (command === 'draft_save') {
+        retained.push(args.draft as DraftRecord);
+        return;
+      }
+      throw new Error(`Unexpected IPC command: ${command}`);
+    },
+    async () => {
+      const restore = persistence.restoreWorkspace(vault);
+      await requested.promise;
+      assert.equal(workspaceReads, 0);
+      preferences.resolve({ ...defaultEditorPreferences, showDocumentTabs: false });
+      await restore;
+      assert.equal(draftReads, 1);
+      assert.deepEqual(finder.stateRef.current, navigation);
+      assert.equal(documents.tabsRef.current.length, 1);
+      assert.equal(documents.tabsRef.current[0].restored, false);
+      assert.equal(documents.bufferRef.current.text, '');
+      assert.deepEqual(saved.at(-1), { ...state, tabs: [], activeId: null });
+
+      documents.updateBuffer({ ...documents.bufferRef.current, text: 'Fresh unsaved writing' });
+      await persistence.flushDrafts();
+      assert.equal(retained.length, 1);
+      assert.equal(retained[0].text, 'Fresh unsaved writing');
+      assert.equal(retained[0].root, vault.root);
+      assert.equal(documents.tabsRef.current[0].dirty, true);
+      assert.equal(documents.bufferRef.current.text, 'Fresh unsaved writing');
+      assert.deepEqual(saved.at(-1)?.tabs, []);
+      assert.equal(saved.at(-1)?.activeId, null);
+    },
+  );
+});
+
+await test('no-tabs standalone startup never reads remembered bytes and clears its saved record', async () => {
+  const { documents, persistence } = workspaceSession(null);
+  const commands: string[] = [];
+  await withInvoke(
+    async (command, args) => {
+      commands.push(command);
+      if (command === 'preferences_load') {
+        return { ...defaultEditorPreferences, showDocumentTabs: false };
+      }
+      if (command === 'last_document_save') {
+        assert.equal(args.tab, null);
+        return;
+      }
+      throw new Error(`Unexpected IPC command: ${command}`);
+    },
+    async () => {
+      await persistence.restoreLastDocument(() => true);
+      saveDocument(documents, readDocument('Explicitly opened file'));
+      await persistence.persistWorkspace();
+      assert.equal(documents.bufferRef.current.text, 'Explicitly opened file');
+      assert.deepEqual(commands, ['preferences_load', 'last_document_save']);
+    },
+  );
+});
+
+await test('changing tab preference clears saved tabs without discarding dirty buffers and can enable persistence again', async () => {
+  const { documents, persistence } = workspaceSession();
+  const saved: WorkspacePersistenceState[] = [];
+  await withInvoke(
+    async (command, args) => {
+      if (command === 'drafts_load') {
+        return [];
+      }
+      if (command === 'preferences_save') {
+        return;
+      }
+      if (command === 'workspace_save') {
+        saved.push(args.state as WorkspacePersistenceState);
+        return;
+      }
+      throw new Error(`Unexpected IPC command: ${command}`);
+    },
+    async () => {
+      await persistence.resumeStorage();
+      const { id } = saveDocument(documents, readDocument('Original source'));
+      documents.updateBuffer({ ...documents.bufferRef.current, text: 'Dirty source' });
+      await persistence.savePreferences({ ...defaultEditorPreferences, showDocumentTabs: false });
+      assert.deepEqual(saved.at(-1)?.tabs, []);
+      assert.equal(saved.at(-1)?.activeId, null);
+      assert.equal(documents.activeIdRef.current, id);
+      assert.equal(documents.bufferRef.current.text, 'Dirty source');
+      assert.equal(documents.tabsRef.current[0].dirty, true);
+      await persistence.savePreferences(defaultEditorPreferences);
+      assert.equal(saved.at(-1)?.tabs[0].id, id);
+      assert.equal(saved.at(-1)?.activeId, id);
+      assert.equal(documents.bufferRef.current.text, 'Dirty source');
+    },
+  );
+});
+
+await test('hiding tabs loads lazy sources before deleting their records and refuses to strand unavailable tabs', async () => {
+  for (const available of [true, false]) {
+    const { documents, persistence } = workspaceSession();
+    const payload = readDocument('Retained source');
+    const { id, state } = saveDocument(documents, payload);
+    let stored = state;
+    let preferenceWrites = 0;
+    await withInvoke(
+      async (command, args) => {
+        if (command === 'drafts_load') {
+          return [];
+        }
+        if (command === 'workspace_read_tab') {
+          assert.equal(
+            stored.tabs.some((tab) => tab.id === args.tabId),
+            true,
+          );
+          return available ? payload : null;
+        }
+        if (command === 'workspace_save') {
+          stored = args.state as WorkspacePersistenceState;
+          return;
+        }
+        if (command === 'preferences_save') {
+          preferenceWrites++;
+          return;
+        }
+        throw new Error(`Unexpected IPC command: ${command}`);
+      },
+      async () => {
+        await persistence.resumeStorage();
+        assert.equal(documents.restore(state, vault.root, vault.id), true);
+        const save = persistence.savePreferences({
+          ...defaultEditorPreferences,
+          showDocumentTabs: false,
+        });
+        if (available) {
+          await save;
+          assert.equal(preferenceWrites, 1);
+          assert.deepEqual(stored.tabs, []);
+          assert.equal(documents.bufferRef.current.text, 'Retained source');
+          assert.equal(documents.tabsRef.current[0].restored, false);
+        } else {
+          await assert.rejects(save, /unavailable restored tabs/);
+          assert.equal(preferenceWrites, 0);
+          assert.equal(stored.tabs[0].id, id);
+          assert.equal(documents.tabsRef.current[0].restored, true);
+          assert.equal(documents.tabsRef.current[0].hydration?.state, 'error');
+        }
+      },
+    );
+  }
+});
+
+await test('restoring obsolete folder expansion stays quiet without hiding actual listing failures', async () => {
+  for (const inventoryReady of [true, false]) {
+    const { documents, persistence, finder, failures } = workspaceSession(vault, async (path) => {
+      if (path === 'gone/') {
+        throw new MissingRevealTargetError('gone', inventoryReady);
+      }
+      if (path === 'denied/') {
+        throw new Error('Permission denied');
+      }
+    });
+    const state = documents.persist(vault.root, vault.id);
+    state.navigation = {
+      ...finder.stateRef.current,
+      history: [],
+      expanded: ['gone', 'gone/nested', 'denied', 'keep'],
+    };
+    let saved: WorkspacePersistenceState | undefined;
+    await withInvoke(
+      async (command, args) => {
+        if (command === 'workspace_load') {
+          return state;
+        }
+        if (command === 'drafts_load') {
+          return [];
+        }
+        if (command === 'preferences_load') {
+          return null;
+        }
+        if (command === 'workspace_save') {
+          saved = args.state as WorkspacePersistenceState;
+          return null;
+        }
+        throw new Error(`Unexpected IPC command: ${command}`);
+      },
+      async () => {
+        await persistence.restoreWorkspace(vault);
+        assert.deepEqual(
+          failures.map((error) => String(error)),
+          ['Error: Permission denied'],
+        );
+        const expected = inventoryReady
+          ? ['denied', 'keep']
+          : ['gone', 'gone/nested', 'denied', 'keep'];
+        assert.deepEqual(finder.stateRef.current.expanded, expected);
+        assert.deepEqual(saved?.navigation?.expanded, expected);
+      },
+    );
+  }
 });

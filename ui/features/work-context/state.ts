@@ -50,6 +50,19 @@ export function updateSpace(
   };
 }
 
+export function removeNoteLinks(state: WorkState, paths: readonly string[]): WorkState {
+  const roots = paths.filter(Boolean);
+  const items = state.items.map((item) => {
+    const links = item.links.filter(
+      (link) => !roots.some((path) => link.target === path || link.target.startsWith(`${path}/`)),
+    );
+    return links.length === item.links.length
+      ? item
+      : { ...item, links, updatedAt: new Date().toISOString() };
+  });
+  return items.every((item, index) => item === state.items[index]) ? state : { ...state, items };
+}
+
 /** Remote content is shared; personal organization and per-space placement are not remote state. */
 export function attachItems(state: WorkState, spaceId: string, incoming: WorkItem[]): WorkState {
   const space = state.spaces.find((entry) => entry.id === spaceId);

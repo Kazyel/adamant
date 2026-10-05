@@ -1,3 +1,4 @@
+import type { TagsRequest, TagsChange } from '../navigation/tagTypes';
 import type { BufferState } from './buffer';
 import type { AnnotationChange, AnnotationRequest } from '../documents/annotationTypes';
 import type {
@@ -26,6 +27,7 @@ export interface Workspace {
   documents: WorkspaceDocuments;
   finder: NavigationController;
   fileActions: FileActions;
+  changeTags: (request: TagsRequest) => Promise<TagsChange>;
   changeAnnotation: (request: AnnotationRequest) => Promise<AnnotationChange>;
   preferences: EditorPreferences;
   savePreferences: (preferences: EditorPreferences) => Promise<void>;
@@ -55,6 +57,7 @@ export interface Workspace {
   getExplorerActions: () => UserAction[];
   revealPath: (path: string, options?: { focus?: boolean }) => Promise<void>;
   revealTarget: { path: string; focus: boolean } | null;
+  removedPaths: readonly string[];
   pages: ReadonlyMap<string, ExplorerPage>;
   indexing: IndexState | null;
   indexAction: 'reconcile' | 'cancel' | null;
@@ -65,7 +68,8 @@ export interface Workspace {
   showOriginal: boolean;
   setShowOriginal: (show: boolean) => void;
   busy: 'save' | 'navigate' | 'background' | null;
-  notice: { error: boolean; text: string } | null;
+  notice: { error: boolean; text: string; revealPath?: string } | null;
+  dismissNotice: () => void;
   prompt: WorkspacePrompt | null;
   answer: (value: string | null) => void;
   reconcile: () => void;

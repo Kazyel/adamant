@@ -1,4 +1,5 @@
 export type IconName =
+  | 'tag'
   | 'graph'
   | 'calendar'
   | 'document'
@@ -42,12 +43,14 @@ export type IconName =
   | 'settings'
   | 'list'
   | 'link'
+  | 'backlinks'
   | 'columns'
   | 'help'
   | 'plus'
   | 'task';
 
 const paths: Record<IconName, string> = {
+  tag: 'M3 3h8l10 10-8 8L3 11V3Zm4 4h.01',
   undo: 'm9 4-5 5 5 5M4 9h9a7 7 0 0 1 7 7v4',
   redo: 'm15 4 5 5-5 5M20 9h-9a7 7 0 0 0-7 7v4',
   graph:
@@ -93,6 +96,7 @@ const paths: Record<IconName, string> = {
   settings: 'M4 6h16M4 12h16M4 18h16M8 3v6m8 0v6m-6 0v6',
   list: 'M4 6h3M10 6h10M4 12h3m3 0h10M4 18h3m3 0h10',
   link: 'M10 14 14 10M8 16H6a4 4 0 0 1 0-8h4m4 0h4a4 4 0 0 1 0 8h-4',
+  backlinks: 'M9 7V3h6l5 5v13H9v-4M15 3v5h5M3 12h11m-4-4 4 4-4 4',
   columns: 'M3 4h18v16H3V4Zm6 0v16m6-16v16',
   help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm-3-12a3 3 0 1 1 4.2 2.75c-.75.35-1.2.95-1.2 1.75M12 18h.01',
   plus: 'M12 5v14M5 12h14',

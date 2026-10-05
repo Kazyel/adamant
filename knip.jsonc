@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/knip/schema.json",
-  "entry": ["ui/**/*.test.ts"],
+  // Arc components are library entry points, available for gradual UI adoption.
+  "entry": ["ui/**/*.test.ts", "ui/shared/ui/arc/button/button.tsx"],
   "project": ["ui/**/*.{ts,tsx}", "scripts/**/*.mjs"],
   // Provided by the Rust toolchain, not a JavaScript dependency.
   "ignoreBinaries": ["rustfmt"],

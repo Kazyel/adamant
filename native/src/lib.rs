@@ -13,6 +13,22 @@ pub fn run() {
                 .get_webview_window("main")
                 .ok_or("The main window is unavailable.")?;
             window.set_zoom(1.1)?;
+
+            #[cfg(target_os = "linux")]
+            window.with_webview(|webview| {
+                use gtk::{gdk::keys::constants, glib::Propagation, prelude::WidgetExt};
+
+                webview.inner().connect_key_press_event(|_, event| {
+                    // WebKit treats bare Super as keyboard navigation and reveals click focus.
+                    // Filter it before WebKit; other keys still carry their modifier state.
+                    if matches!(event.keyval(), constants::Super_L | constants::Super_R) {
+                        Propagation::Stop
+                    } else {
+                        Propagation::Proceed
+                    }
+                });
+            })?;
+
             Ok(())
         })
         .manage(documents::DocumentState::default())
@@ -45,6 +61,9 @@ pub fn run() {
             commands::graph::vault_graph,
             commands::graph::vault_save_graph,
             commands::annotations::vault_annotations,
+            commands::vault_note_links,
+            commands::tags::vault_tags,
+            commands::tags::vault_set_tags,
             commands::annotations::vault_change_annotation,
             commands::vault_save_note,
             commands::vault_save_copy,

@@ -6,10 +6,47 @@ import {
   createTask,
   moveItem,
   remoteFromUrl,
+  removeNoteLinks,
   updateSpace,
   visibleItems,
 } from './state.ts';
 import type { Connection, WorkItem, WorkState } from './types.ts';
+
+void test('deleting Vault files removes their task links while preserving external links and authored work', () => {
+  const task = {
+    ...createTask('Keep task'),
+    description: 'Keep description',
+    links: [
+      { id: 'deleted', label: 'Deleted note', target: 'notes/a.md' },
+      { id: 'nested', label: 'Nested', target: 'notes/sub/b.md' },
+      { id: 'sibling', label: 'Keep', target: 'notes-old/c.md' },
+      { id: 'external', label: 'Web', target: 'https://example.com/notes/a.md' },
+    ],
+  };
+  const untouched = createTask('Unchanged');
+  const state: WorkState = {
+    version: 1,
+    vaultId: 'vault',
+    revision: 4,
+    activeSpaceId: null,
+    spaces: [],
+    items: [task, untouched],
+    drafts: [
+      { itemId: task.id, kind: 'comment', body: 'Keep unsent draft', updatedAt: '2026-01-01' },
+    ],
+  };
+  const next = removeNoteLinks(state, ['notes']);
+  assert.deepEqual(
+    next.items[0].links.map((link) => link.id),
+    ['sibling', 'external'],
+  );
+  assert.equal(next.items[0].description, task.description);
+  assert.equal(next.items[1], untouched);
+  assert.equal(next.drafts, state.drafts);
+  assert.equal(next.spaces, state.spaces);
+  assert.equal(next.revision, state.revision);
+  assert.equal(removeNoteLinks(next, ['notes']), next);
+});
 
 void test('refreshing a shared remote item preserves authored context and independent space progress', () => {
   const first = createSpace('Delivery');

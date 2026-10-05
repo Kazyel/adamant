@@ -201,3 +201,39 @@ fn local_storage_repair_preserves_invalid_bytes_and_resumes_scoped_writes() {
     );
     assert_eq!(fs::read(&backups[0]).unwrap(), corrupt);
 }
+
+#[test]
+fn workspace_history_preserves_pdf_pages_and_accepts_older_locations() {
+    use crate::vault::workspace::WorkspaceState;
+    let fixture = Fixture::new();
+    let value = serde_json::json!({
+        "version": 1, "root": fixture.root, "vaultId": fixture.vault.id,
+        "activeId": null, "tabs": [],
+        "navigation": {
+            "recent": [], "favorites": [], "expanded": [], "historyIndex": 1,
+            "history": [
+                {"path": "paper.pdf", "line": null, "column": null, "page": 3},
+                {"path": "old.md", "line": 4, "column": 1}
+            ]
+        }
+    });
+    let mut state: WorkspaceState = serde_json::from_value(value).unwrap();
+    fixture
+        .vault
+        .save_workspace(&fixture.state, &state)
+        .unwrap();
+    let restored = fixture
+        .vault
+        .load_workspace(&fixture.state)
+        .unwrap()
+        .unwrap();
+    let locations = restored.navigation.unwrap().history;
+    assert_eq!((locations[0].page, locations[1].page), (Some(3), None));
+    state.navigation.as_mut().unwrap().history[0].page = Some(0);
+    assert!(
+        fixture
+            .vault
+            .save_workspace(&fixture.state, &state)
+            .is_err()
+    );
+}

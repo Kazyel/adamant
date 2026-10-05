@@ -33,15 +33,25 @@ The graph never modifies Markdown bodies, frontmatter, PDF or DOCX originals, or
 | `edges[].id`                       | Unique connection ID.                                                                                           |
 | `edges[].source`, `edges[].target` | Two distinct node keys. Connections are undirected; reversing the endpoints does not create another connection. |
 
-The application writes `id`, `x`, and `y` explicitly, including null values. Readers also accept their absence. Unknown fields are rejected at every object level. Missing files remain valid node records, so deleting a file does not delete its connections.
+The application writes `id`, `x`, and `y` explicitly, including null values. Readers also accept their absence. Unknown fields are rejected at every object level. Missing files remain valid stored node records. Once a complete, ready inventory confirms their absence, graph reads omit those nodes and their incident connections. Reads preserve the authored JSON; a later graph save stores the current visible nodes and manual connections.
 
 ## Resolution
 
 Graph reads combine the saved record with the current Markdown, PDF, and DOCX inventory. Unsaved inventory nodes receive a `uuid:<UUID>` key when the UUID is unique, or a `path:<path>` key otherwise. Existing keys remain unchanged when files resolve at a new path.
 
-A unique existing UUID resolves file moves without rewriting the source. Duplicate UUIDs leave a saved identity-based node unresolved. Separate path-keyed nodes can still identify each duplicate at its explicit path. Missing targets and incomplete inventory remain visible.
+A unique existing UUID resolves file moves without rewriting the source. Duplicate UUIDs leave a saved identity-based node unresolved. Separate path-keyed nodes can still identify each duplicate at its explicit path. An absent UUID whose saved path still exists remains unresolved rather than being treated as a deletion. Incomplete inventory retains unseen saved nodes; it cannot prove that those files were deleted.
 
-Files without UUIDs resolve by their stored path. Moving or renaming such a file, including through Adamant, does not currently rewrite its graph path. The saved node remains unresolved until its path is explicitly corrected. A different file later placed at that path becomes the path-bound node's target. The graph does not infer content identity from filenames or file bytes.
+Files without UUIDs resolve by their stored path. Moving or renaming such a file, including through Adamant, does not currently rewrite its graph path. Once a ready inventory confirms the old path is absent, that saved node is omitted until its path is explicitly corrected. A different file later placed at that path becomes the path-bound node's target. The graph does not infer content identity from filenames or file bytes.
+
+Restoring a trashed file can recover its saved graph position and connections while the authored record still contains them. Undo and redo affect the current file inventory only and cannot recreate connections to deleted endpoints.
+
+## Derived Markdown connections
+
+Graph reads include a separate `references` projection of saved Markdown links, with directed graph-key endpoints, indexing coverage, and `canContinue`. It reuses the bounded body index used by backlinks. Only resolved note endpoints participate; missing destinations stay visible in the note backlinks panel. Self-links do not create graph edges.
+
+The canvas draws one line per unordered file pair, combining repeated references, both link directions, and a manual connection. Derived-only connections are dashed; a manual origin makes the line solid. Details expose the origins relative to the selected file. Markdown references are never copied into the stored `edges` array or graph undo history. Removing a saved Markdown link removes only that origin.
+
+File changes refresh the derived projection. Reads wait for pending manual edits to save and preserve the live graph revision, history, and coordinates. Automatic reading pauses after 40 batches and exposes a continuation action if indexing remains pending. Partial coverage is reported separately from file-inventory coverage. Explicit refresh or reload can replace the manual snapshot and reset its history.
 
 ## Limits and writes
 

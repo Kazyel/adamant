@@ -112,6 +112,12 @@ pub(super) fn companion_text(previous: Option<&str>, value: &Value) -> VaultResu
             value["id"].as_str().unwrap()
         ));
     };
+    sequence_field_text(previous, "refs", value)
+}
+
+pub(super) fn sequence_field_text(previous: &str, key: &str, value: &Value) -> VaultResult<String> {
+    let sequence = serde_json::to_string(&value[key])
+        .map_err(|error| VaultError::invalid(error.to_string()))?;
     let fields: std::collections::HashMap<String, serde_saphyr::Spanned<Value>> =
         serde_saphyr::from_str(previous).map_err(|error| VaultError::invalid(error.to_string()))?;
     let newline = if previous.contains("\r\n") {
@@ -120,10 +126,10 @@ pub(super) fn companion_text(previous: Option<&str>, value: &Value) -> VaultResu
         "\n"
     };
     let mut next = previous.to_owned();
-    if let Some(field) = fields.get("refs") {
+    if let Some(field) = fields.get(key) {
         if field.referenced != field.defined {
             return Err(VaultError::invalid(
-                "Aliased annotation references require an explicit metadata edit.",
+                "Aliased metadata requires an explicit source edit.",
             ));
         }
         let span = field.referenced.span();
@@ -140,7 +146,7 @@ pub(super) fn companion_text(previous: Option<&str>, value: &Value) -> VaultResu
             .get(start..end)
             .ok_or_else(|| VaultError::invalid("Annotation source location is invalid."))?;
         let suffix = if raw.ends_with('\n') { newline } else { "" };
-        next.replace_range(start..end, &format!("{refs}{suffix}"));
+        next.replace_range(start..end, &format!("{sequence}{suffix}"));
     } else {
         // Insert before the first mapping key, retaining comments and unrelated YAML verbatim.
         let first = previous
@@ -154,16 +160,16 @@ pub(super) fn companion_text(previous: Option<&str>, value: &Value) -> VaultResu
         let start = first.as_ptr() as usize - previous.as_ptr() as usize;
         if first.trim_start().starts_with('{') {
             let brace = start + first.find('{').unwrap() + 1;
-            next.insert_str(brace, &format!("refs: {refs}, "));
+            next.insert_str(brace, &format!("{key}: {sequence}, "));
         } else {
             let indent = &first[..first.len() - first.trim_start_matches(' ').len()];
-            next.insert_str(start, &format!("{indent}refs: {refs}{newline}"));
+            next.insert_str(start, &format!("{indent}{key}: {sequence}{newline}"));
         }
     }
     let parsed = metadata::companion_metadata(&next);
     if parsed.error.is_some() || parsed.value.as_ref() != Some(value) {
         return Err(VaultError::invalid(
-            "This YAML layout cannot be changed safely. Edit its refs explicitly; existing metadata was not rewritten.",
+            "This YAML layout cannot be changed safely. Edit its metadata explicitly; existing source was not rewritten.",
         ));
     }
     Ok(next)
@@ -191,7 +197,7 @@ impl Vault {
         Ok(target)
     }
 
-    fn read_companion(&self, path: &str) -> VaultResult<Option<String>> {
+    pub(super) fn read_companion(&self, path: &str) -> VaultResult<Option<String>> {
         let (dir, name) = self.parent(&format!("{path}.meta.yaml"), false)?;
         match dir.symlink_metadata(&name) {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { saveDirtyTabs, type DirtyTab } from './useDocumentSession.ts';
+import { saveDirtyTabs, vaultTabPath, type DirtyTab } from './useDocumentSession.ts';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { history, undo } from '@codemirror/commands';
@@ -118,6 +118,55 @@ await test('new Markdown tabs use the current default view without changing reta
   session.openDocument(standalone);
   assert.equal(session.tabsRef.current.find((tab) => tab.id === id)!.view, 'edit');
   assert.equal(session.tabsRef.current.find((tab) => tab.id === standaloneId)!.view, 'split');
+});
+
+await test('confirmed Vault deletion removes clean tabs and reopen targets while preserving unsaved text', () => {
+  const session = documentSession();
+  const note = { path: 'notes/a.md', text: 'saved', revision: 'one', id: 'a', metadataError: null };
+  const clean = session.openNote(note);
+  const closed = session.openNote({ ...note, path: 'notes/closed.md', id: 'closed' });
+  session.close(closed);
+  const dirty = session.openNote({ ...note, path: 'notes/dirty.md', id: 'dirty' });
+  session.updateBuffer({ ...session.bufferRef.current, text: 'unsaved writing' });
+  const sibling = session.openNote({ ...note, path: 'notes-old/keep.md', id: 'keep' });
+  const standalone = session.openDocument({
+    path: '/outside/note.md',
+    name: 'note.md',
+    kind: 'markdown',
+    bytes: new TextEncoder().encode('outside'),
+    revision: 1,
+    vaultPath: null,
+    identity: 'file:outside',
+  });
+  session.activate(clean);
+  session.removeVaultPaths(['notes']);
+  assert.deepEqual(
+    session.tabsRef.current.map(({ id }) => id),
+    [dirty, sibling, standalone],
+  );
+  assert.equal(session.activeIdRef.current, dirty);
+  assert.equal(session.bufferRef.current.text, 'unsaved writing');
+  assert.match(session.bufferRef.current.conflict?.message ?? '', /removed/);
+  assert.equal(session.bufferRef.current.conflict?.removed, true);
+  assert.equal(session.bufferRef.current.source?.kind, 'vault');
+  assert.equal(session.bufferRef.current.savedText, 'saved');
+  assert.equal(session.reopenClosed(), null);
+  assert.equal(
+    session.persist('/vault', 'vault').tabs.some((tab) => tab.id === clean),
+    false,
+  );
+  assert.equal(vaultTabPath(session.tabsRef.current.find((tab) => tab.id === dirty)), null);
+  assert.equal(session.openNote({ ...note, path: 'notes/dirty.md', id: 'dirty' }), dirty);
+  assert.equal(
+    session.bufferRef.current.conflict,
+    null,
+    'restoring the original permits saving edits again',
+  );
+  assert.equal(session.bufferRef.current.text, 'unsaved writing');
+  assert.equal(
+    vaultTabPath(session.tabsRef.current.find((tab) => tab.id === dirty)),
+    'notes/dirty.md',
+  );
 });
 
 await test('all source kinds hydrate their existing lazy tab and reject replaced identities', () => {
@@ -416,5 +465,66 @@ await test('draft writes serialize by retained draft id and cannot attach to a r
     } else {
       Reflect.deleteProperty(globalThis, 'window');
     }
+  }
+});
+
+await test('unchanged PDF and DOCX reads retain the viewer while changed content reloads it', () => {
+  for (const kind of ['pdf', 'docx'] as const) {
+    const session = documentSession();
+    const document = {
+      path: `/vault/report.${kind}`,
+      name: `report.${kind}`,
+      kind,
+      vaultPath: `report.${kind}`,
+      identity: 'file:1:2',
+      bytes: new Uint8Array([1, 2, 3]),
+      revision: 1,
+    };
+    const id = session.openDocument(document);
+    const current = () => session.tabsRef.current.find((tab) => tab.id === id)!;
+    const viewerState = { page: 2, zoom: 1.5, scrollTop: 200 };
+    session.updateTab(id, { viewerState });
+
+    for (let revision = 2; revision <= 21; revision++) {
+      session.updateTab(id, {
+        document: { ...document, bytes: document.bytes.slice(), revision },
+      });
+    }
+    assert.equal(current().document, document);
+    assert.equal(current().viewerState, viewerState);
+    assert.equal(
+      session.openDocument({ ...document, bytes: document.bytes.slice(), revision: 22 }),
+      id,
+    );
+    assert.equal(current().document, document);
+
+    session.updateTab(id, {
+      document: {
+        ...document,
+        name: 'Renamed report',
+        bytes: document.bytes.slice(),
+        revision: 23,
+      },
+    });
+    assert.equal(current().document!.name, 'Renamed report');
+    assert.equal(current().document!.bytes, document.bytes);
+    assert.equal(current().document!.revision, document.revision);
+
+    const changed = { ...document, bytes: new Uint8Array([1, 2, 4]), revision: 24 };
+    session.updateTab(id, { document: changed });
+    assert.equal(current().document, changed);
+    assert.equal(current().viewerState, viewerState);
+    assert.throws(
+      () => session.openDocument({ ...changed, identity: 'file:1:99' }),
+      /different document/,
+    );
+    assert.equal(current().document, changed);
+
+    const longer = { ...changed, bytes: new Uint8Array([1, 2, 4, 5]), revision: 25 };
+    session.updateTab(id, { document: longer });
+    assert.equal(current().document, longer);
+    const replacement = { ...longer, identity: 'file:1:99', revision: 26 };
+    session.updateTab(id, { document: replacement });
+    assert.equal(current().document, replacement);
   }
 });

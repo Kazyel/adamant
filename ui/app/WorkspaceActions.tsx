@@ -1,3 +1,9 @@
+import {
+  emptyDocumentFilters,
+  hasDocumentFilters,
+  type DocumentFiltersState,
+} from '../features/navigation/documentFilters';
+import SearchFiltersPanel, { useSearchFilters } from '../features/navigation/SearchFiltersPanel';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { CommandPalette } from '../features/interaction/ActionCatalog';
 import { Dialog, ShortcutReference } from '../features/interaction/InteractionDialogs';
@@ -7,11 +13,17 @@ import { QuickOpen, SearchResults, Favorites } from '../features/navigation/Navi
 import type { SearchMode } from '../features/navigation/navigationTypes';
 import type { Navigation } from './workspaceView';
 import type { Workspace } from '../features/workspace/workspaceTypes';
-import { isEmptyDraft } from '../features/workspace/session/useDocumentSession';
+import { isEmptyDraft, vaultTabPath } from '../features/workspace/session/useDocumentSession';
 import { native } from './workspaceView';
 import { OverlayPresence } from '../features/interaction/OverlayPresence';
+import { adjacentTabId } from '../features/navigation/quickOpen';
+import { isWorkbenchAction } from './workspaceActionScope';
 
 type Panel = 'palette' | 'shortcuts' | 'preferences' | 'quick' | 'search' | 'favorites' | null;
+
+function searchDisplayMode(query: string, filters: DocumentFiltersState, mode: SearchMode) {
+  return !query.trim() && hasDocumentFilters(filters) ? 'path' : mode;
+}
 
 function shortcutMatches(event: KeyboardEvent, shortcut: string) {
   const parts = shortcut.toLowerCase().split('+');
@@ -99,6 +111,9 @@ function vaultActions(workspace: Workspace): UserAction[] {
 }
 
 function hasOriginal(workspace: Workspace) {
+  if (workspace.documents.activeTab?.conflict?.removed) {
+    return false;
+  }
   if (workspace.documents.activeTab?.document) {
     return true;
   }
@@ -109,7 +124,10 @@ function hasOriginal(workspace: Workspace) {
 function noteActions(workspace: Workspace): UserAction[] {
   const disabled = desktopDisabled(workspace);
   const active = workspace.documents.activeTab;
-  const note = workspace.buffer.source?.kind === 'vault' ? workspace.buffer.source.note : null;
+  const note =
+    !active?.conflict?.removed && workspace.buffer.source?.kind === 'vault'
+      ? workspace.buffer.source.note
+      : null;
   const markdownDisabled =
     active?.kind === 'markdown' ? disabled : 'Select an editable Markdown document.';
   const actions: UserAction[] = [
@@ -165,9 +183,25 @@ function noteActions(workspace: Workspace): UserAction[] {
       );
 }
 
-function tabActions(workspace: Workspace): UserAction[] {
+function tabActions(workspace: Workspace, navigation: Navigation): UserAction[] {
   const disabled = desktopDisabled(workspace);
   return [
+    ...([-1, 1] as const).map((direction): UserAction => ({
+      id: direction === 1 ? 'tab-next' : 'tab-previous',
+      label: direction === 1 ? 'Next document' : 'Previous document',
+      icon: direction === 1 ? 'forward' : 'back',
+      shortcut: direction === 1 ? 'Ctrl+Tab' : 'Ctrl+Shift+Tab',
+      disabled:
+        (workspace.busy ? 'Wait for the current operation.' : undefined) ??
+        (workspace.documents.tabs.length < 2 ? 'Open another document first.' : undefined),
+      run: () => {
+        const id = adjacentTabId(workspace.documents.tabs, workspace.documents.activeId, direction);
+        if (id) {
+          navigation.setSection('workbench');
+          workspace.documents.activate(id);
+        }
+      },
+    })),
     {
       id: 'tab-new',
       label: 'New document',
@@ -178,7 +212,10 @@ function tabActions(workspace: Workspace): UserAction[] {
         (!workspace.documents.tabs.every(isEmptyDraft)
           ? 'Close open documents before starting a new document.'
           : undefined),
-      run: workspace.newTab,
+      run: () => {
+        navigation.setSection('workbench');
+        workspace.newTab();
+      },
     },
     {
       id: 'tab-close',
@@ -196,14 +233,20 @@ function tabActions(workspace: Workspace): UserAction[] {
       disabled:
         (workspace.busy ? 'Wait for the current operation.' : undefined) ??
         (!workspace.documents.closedTabs.length ? 'No closed tabs.' : undefined),
-      run: workspace.reopenTab,
+      run: () => {
+        navigation.setSection('workbench');
+        workspace.reopenTab();
+      },
     },
     {
       id: 'document-open',
       label: 'Open document…',
       icon: 'document',
       disabled,
-      run: workspace.openDocument,
+      run: () => {
+        navigation.setSection('workbench');
+        workspace.openDocument();
+      },
     },
   ];
 }
@@ -215,9 +258,7 @@ function navigationActions(
 ): UserAction[] {
   const disabled = desktopDisabled(workspace);
   const vaultDisabled = disabled ?? (!workspace.vault ? 'Open a Vault first.' : undefined);
-  const active = workspace.documents.activeTab;
-  const note = workspace.buffer.source?.kind === 'vault' ? workspace.buffer.source.note : null;
-  const activeVaultPath = note?.path ?? active?.document?.vaultPath;
+  const activeVaultPath = vaultTabPath(workspace.documents.activeTab);
   const targetDisabled =
     vaultDisabled ?? (!activeVaultPath ? 'Open a document from this Vault.' : undefined);
   const finder = workspace.finder;
@@ -227,7 +268,7 @@ function navigationActions(
       label: 'Quick open',
       icon: 'search',
       shortcut: 'Ctrl+P',
-      disabled: vaultDisabled,
+      disabled: workspace.busy ? 'Wait for the current operation.' : undefined,
       run: () => openPanel('quick'),
     },
     {
@@ -244,7 +285,10 @@ function navigationActions(
       icon: 'back',
       shortcut: 'Alt+ArrowLeft',
       disabled: finder.canBack ? disabled : 'No earlier document.',
-      run: () => workspace.navigateHistory(-1),
+      run: () => {
+        navigation.setSection('workbench');
+        workspace.navigateHistory(-1);
+      },
     },
     {
       id: 'history-forward',
@@ -252,7 +296,10 @@ function navigationActions(
       icon: 'forward',
       shortcut: 'Alt+ArrowRight',
       disabled: finder.canForward ? disabled : 'No later document.',
-      run: () => workspace.navigateHistory(1),
+      run: () => {
+        navigation.setSection('workbench');
+        workspace.navigateHistory(1);
+      },
     },
     {
       id: 'document-reveal',
@@ -372,6 +419,8 @@ export function useWorkspaceActions(workspace: Workspace, navigation: Navigation
   const disabled = desktopDisabled(workspace);
   const finder = workspace.finder;
   const { search, cancelSearch } = finder;
+  const { scope: searchScope, filters, setFilters } = useSearchFilters(workspace.vault);
+  const selectedFilters = panel === 'search' ? filters : emptyDocumentFilters;
 
   function closePanel() {
     setPanel(null);
@@ -389,11 +438,11 @@ export function useWorkspaceActions(workspace: Workspace, navigation: Navigation
 
   function changeQuery(value: string) {
     setQuery(value);
-    setSearchPending(!!value.trim());
+    setSearchPending(!!workspace.vault && !!value.trim());
   }
 
   const groups: { label: string; actions: UserAction[] }[] = [
-    { label: 'Tabs', actions: tabActions(workspace) },
+    { label: 'Tabs', actions: tabActions(workspace, navigation) },
     { label: 'Document', actions: noteActions(workspace) },
     { label: 'Vault', actions: vaultActions(workspace) },
     { label: 'Navigation', actions: navigationActions(workspace, navigation, openPanel) },
@@ -411,7 +460,14 @@ export function useWorkspaceActions(workspace: Workspace, navigation: Navigation
     },
   ];
   const actions: UserAction[] = groups.flatMap(({ label, actions }) =>
-    actions.map((action) => ({ ...action, group: action.group ?? label })),
+    actions.map((action) => ({
+      ...action,
+      group: action.group ?? label,
+      disabled:
+        navigation.section !== 'workbench' && isWorkbenchAction(action.id)
+          ? 'Open the document workbench first.'
+          : action.disabled,
+    })),
   );
 
   const keydown = useEffectEvent((event: KeyboardEvent) => {
@@ -438,13 +494,13 @@ export function useWorkspaceActions(workspace: Workspace, navigation: Navigation
   }, []);
 
   useEffect(() => {
-    if (panel !== 'quick' && panel !== 'search') {
+    if ((panel !== 'quick' && panel !== 'search') || !searchScope || !native) {
       return;
     }
     const request = ++searchRequest.current;
     searchTimer.current = window.setTimeout(() => {
       searchTimer.current = null;
-      void search(query, panel === 'quick' ? 'path' : mode).finally(() => {
+      void search(query, panel === 'quick' ? 'path' : mode, selectedFilters).finally(() => {
         if (searchRequest.current === request) {
           setSearchPending(false);
         }
@@ -458,7 +514,7 @@ export function useWorkspaceActions(workspace: Workspace, navigation: Navigation
       searchRequest.current += 1;
       cancelSearch();
     };
-  }, [query, panel, mode, search, cancelSearch]);
+  }, [query, panel, mode, search, cancelSearch, searchScope, selectedFilters]);
 
   async function runSearch(operation: () => Promise<void>) {
     const request = ++searchRequest.current;
@@ -473,6 +529,7 @@ export function useWorkspaceActions(workspace: Workspace, navigation: Navigation
   }
 
   const searchFeedback = {
+    filtered: hasDocumentFilters(selectedFilters),
     pending: searchPending,
     status: finder.searchStatus,
     hasMore: finder.searchPage?.hasMore,
@@ -485,7 +542,7 @@ export function useWorkspaceActions(workspace: Workspace, navigation: Navigation
       void runSearch(finder.continueSearch);
     },
     onRetry: () => {
-      void runSearch(() => search(query, panel === 'quick' ? 'path' : mode));
+      void runSearch(() => search(query, panel === 'quick' ? 'path' : mode, selectedFilters));
     },
     onCancel: () => {
       if (searchTimer.current !== null) {
@@ -503,6 +560,9 @@ export function useWorkspaceActions(workspace: Workspace, navigation: Navigation
     navigation.setSection('workbench');
     workspace.openPath(path);
   };
+  const quickOpenPaths = workspace.vault
+    ? { recent: finder.state.recent, items: finder.results.map((hit) => hit.path) }
+    : { recent: [], items: [] };
   const overlays = (
     <>
       <OverlayPresence>
@@ -528,7 +588,7 @@ export function useWorkspaceActions(workspace: Workspace, navigation: Navigation
         {panel === 'quick' ? (
           <Dialog
             title="Quick open"
-            description="Find a document or return to a recent one."
+            description="Switch between open documents or find a file in your Vault."
             className="navigation-dialog"
             open
             onClose={closePanel}
@@ -536,11 +596,20 @@ export function useWorkspaceActions(workspace: Workspace, navigation: Navigation
             <QuickOpen
               query={query}
               onQuery={changeQuery}
-              recent={finder.state.recent}
-              items={finder.results.map((hit) => hit.path)}
+              {...quickOpenPaths}
+              openTabs={workspace.documents.tabs}
+              activeId={workspace.documents.activeId}
               missing={finder.missing}
-              onOpen={openPath}
-              {...searchFeedback}
+              onOpen={(item) => {
+                if (item.kind === 'tab') {
+                  closePanel();
+                  navigation.setSection('workbench');
+                  workspace.documents.activate(item.tabId);
+                } else {
+                  openPath(item.path);
+                }
+              }}
+              {...(workspace.vault ? searchFeedback : {})}
             />
           </Dialog>
         ) : null}
@@ -549,14 +618,24 @@ export function useWorkspaceActions(workspace: Workspace, navigation: Navigation
         {panel === 'search' ? (
           <Dialog
             title="Search Vault"
-            description="Search local documents by content or location."
-            className="navigation-dialog"
+            className="navigation-dialog navigation-search-dialog"
             open
             onClose={closePanel}
           >
             <SearchResults
               query={query}
-              mode={mode}
+              mode={searchDisplayMode(query, filters, mode)}
+              filters={
+                <SearchFiltersPanel
+                  key={searchScope}
+                  vaultKey={searchScope}
+                  value={filters}
+                  onChange={(value) => {
+                    setFilters(value);
+                    setSearchPending(true);
+                  }}
+                />
+              }
               onQuery={changeQuery}
               onMode={(next) => {
                 if (next !== mode) {

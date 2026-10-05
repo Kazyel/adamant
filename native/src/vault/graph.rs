@@ -50,6 +50,7 @@ pub(crate) struct GraphNode {
     pub kind: &'static str,
     pub id: Option<String>,
     pub identity: String,
+    pub tags: Vec<String>,
     pub reference_kind: &'static str,
     pub problem: Option<String>,
     pub x: Option<f64>,
@@ -57,9 +58,25 @@ pub(crate) struct GraphNode {
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct GraphReference {
+    pub source: String,
+    pub target: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GraphReferences {
+    pub edges: Vec<GraphReference>,
+    pub indexing: IndexStatus,
+    pub can_continue: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct GraphSnapshot {
     pub nodes: Vec<GraphNode>,
     pub edges: Vec<GraphEdge>,
+    pub references: GraphReferences,
     pub indexing: IndexStatus,
     pub generation: u64,
     pub complete: bool,
