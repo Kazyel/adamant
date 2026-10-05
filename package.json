@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "site:dev": "vite site --host 127.0.0.1 --port 1421",
+    "site:build": "vite build site --outDir ../site-dist --emptyOutDir && cp site/assets/manrope-license.txt site-dist/assets/manrope-license.txt",
     "build": "bun run typecheck && vite build",
     "app:update": "node scripts/app-update.mjs",
     "preview": "vite preview",
