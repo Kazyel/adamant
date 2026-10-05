@@ -14,6 +14,21 @@ pub fn run() {
                 .ok_or("The main window is unavailable.")?;
             window.set_zoom(1.1)?;
 
+            #[cfg(target_os = "linux")]
+            window.with_webview(|webview| {
+                use gtk::{gdk::keys::constants, glib::Propagation, prelude::WidgetExt};
+
+                webview.inner().connect_key_press_event(|_, event| {
+                    // WebKit treats bare Super as keyboard navigation and reveals click focus.
+                    // Filter it before WebKit; other keys still carry their modifier state.
+                    if matches!(event.keyval(), constants::Super_L | constants::Super_R) {
+                        Propagation::Stop
+                    } else {
+                        Propagation::Proceed
+                    }
+                });
+            })?;
+
             Ok(())
         })
         .manage(documents::DocumentState::default())
