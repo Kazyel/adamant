@@ -60,17 +60,9 @@ Execute as verificações pertinentes antes de entregar:
 
 Para mudanças visuais, inspecione o componente renderizado e os estados afetados. Diferencie testes de prévia web de testes no desktop e de operações reais nos provedores. Remova fixtures temporárias ao terminar.
 
-## Atualize o app global após cada feature
+## Atualização do app instalado
 
-Toda feature deve terminar com a atualização do aplicativo instalado para o usuário. Depois de validar a implementação, execute na raiz:
-
-```sh
-bun run app:update
-```
-
-Essa atualização faz parte da entrega e já está autorizada pelo proprietário do repositório. Execute-a sem pedir nova confirmação, salvo instrução contrária do usuário.
-
-Os hooks e o CI não executam `app:update`. Cabe ao agente executar a atualização após validar cada feature.
+Execute `bun run app:update` apenas quando o usuário solicitar a atualização do aplicativo instalado. Durante o desenvolvimento, use `bun run tauri dev` e as verificações pertinentes.
 
 O comando compila o código local atual em release e instala o executável e o ícone em `${XDG_DATA_HOME:-$HOME/.local/share}/adamant/app/`. O atalho fica em `applications/io.adamant.desktop.desktop` dentro do mesmo diretório de dados. Não use `sudo` nem substitua esse fluxo por cópias manuais.
 
