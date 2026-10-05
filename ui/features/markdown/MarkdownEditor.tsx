@@ -22,8 +22,14 @@ import { ContextMenu } from '../interaction/ContextMenu';
 import { OverlayPresence } from '../interaction/OverlayPresence';
 import WorkspaceIcon from '../../shared/ui/WorkspaceIcon';
 import { editorActions } from './editorActions';
+import { NoteLinkPicker } from './NoteLinks';
+import { insertNoteLink } from './insertNoteLink';
+import { resolveFontFamily } from '../../shared/styles/fontFamilies';
 
 type EditorMenu = { view: EditorView; x: number; y: number };
+
+const scrollFadeMask =
+  'linear-gradient(to bottom, transparent calc(var(--scroll-fade-top) * .12), #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent calc(100% - var(--scroll-fade-bottom) * .12))';
 
 const theme = EditorView.theme(
   {
@@ -36,9 +42,17 @@ const theme = EditorView.theme(
     '&.cm-focused': { outline: 'none' },
     '.cm-scroller': {
       overflow: 'auto',
-      fontFamily: '"Adamant Sans", sans-serif',
-      lineHeight: '27px',
+      scrollbarWidth: 'none',
+      '--scroll-fade-top': '0px',
+      '--scroll-fade-bottom': '0px',
     },
+    '&[data-scroll-top] .cm-scroller': { '--scroll-fade-top': '56px' },
+    '&[data-scroll-bottom] .cm-scroller': { '--scroll-fade-bottom': '56px' },
+    '&[data-scroll-top] .cm-scroller, &[data-scroll-bottom] .cm-scroller': {
+      maskImage: scrollFadeMask,
+      '-webkit-mask-image': scrollFadeMask,
+    },
+    '.cm-scroller::-webkit-scrollbar': { display: 'none' },
     '.cm-content': { padding: '56px 0 24px', caretColor: 'var(--accent)' },
     '.cm-line': { padding: '0 20px' },
     '.cm-placeholder': { color: 'var(--muted)', whiteSpace: 'pre-wrap' },
@@ -107,7 +121,11 @@ function settings(preferences: EditorPreferences) {
     indentUnit.of(' '.repeat(preferences.indentSize)),
     EditorState.tabSize.of(preferences.indentSize),
     EditorView.theme({
-      '.cm-scroller': { fontSize: `${preferences.fontSize}px`, lineHeight: '1.65' },
+      '.cm-scroller': {
+        fontFamily: resolveFontFamily(preferences.editorFont ?? 'inter'),
+        fontSize: `${preferences.fontSize}px`,
+        lineHeight: '1.65',
+      },
     }),
   ];
 }
@@ -135,6 +153,7 @@ export default function MarkdownEditor({
   onLocationChange,
   readOnly = false,
   focusOnOpen = false,
+  noteLinkSource,
 }: {
   initialValue: string;
   validatedSource?: string;
@@ -146,11 +165,21 @@ export default function MarkdownEditor({
   onLocationChange?: (line: number, column: number) => void;
   readOnly?: boolean;
   focusOnOpen?: boolean;
+  noteLinkSource?: { path: string; expectedIdentity: string | null; vaultKey: string };
 }) {
   const container = useRef<HTMLDivElement>(null);
   const editor = useRef<EditorView | null>(null);
   const [menu, setMenu] = useState<EditorMenu | null>(null);
   const [menuError, setMenuError] = useState<string | null>(null);
+  const [linkSelection, setLinkSelection] = useState<EditorState | null>(null);
+  function openNotePicker() {
+    const view = editor.current;
+    if (!noteLinkSource || !view || view.state.readOnly || readOnly) {
+      return;
+    }
+    view.focus();
+    setLinkSelection(view.state);
+  }
   // The parent remounts on disk refresh/navigation. Metadata never enters select-all or undo.
   const [initial] = useState(() => {
     const prefix = validatedMarkdownPrefix(initialValue, validatedSource);
@@ -217,6 +246,19 @@ export default function MarkdownEditor({
   function openKeyboardMenu(event: KeyboardEvent<HTMLDivElement>) {
     const view = editor.current;
     if (
+      view?.contentDOM.contains(event.target as Node) &&
+      noteLinkSource &&
+      (event.ctrlKey || event.metaKey) &&
+      !event.altKey &&
+      !event.shiftKey &&
+      event.key.toLowerCase() === 'k'
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      openNotePicker();
+      return;
+    }
+    if (
       !view?.contentDOM.contains(event.target as Node) ||
       !(event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))
     ) {
@@ -227,7 +269,7 @@ export default function MarkdownEditor({
     showMenu(view);
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const extensions = [
       markdown({ base: markdownLanguage, completeHTMLTags: false, pasteURLAsLink: false }),
       syntaxHighlighting(highlighting),
@@ -237,6 +279,7 @@ export default function MarkdownEditor({
       dropCursor(),
       highlightActiveLine(),
       EditorView.contentAttributes.of({ 'aria-label': 'Markdown source editor' }),
+      EditorView.scrollMargins.of(() => ({ top: 56, bottom: 56 })),
       mode.of(editingMode(initial.readOnly)),
       theme,
       editorSettings.of(settings(initialPreferences)),
@@ -284,19 +327,29 @@ export default function MarkdownEditor({
     editor.current = instance;
     focusWhenReady(instance);
 
-    let disposed = false;
-    void Promise.all([
-      document.fonts.load('400 17px "Adamant Sans"'),
-      document.fonts.load('700 17px "Adamant Sans"'),
-      document.fonts.load('italic 17px "Adamant Sans"'),
-    ]).then(() => {
-      if (!disposed) {
-        instance.requestMeasure();
-      }
-    });
+    const updateScrollEdges = () =>
+      instance.requestMeasure({
+        key: instance,
+        read: ({ scrollDOM }) => ({
+          top: scrollDOM.clientHeight > 0 && scrollDOM.scrollTop > 1,
+          bottom:
+            scrollDOM.clientHeight > 0 &&
+            scrollDOM.scrollHeight - scrollDOM.clientHeight - scrollDOM.scrollTop > 1,
+        }),
+        write: (edges, view) => {
+          view.dom.toggleAttribute('data-scroll-top', edges.top);
+          view.dom.toggleAttribute('data-scroll-bottom', edges.bottom);
+        },
+      });
+    const resizeObserver = new ResizeObserver(updateScrollEdges);
+    resizeObserver.observe(instance.scrollDOM);
+    resizeObserver.observe(instance.contentDOM);
+    instance.scrollDOM.addEventListener('scroll', updateScrollEdges, { passive: true });
+    updateScrollEdges();
 
     return () => {
-      disposed = true;
+      resizeObserver.disconnect();
+      instance.scrollDOM.removeEventListener('scroll', updateScrollEdges);
       instance.destroy();
       editor.current = null;
     };
@@ -307,7 +360,25 @@ export default function MarkdownEditor({
     });
   }, [mode, readOnly]);
   useEffect(() => {
-    editor.current?.dispatch({ effects: editorSettings.reconfigure(settings(preferences)) });
+    const view = editor.current;
+    if (!view) {
+      return;
+    }
+    view.dispatch({ effects: editorSettings.reconfigure(settings(preferences)) });
+    const family = resolveFontFamily(preferences.editorFont ?? 'inter');
+    let disposed = false;
+    void Promise.all(
+      ['400', '700', 'italic 400', 'italic 700'].map((style) =>
+        document.fonts.load(`${style} ${preferences.fontSize}px ${family}`),
+      ),
+    ).then(() => {
+      if (!disposed) {
+        view.requestMeasure();
+      }
+    });
+    return () => {
+      disposed = true;
+    };
   }, [preferences]);
 
   useEffect(() => {
@@ -346,7 +417,7 @@ export default function MarkdownEditor({
         ref={container}
         onMouseDownCapture={preserveSelection}
         onContextMenu={openContextMenu}
-        onKeyDown={openKeyboardMenu}
+        onKeyDownCapture={openKeyboardMenu}
       />
       <OverlayPresence>
         {menu ? (
@@ -356,6 +427,34 @@ export default function MarkdownEditor({
             label="Editor actions"
             returnFocus={menu.view.contentDOM}
             onClose={() => setMenu(null)}
+          />
+        ) : null}
+      </OverlayPresence>
+      <OverlayPresence>
+        {linkSelection && noteLinkSource ? (
+          <NoteLinkPicker
+            {...noteLinkSource}
+            onClose={() => setLinkSelection(null)}
+            onSelect={(target) => {
+              const view = editor.current;
+              if (
+                !view ||
+                !view.dom.isConnected ||
+                readOnly ||
+                view.state.readOnly ||
+                view.state.doc !== linkSelection.doc ||
+                !view.state.selection.eq(linkSelection.selection)
+              ) {
+                setLinkSelection(null);
+                setMenuError('The editor changed while choosing a note. Insert the link again.');
+                return;
+              }
+              view.dispatch(
+                insertNoteLink(view.state, noteLinkSource.path, target.path, target.title),
+              );
+              setLinkSelection(null);
+              view.focus();
+            }}
           />
         ) : null}
       </OverlayPresence>

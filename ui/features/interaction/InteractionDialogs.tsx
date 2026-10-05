@@ -159,6 +159,12 @@ export function ShortcutReference({
           </dd>
         </div>
         <div>
+          <dt>Insert a link to a Vault note</dt>
+          <dd>
+            <kbd>Ctrl+K</kbd>
+          </dd>
+        </div>
+        <div>
           <dt>Close dialog</dt>
           <dd>
             <kbd>Esc</kbd>

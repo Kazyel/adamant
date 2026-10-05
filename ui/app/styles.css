@@ -1,4 +1,6 @@
+@import '../shared/ui/arc/foundation.css' layer(arc);
 @import './styles/base.css';
+@import '../shared/styles/arc.css';
 @import '../shared/styles/inputs.css';
 @import '../shared/styles/controls.css';
 @import './styles/shell.css';
@@ -10,5 +12,8 @@
 @import './atmosphere.css';
 @import '../features/work-context/detail.css';
 @import '../features/graph/graph.css';
-@import './styles/responsive.css';
+@import '../features/markdown/noteLinks.css';
+@import '../features/navigation/documentFilters.css';
 @import '../features/interaction/interaction.css';
+@import '../features/interaction/preferences.css';
+@import './styles/responsive.css';
